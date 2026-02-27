@@ -25,7 +25,7 @@ Business requirements are canonical in `specs/`.
 ## Phase 0 — Foundation
 
 ### 0.1 Core schema skeleton
-- **Status:** [ ]
+- **Status:** [x]
 - **Goal:** Establish baseline tables and relationships for auth-linked staff, roster, timesheets, leave, and configuration.
 - **Spec sources:** `specs/01-product-scope.md`, `specs/02-domain-model.md`
 - **Deliverables:**
@@ -35,6 +35,12 @@ Business requirements are canonical in `specs/`.
 - **Acceptance checks:**
   - Schema loads and typecheck passes.
   - Key FK relationships compile and are queryable.
+- **Completion notes:**
+  - Expanded `Application/Schema.sql` from auth-only to core domain skeleton (`staff`, `roster_weeks/days/slots`, `timesheet_entries`, `leave_requests`, `venue_config`, `staff_availability`, and supporting config/pay tables).
+  - Added key FK relationships and baseline uniqueness constraints for canonical offsets.
+  - Added `Test/SchemaSpec.hs` and registered it in `Test/Main.hs` to assert generated core model types compile.
+  - Verification run: `direnv exec . regen-types`, `direnv exec . typecheck`, and `direnv exec . test` passed.
+  - `make db` could not be completed in this session because the local dev Postgres socket at `build/db` was not running (requires `devenv up`).
 
 ### 0.2 Venue config singleton and bootstrap seed
 - **Status:** [ ]
