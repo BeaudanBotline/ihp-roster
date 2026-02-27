@@ -3,4 +3,6 @@ import Web.Controller.Prelude
 import Web.View.Static.Welcome
 
 instance Controller StaticController where
-    action WelcomeAction = render WelcomeView
+    action WelcomeAction = do
+        setTitle "Welcome"
+        render WelcomeView

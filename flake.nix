@@ -11,6 +11,7 @@
             url = "file+file:///dev/null";
             flake = false;
         };
+        playwright.url = "github:pietdevries94/playwright-web-flake/1.58.2";
     };
 
     outputs = inputs@{ self, nixpkgs, ihp, flake-parts, systems, ... }:
@@ -19,7 +20,7 @@
             systems = import systems;
             imports = [ ihp.flakeModules.default ];
 
-            perSystem = { pkgs, ... }: {
+            perSystem = { pkgs, inputs', ... }: {
                 ihp = {
                     appName = "app"; # Change this to your project name
                     enable = true;
@@ -52,6 +53,17 @@
                     processes = {
                         # Uncomment if you use tailwindcss.
                         # tailwind.exec = "tailwindcss -c tailwind/tailwind.config.js -i ./tailwind/app.css -o static/app.css --watch=always";
+                    };
+
+                    packages = [
+                        inputs'.playwright.packages.playwright-test
+                        pkgs.nodejs_22
+                    ];
+
+                    env = {
+                        PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1";
+                        PLAYWRIGHT_BROWSERS_PATH = "${inputs'.playwright.packages.playwright-driver.browsers}";
+                        PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";
                     };
 
                     scripts = {
@@ -118,6 +130,24 @@
                             GHC_OPTS=$(make print-ghc-options GHC_RTS_FLAGS="" 2>/dev/null \
                               | sed 's/-iIHP[^ ]* //g; s/-fbyte-code//g')
                             exec ghci $GHC_OPTS Main.hs "$@"
+                        '';
+
+                        # Run Playwright end-to-end tests.
+                        # Usage: e2e [playwright-args...]
+                        e2e.exec = ''
+                            exec npx playwright test "$@"
+                        '';
+
+                        # Take a screenshot of a page using Playwright.
+                        # Usage: screenshot <url> <output.png>
+                        screenshot.exec = ''
+                            exec npx playwright screenshot "$@"
+                        '';
+
+                        # Open the Playwright HTML test report.
+                        # Usage: e2e-report
+                        e2e-report.exec = ''
+                            exec npx playwright show-report
                         '';
                     };
                 };

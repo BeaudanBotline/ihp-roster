@@ -42,6 +42,9 @@ direnv exec . typecheck
 direnv exec . test
 direnv exec . lint
 direnv exec . format
+direnv exec . e2e
+direnv exec . screenshot http://localhost:8000/MyPage output.png
+direnv exec . e2e-report
 ```
 
 Never use bare names like `regen-types` or `typecheck` in Bash tool calls — they will fail with "command not found" unless direnv has already activated the environment in that shell session.
@@ -55,6 +58,9 @@ Available scripts:
 - **`format`** — Format app sources with stylish-haskell (config in `.stylish-haskell.yaml`).
 - **`ghci-app`** — Launch GHCi with the full app loaded for testing expressions interactively.
 - **`new-controller NAME`** — IHP code generator that scaffolds controller, views, types, and routes. Prefer this for new CRUD controllers, then customize.
+- **`e2e`** — Run Playwright end-to-end tests against the live dev server. Accepts playwright args (e.g. `e2e --headed`, `e2e e2e/auth.spec.ts`). Requires `devenv up` running.
+- **`screenshot`** — Take a screenshot of a page. Usage: `screenshot http://localhost:8000/Dashboard dash.png`. Requires `devenv up` running.
+- **`e2e-report`** — Open the Playwright HTML test report from the last run.
 - The app runs via `devenv up` — it auto-reloads on file changes, so you can check the browser for runtime behavior.
 
 ## Adding a New Feature (e.g. a new page with database table)
@@ -77,8 +83,19 @@ For simple CRUD, prefer running `new-controller NAME` to scaffold all files, the
 - **After every code change**: `direnv exec . typecheck` (fast, ~2-3s)
 - **After schema changes**: `direnv exec . regen-types` first, then `direnv exec . typecheck`, then `make db` (requires `devenv up`)
 - **After adding/changing controllers**: `direnv exec . test` to run the test suite
+- **After UI/integration changes**: `direnv exec . e2e` to run end-to-end tests (requires `devenv up`)
 - **Before committing**: `direnv exec . lint` then `direnv exec . format`
 - **To confirm DB is in sync**: `psql -h "$PWD/build/db" app -c "\dt"` — all tables in `Schema.sql` should be present
+
+## E2E Testing
+
+Playwright-based end-to-end tests live in `e2e/` and run against the live dev server (`http://localhost:8000`). See `e2e/AGENTS.md` for the full guide.
+
+- **Config**: `playwright.config.ts` — single chromium project, serial execution
+- **Test data**: Seeded via `e2e/fixtures/seed.sql` (test user: `e2e-test@example.com` / `test-password-123`)
+- **Cleanup**: `global-teardown.ts` deletes all rows with `e2e-` prefixed emails
+- **Browsers**: Provided by Nix via `playwright-web-flake` — no manual browser install needed
+- **npm deps**: `@playwright/test` version in `package.json` must match the `playwright-web-flake` tag in `flake.nix`
 
 ## Maintaining Agent Documentation
 - Subdirectory `AGENTS.md` files exist in `Web/Controller/`, `Web/View/`, and `Application/` with detailed patterns
