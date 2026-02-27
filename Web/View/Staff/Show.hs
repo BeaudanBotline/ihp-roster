@@ -29,6 +29,9 @@ instance View ShowView where
             <dt class="col-sm-4">Last Name</dt>
             <dd class="col-sm-8">{staff.lastName}</dd>
 
+            <dt class="col-sm-4">Type</dt>
+            <dd class="col-sm-8">{renderTypeBadge staff}</dd>
+
             <dt class="col-sm-4">Status</dt>
             <dd class="col-sm-8">{renderStatusBadge staff}</dd>
 
@@ -36,6 +39,11 @@ instance View ShowView where
             <dd class="col-sm-8">{staff.createdAt |> timeAgo}</dd>
         </dl>
     |]
+
+renderTypeBadge :: Staff -> Html
+renderTypeBadge staff
+    | isTrialStaff staff = [hsx|<span class="badge bg-warning text-dark">Trial</span>|]
+    | otherwise          = [hsx|<span class="badge bg-info text-dark">Linked</span>|]
 
 renderStatusBadge :: Staff -> Html
 renderStatusBadge staff

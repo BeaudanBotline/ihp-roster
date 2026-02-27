@@ -13,7 +13,12 @@ instance Controller StaffController where
         ensureManagerRole
 
     action StaffAction = do
-        staffMembers <- query @Staff |> orderByAsc #lastName |> orderByAsc #firstName |> fetch
+        let staffFilter = paramOrDefault @Text "filter" "all"
+        let baseQuery = query @Staff |> orderByAsc #lastName |> orderByAsc #firstName
+        staffMembers <- case staffFilter of
+            "trial"  -> baseQuery |> filterWhere (#userId, Nothing :: Maybe UUID) |> fetch
+            "linked" -> baseQuery |> filterWhereNot (#userId, Nothing :: Maybe UUID) |> fetch
+            _        -> baseQuery |> fetch
         render IndexView { .. }
 
     action NewStaffAction = do

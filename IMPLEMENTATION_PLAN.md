@@ -171,7 +171,7 @@ Business requirements are canonical in `specs/`.
   - Verification: `typecheck`, `test` (20 examples, 0 failures, 1 pending), `lint` (pre-existing warnings only), `format` all passed.
 
 ### 2.2 Trial staff placeholders
-- **Status:** [ ]
+- **Status:** [x]
 - **Goal:** Enable non-login trial staff records assignable in roster UI.
 - **Spec sources:** `specs/01-product-scope.md`, `specs/03-access-control-and-auth.md`
 - **Deliverables:**
@@ -181,6 +181,16 @@ Business requirements are canonical in `specs/`.
 - **Acceptance checks:**
   - Trial staff can be assigned to roster slots.
   - Trial staff cannot authenticate.
+- **Completion notes:**
+  - Trial staff are staff records with `user_id = NULL` (no linked login account). The existing Staff CRUD from 2.1 already creates staff without `user_id`, making them trial placeholders by default.
+  - Added `isTrialStaff` helper to `Application/Helper/View.hs` — checks `isNothing staff.userId`.
+  - Updated `Web/View/Staff/Index.hs`: added "Type" column with Trial (warning badge) / Linked (info badge) labels; added filter tabs (All / Trial / Linked) using query param `?filter=trial|linked`.
+  - Updated `Web/Controller/Staff.hs`: `StaffAction` reads `filter` param and applies `filterWhere`/`filterWhereNot` on `userId IS NULL`/`IS NOT NULL`.
+  - Updated `Web/View/Staff/Show.hs`: added Type row to detail view.
+  - Added `Generated.Types` import to `Application/Helper/View.hs` for `Staff` type.
+  - Added 2 tests in `Test/SchemaSpec.hs` covering `isTrialStaff` for both trial (no userId) and linked (with userId) staff records.
+  - Trial staff cannot authenticate because they have no `user_id` linking to a `users` row — enforced by schema design.
+  - Verification: `typecheck`, `test` (22 examples, 0 failures, 1 pending), `lint` (pre-existing only), `format` all passed.
 
 ---
 

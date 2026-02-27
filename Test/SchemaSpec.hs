@@ -1,6 +1,7 @@
 module Test.SchemaSpec where
 
 import Application.Helper.Controller
+import Application.Helper.View (isTrialStaff)
 import Generated.Types
 import IHP.ControllerPrelude (newRecord)
 import IHP.NameSupport (columnNameToFieldName, fieldNameToColumnName)
@@ -119,6 +120,20 @@ tests = describe "Schema" do
             -- Unknown role falls back to staff
             checkRole "unknown" StaffRole `shouldBe` True
             checkRole "unknown" ManagerRole `shouldBe` False
+
+    describe "Trial staff" do
+        it "identifies trial staff by missing user_id" do
+            let trialStaff = newRecord @Staff
+                    |> set #firstName "Trial"
+                    |> set #lastName "Person"
+            isTrialStaff trialStaff `shouldBe` True
+
+        it "identifies linked staff by present user_id" do
+            let linkedStaff = newRecord @Staff
+                    |> set #firstName "Linked"
+                    |> set #lastName "Person"
+                    |> set #userId (Just def)
+            isTrialStaff linkedStaff `shouldBe` False
 
     it "all schema column names round-trip through IHP NameSupport" do
         -- Every column name must survive columnNameToFieldName and
