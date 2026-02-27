@@ -4,13 +4,12 @@ CREATE TABLE users (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
     email TEXT NOT NULL,
     password_hash TEXT NOT NULL,
-    role TEXT DEFAULT 'staff' NOT NULL,
+    user_role TEXT DEFAULT 'staff' NOT NULL,
     is_profile_completed BOOLEAN DEFAULT FALSE NOT NULL,
     locked_at TIMESTAMP WITH TIME ZONE DEFAULT NULL,
     failed_login_attempts INT DEFAULT 0 NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
-    CONSTRAINT users_role_valid CHECK (role IN ('staff', 'manager', 'admin'))
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
 );
 
 CREATE TABLE staff (
@@ -80,7 +79,6 @@ CREATE TABLE venue_config (
     late_to_early_min_start_gap_minutes INT DEFAULT 0 NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
-    CONSTRAINT venue_config_is_singleton_true CHECK (is_singleton),
     CONSTRAINT venue_config_is_singleton_unique UNIQUE (is_singleton)
 );
 
@@ -140,7 +138,6 @@ CREATE TABLE leave_requests (
     notes TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
-    CONSTRAINT leave_requests_status_valid CHECK (status IN ('pending', 'approved', 'denied')),
     CONSTRAINT leave_requests_staff_id_fk FOREIGN KEY (staff_id) REFERENCES staff (id) ON DELETE CASCADE
 );
 
@@ -156,11 +153,6 @@ CREATE TABLE timesheet_entries (
     approved_by_user_id UUID,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
-    CONSTRAINT timesheet_entries_approval_consistency CHECK (
-        (NOT is_approved AND approved_at IS NULL AND approved_by_user_id IS NULL)
-        OR
-        (is_approved AND approved_at IS NOT NULL AND approved_by_user_id IS NOT NULL)
-    ),
     CONSTRAINT timesheet_entries_staff_id_fk FOREIGN KEY (staff_id) REFERENCES staff (id) ON DELETE CASCADE,
     CONSTRAINT timesheet_entries_approved_by_user_id_fk FOREIGN KEY (approved_by_user_id) REFERENCES users (id) ON DELETE SET NULL
 );

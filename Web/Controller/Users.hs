@@ -25,7 +25,7 @@ instance Controller UsersController where
                     let assignedRole = bootstrapRegistrationRole existingUserCount
                     user <- user
                         |> set #passwordHash hashed
-                        |> set #role_ (userRoleToText assignedRole)
+                        |> set #userRole (userRoleToText assignedRole)
                         |> createRecord
                     setSuccessMessage "Account created! Please log in."
                     redirectTo NewSessionAction
