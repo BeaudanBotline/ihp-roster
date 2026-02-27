@@ -8,6 +8,7 @@ import Web.View.Layout (defaultLayout)
 -- Controller Imports
 import Web.Controller.Dashboard
 import Web.Controller.Profiles
+import Web.Controller.RosterWeeks
 import Web.Controller.Sessions
 import Web.Controller.Staff
 import Web.Controller.Static
@@ -21,6 +22,7 @@ instance FrontController WebApplication where
         , parseRoute @DashboardController
         , parseRoute @ProfilesController
         , parseRoute @StaffController
+        , parseRoute @RosterWeeksController
         -- Generator Marker
         ]
 

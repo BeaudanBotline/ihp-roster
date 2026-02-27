@@ -5,6 +5,7 @@ import Test.Hspec
 
 import qualified Test.Controller.DashboardSpec
 import qualified Test.Controller.ProfilesSpec
+import qualified Test.Controller.RosterWeeksSpec
 import qualified Test.Controller.SessionsSpec
 import qualified Test.Controller.StaffSpec
 import qualified Test.Controller.StaticSpec
@@ -19,4 +20,5 @@ main = hspec do
     Test.Controller.DashboardSpec.tests
     Test.Controller.ProfilesSpec.tests
     Test.Controller.StaffSpec.tests
+    Test.Controller.RosterWeeksSpec.tests
     Test.SchemaSpec.tests

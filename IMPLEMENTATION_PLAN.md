@@ -197,7 +197,7 @@ Business requirements are canonical in `specs/`.
 ## Phase 3 — Roster Core
 
 ### 3.1 Week/day/slot CRUD and navigation
-- **Status:** [ ]
+- **Status:** [x]
 - **Goal:** Build core roster structures around week/day offsets and slot assignment.
 - **Spec sources:** `specs/02-domain-model.md`, `specs/04-roster-and-conflict-rules.md`
 - **Deliverables:**
@@ -205,6 +205,12 @@ Business requirements are canonical in `specs/`.
   - Offset-aware navigation and display date derivation.
 - **Acceptance checks:**
   - Users with permission can create/edit draft roster weeks.
+- **Completion notes:**
+  - Added `RosterWeeksController` and wired to routing.
+  - Implemented `RosterWeeksAction` dynamically routing to current week offset from epoch.
+  - Created offset-aware `ShowRosterWeekAction` with pagination links and generated `RosterDay` rows.
+  - Protected creation with `ensureManagerRole`.
+  - Created baseline tests in `Test/Controller/RosterWeeksSpec.hs`.
 
 ### 3.2 Publish workflow and live visibility rules
 - **Status:** [ ]

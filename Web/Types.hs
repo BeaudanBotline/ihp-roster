@@ -40,6 +40,13 @@ data StaffController
     | DeleteStaffAction { staffId :: !(Id Staff) }
     deriving (Eq, Show, Data)
 
+data RosterWeeksController
+    = RosterWeeksAction
+    | ShowRosterWeekAction { weekOffset :: !Int }
+    | CreateRosterWeekAction { weekOffset :: !Int }
+    | PublishRosterWeekAction { rosterWeekId :: !(Id RosterWeek) }
+    deriving (Eq, Show, Data)
+
 -- Auth support: where to redirect unauthenticated users
 instance HasNewSessionUrl User where
     newSessionUrl _ = "/NewSession"
