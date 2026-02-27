@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Run hlint on app source files (excludes IHP submodule and generated code).
+# Usage: bin/lint [file_or_dir]  (default: all app sources)
+set -euo pipefail
+
+if [ $# -gt 0 ]; then
+    exec hlint "$@"
+fi
+
+hlint Main.hs Web/ Application/Helper/ Config/

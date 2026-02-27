@@ -1,0 +1,10 @@
+#!/bin/sh
+# Custom hie-bios wrapper for HLS.
+# Filters out IHP submodule source paths to avoid conflicts with -package ihp.
+make print-ghc-options GHC_RTS_FLAGS='' \
+  | tr ' ' '\n' \
+  | grep -vE '^-iIHP(/|$)' \
+  | grep -vE '^-fbyte-code$' \
+  > "$HIE_BIOS_OUTPUT"
+echo "$HIE_BIOS_ARG" >> "$HIE_BIOS_OUTPUT"
+find . -name '*.hs' -not -path './IHP/*' >> "$HIE_BIOS_OUTPUT"

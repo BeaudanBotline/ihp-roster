@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Run the test suite.
+# Compiles Test/Main.hs and executes it. Requires devenv shell.
+# Usage: bin/test
+set -euo pipefail
+
+GHC_OPTS=$(make print-ghc-options GHC_RTS_FLAGS='' 2>/dev/null \
+  | sed 's/-iIHP[^ ]* //g; s/-fbyte-code//g')
+
+mkdir -p build/Test
+ghc $GHC_OPTS -iTest -main-is Main Test/Main.hs -o build/Test/Main -odir build/Test -hidir build/Test
+exec build/Test/Main "$@"

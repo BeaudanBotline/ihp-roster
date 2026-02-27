@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Regenerate Haskell types from Application/Schema.sql.
+# Run after any schema change.
+set -euo pipefail
+mkdir -p build/Generated
+build-generated-code
+echo "Types regenerated in build/Generated/"

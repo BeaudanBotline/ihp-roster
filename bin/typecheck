@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Fast typecheck (~2-3s) without producing binaries.
+# Use after any code change to verify it compiles.
+# Usage: bin/typecheck [file]  (default: Main.hs)
+set -euo pipefail
+TARGET="${1:-Main.hs}"
+
+GHC_OPTS=$(make print-ghc-options GHC_RTS_FLAGS='' 2>/dev/null \
+  | sed 's/-iIHP[^ ]* //g; s/-fbyte-code//g')
+
+exec ghc -fno-code $GHC_OPTS "$TARGET"

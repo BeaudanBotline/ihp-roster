@@ -1,0 +1,3 @@
+[submodule "IHP"]
+	path = IHP
+	url = https://github.com/digitallyinduced/ihp.git
