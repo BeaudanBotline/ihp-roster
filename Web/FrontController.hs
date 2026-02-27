@@ -9,6 +9,7 @@ import Web.View.Layout (defaultLayout)
 import Web.Controller.Dashboard
 import Web.Controller.Profiles
 import Web.Controller.Sessions
+import Web.Controller.Staff
 import Web.Controller.Static
 import Web.Controller.Users
 
@@ -19,6 +20,7 @@ instance FrontController WebApplication where
         , parseRoute @UsersController
         , parseRoute @DashboardController
         , parseRoute @ProfilesController
+        , parseRoute @StaffController
         -- Generator Marker
         ]
 

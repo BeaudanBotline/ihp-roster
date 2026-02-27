@@ -30,6 +30,16 @@ data ProfilesController
     | UpdateProfileAction
     deriving (Eq, Show, Data)
 
+data StaffController
+    = StaffAction
+    | NewStaffAction
+    | ShowStaffAction { staffId :: !(Id Staff) }
+    | CreateStaffAction
+    | EditStaffAction { staffId :: !(Id Staff) }
+    | UpdateStaffAction { staffId :: !(Id Staff) }
+    | DeleteStaffAction { staffId :: !(Id Staff) }
+    deriving (Eq, Show, Data)
+
 -- Auth support: where to redirect unauthenticated users
 instance HasNewSessionUrl User where
     newSessionUrl _ = "/NewSession"

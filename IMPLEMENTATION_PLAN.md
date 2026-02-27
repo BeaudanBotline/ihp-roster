@@ -151,7 +151,7 @@ Business requirements are canonical in `specs/`.
 ## Phase 2 — Staff and Trial Staff Management
 
 ### 2.1 Staff CRUD (manager/admin)
-- **Status:** [ ]
+- **Status:** [x]
 - **Goal:** Provide staff management interfaces and persistence required by roster/timesheets.
 - **Spec sources:** `specs/02-domain-model.md`, `specs/03-access-control-and-auth.md`, `specs/07-ui-bootstrap-spec.md`
 - **Deliverables:**
@@ -160,6 +160,15 @@ Business requirements are canonical in `specs/`.
   - Validation tests.
 - **Acceptance checks:**
   - Managers/admins can maintain staff records.
+- **Completion notes:**
+  - Added `StaffController` type to `Web/Types.hs` with full CRUD actions (index, new, create, show, edit, update, delete).
+  - Added `AutoRoute StaffController` to `Web/Routes.hs` and mounted in `Web/FrontController.hs`.
+  - Created `Web/Controller/Staff.hs` with `ensureIsUser`, `ensureProfileCompleted`, and `ensureManagerRole` guards in `beforeAction`; validation on firstName/lastName via `buildStaff`.
+  - Created Bootstrap 5 views: `Web/View/Staff/Index.hs` (table with active/inactive badge), `New.hs`, `Edit.hs` (forms with status dropdown), `Show.hs` (detail with breadcrumbs).
+  - Active/inactive toggle via select dropdown mapped to Bool param (`"on"` → True, `""` → False).
+  - Added "Manage Staff" link to `Web/View/Dashboard/Index.hs` visible only for manager+ roles.
+  - Added `Test/Controller/StaffSpec.hs` with 3 tests for unauthenticated redirect on list, new, and create actions; registered in `Test/Main.hs`.
+  - Verification: `typecheck`, `test` (20 examples, 0 failures, 1 pending), `lint` (pre-existing warnings only), `format` all passed.
 
 ### 2.2 Trial staff placeholders
 - **Status:** [ ]

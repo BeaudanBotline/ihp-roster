@@ -9,3 +9,4 @@ instance AutoRoute SessionsController
 instance AutoRoute UsersController
 instance AutoRoute DashboardController
 instance AutoRoute ProfilesController
+instance AutoRoute StaffController
