@@ -1,19 +1,19 @@
 module Test.Controller.UsersSpec where
 
-import Network.HTTP.Types.Status
-import IHP.Prelude
-import IHP.Test.Mocking
-import IHP.FrameworkConfig
-import IHP.HaskellSupport
-import Test.Hspec
 import Config
 import Generated.Types
-import Web.Routes
-import Web.Types
+import IHP.ControllerPrelude
+import IHP.FrameworkConfig
+import IHP.HaskellSupport
+import IHP.Prelude
+import IHP.Test.Mocking
+import Network.HTTP.Types.Status
+import Network.Wai
+import Test.Hspec
 import Web.Controller.Users ()
 import Web.FrontController ()
-import Network.Wai
-import IHP.ControllerPrelude
+import Web.Routes
+import Web.Types
 
 tests :: Spec
 tests = beforeAll (mockContextNoDatabase WebApplication config) do

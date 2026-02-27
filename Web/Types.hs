@@ -1,9 +1,9 @@
 module Web.Types where
 
-import IHP.Prelude
-import IHP.ModelSupport
 import Generated.Types
 import IHP.LoginSupport.Types
+import IHP.ModelSupport
+import IHP.Prelude
 
 data WebApplication = WebApplication deriving (Eq, Show)
 

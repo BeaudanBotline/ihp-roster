@@ -2,20 +2,20 @@ module Test.Controller.StaticSpec where
 
 import Network.HTTP.Types.Status
 
-import IHP.Prelude
-import IHP.Test.Mocking
+import Config
 import IHP.FrameworkConfig
 import IHP.HaskellSupport
+import IHP.Prelude
+import IHP.Test.Mocking
 import Test.Hspec
-import Config
 
 import Generated.Types
-import Web.Routes
-import Web.Types
+import IHP.ControllerPrelude
+import Network.Wai
 import Web.Controller.Static ()
 import Web.FrontController ()
-import Network.Wai
-import IHP.ControllerPrelude
+import Web.Routes
+import Web.Types
 
 tests :: Spec
 tests = beforeAll (mockContextNoDatabase WebApplication config) do

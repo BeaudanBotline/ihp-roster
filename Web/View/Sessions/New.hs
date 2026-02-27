@@ -1,6 +1,6 @@
 module Web.View.Sessions.New where
-import Web.View.Prelude
 import IHP.AuthSupport.View.Sessions.New
+import Web.View.Prelude
 
 instance View (NewView User) where
     html NewView { .. } = [hsx|

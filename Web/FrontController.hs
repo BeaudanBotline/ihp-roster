@@ -1,18 +1,18 @@
 module Web.FrontController where
 
+import IHP.LoginSupport.Middleware
 import IHP.RouterPrelude
 import Web.Controller.Prelude
 import Web.View.Layout (defaultLayout)
-import IHP.LoginSupport.Middleware
 
 -- Controller Imports
-import Web.Controller.Static
-import Web.Controller.Sessions
-import Web.Controller.Users
 import Web.Controller.Dashboard
+import Web.Controller.Sessions
+import Web.Controller.Static
+import Web.Controller.Users
 
 instance FrontController WebApplication where
-    controllers = 
+    controllers =
         [ startPage WelcomeAction
         , parseRoute @SessionsController
         , parseRoute @UsersController

@@ -1,12 +1,12 @@
 module Web.View.Layout (defaultLayout, Html) where
 
-import IHP.ViewPrelude
-import IHP.Environment
+import Application.Helper.View
 import Generated.Types
 import IHP.Controller.RequestContext
-import Web.Types
+import IHP.Environment
+import IHP.ViewPrelude
 import Web.Routes
-import Application.Helper.View
+import Web.Types
 
 defaultLayout :: Html -> Html
 defaultLayout inner = [hsx|
