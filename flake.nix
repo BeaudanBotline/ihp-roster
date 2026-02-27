@@ -149,6 +149,146 @@
                         e2e-report.exec = ''
                             exec npx playwright show-report
                         '';
+
+                        # Start devenv processes in background for automation.
+                        # Usage: dev-start
+                        dev-start.exec = ''
+                            set -euo pipefail
+                            STATE_DIR="$PWD/.devenv/agent"
+                            PID_FILE="$STATE_DIR/devenv.pid"
+                            LOG_FILE="$STATE_DIR/devenv.log"
+                            SOCKET_FILE="$STATE_DIR/pc.sock"
+
+                            mkdir -p "$STATE_DIR"
+
+                            if dev-status >/dev/null 2>&1; then
+                                echo "devenv already healthy"
+                                exit 0
+                            fi
+
+                            if [ -f "$PID_FILE" ]; then
+                                PID=$(cat "$PID_FILE")
+                                if kill -0 "$PID" 2>/dev/null; then
+                                    echo "devenv already running (pid=$PID)"
+                                    exit 0
+                                fi
+                                rm -f "$PID_FILE"
+                            fi
+
+                            # Clean stale process-compose sockets that can cause `devenv up`
+                            # to attach to a non-existent server and exit immediately.
+                            for SOCK in /run/user/$(id -u)/devenv-*/pc.sock; do
+                                if [ ! -S "$SOCK" ]; then
+                                    continue
+                                fi
+                                if ! lsof "$SOCK" >/dev/null 2>&1; then
+                                    rm -f "$SOCK"
+                                fi
+                            done
+
+                            : > "$LOG_FILE"
+                            rm -f "$SOCKET_FILE"
+                            export PC_SOCKET_PATH="$SOCKET_FILE"
+                            setsid script -qefc "devenv up" "$LOG_FILE" >/dev/null 2>&1 &
+                            PID=$!
+                            echo "$PID" > "$PID_FILE"
+                            echo "devenv started (pid=$PID, socket=$SOCKET_FILE, log=$LOG_FILE)"
+                        '';
+
+                        # Stop background devenv processes started by dev-start.
+                        # Usage: dev-stop
+                        dev-stop.exec = ''
+                            set -euo pipefail
+                            STATE_DIR="$PWD/.devenv/agent"
+                            PID_FILE="$STATE_DIR/devenv.pid"
+
+                            if [ ! -f "$PID_FILE" ]; then
+                                echo "devenv not running (no pid file)"
+                                exit 0
+                            fi
+
+                            PID=$(cat "$PID_FILE")
+                            if ! kill -0 "$PID" 2>/dev/null; then
+                                rm -f "$PID_FILE"
+                                echo "devenv not running (stale pid file removed)"
+                                exit 0
+                            fi
+
+                            kill -TERM -"$PID" 2>/dev/null || kill -TERM "$PID" 2>/dev/null || true
+
+                            for _ in $(seq 1 20); do
+                                if ! kill -0 "$PID" 2>/dev/null; then
+                                    rm -f "$PID_FILE"
+                                    echo "devenv stopped"
+                                    exit 0
+                                fi
+                                sleep 1
+                            done
+
+                            kill -KILL -"$PID" 2>/dev/null || kill -KILL "$PID" 2>/dev/null || true
+                            rm -f "$PID_FILE"
+                            echo "devenv force-stopped"
+                        '';
+
+                        # Check health of background devenv server.
+                        # Usage: dev-status
+                        dev-status.exec = ''
+                            set -euo pipefail
+                            STATE_DIR="$PWD/.devenv/agent"
+                            PID_FILE="$STATE_DIR/devenv.pid"
+                            PID=""
+
+                            if [ -f "$PID_FILE" ]; then
+                                PID=$(cat "$PID_FILE")
+                            fi
+
+                            RUNNING=false
+                            if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
+                                RUNNING=true
+                            fi
+
+                            DB_OK=false
+                            if psql -h "$PWD/build/db" -d app -c "select 1" >/dev/null 2>&1; then
+                                DB_OK=true
+                            fi
+
+                            HTTP_OK=false
+                            if curl -fsS "http://127.0.0.1:8000" >/dev/null 2>&1; then
+                                HTTP_OK=true
+                            fi
+
+                            echo "running=$RUNNING pid=''${PID:-none} db_ok=$DB_OK http_ok=$HTTP_OK"
+
+                            if [ "$DB_OK" = true ] && [ "$HTTP_OK" = true ]; then
+                                exit 0
+                            fi
+
+                            exit 1
+                        '';
+
+                        # Wait for background devenv server to become healthy.
+                        # Usage: dev-wait [timeout-seconds]
+                        dev-wait.exec = ''
+                            set -euo pipefail
+                            TIMEOUT="''${1:-90}"
+                            START_TS=$(date +%s)
+
+                            while true; do
+                                if dev-status >/dev/null 2>&1; then
+                                    dev-status
+                                    exit 0
+                                fi
+
+                                NOW_TS=$(date +%s)
+                                if [ $((NOW_TS - START_TS)) -ge "$TIMEOUT" ]; then
+                                    echo "Timed out waiting for devenv health after ''${TIMEOUT}s"
+                                    dev-status || true
+                                    exit 1
+                                fi
+
+                                sleep 1
+                            done
+                        '';
                     };
                 };
             };

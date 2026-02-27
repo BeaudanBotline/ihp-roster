@@ -61,7 +61,20 @@ Available scripts:
 - **`e2e`** — Run Playwright end-to-end tests against the live dev server. Accepts playwright args (e.g. `e2e --headed`, `e2e e2e/auth.spec.ts`). Requires `devenv up` running.
 - **`screenshot`** — Take a screenshot of a page. Usage: `screenshot http://localhost:8000/Dashboard dash.png`. Requires `devenv up` running.
 - **`e2e-report`** — Open the Playwright HTML test report from the last run.
+- **`dev-start`** — Start `devenv up` in background for automation. Writes pid/log to `.devenv/agent/`.
+- **`dev-stop`** — Stop background server started by `dev-start`.
+- **`dev-status`** — Health check for background dev server (process + DB + HTTP).
+- **`dev-wait [seconds]`** — Wait until `dev-status` is healthy (default timeout: 90s).
 - The app runs via `devenv up` — it auto-reloads on file changes, so you can check the browser for runtime behavior.
+
+For reliable non-interactive automation, prefer:
+
+```bash
+direnv exec . dev-start
+direnv exec . dev-wait
+# run commands that need server + DB
+direnv exec . dev-stop
+```
 
 ## Adding a New Feature (e.g. a new page with database table)
 
