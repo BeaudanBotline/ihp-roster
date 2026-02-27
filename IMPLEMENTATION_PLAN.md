@@ -61,7 +61,7 @@ Business requirements are canonical in `specs/`.
   - `direnv exec . lint` reports pre-existing HSX parse errors in view files; `make db`/`psql` schema sync checks could not run because local dev Postgres at `build/db` was not running (requires `devenv up`).
 
 ### 0.3 Enum/value normalization for statuses and roles
-- **Status:** [ ]
+- **Status:** [x]
 - **Goal:** Normalize role and state fields (`staff|manager|admin`, leave states, approval flags) for consistent authorization and workflow logic.
 - **Spec sources:** `specs/03-access-control-and-auth.md`, `specs/05-timesheets-and-leave.md`
 - **Deliverables:**
@@ -69,6 +69,14 @@ Business requirements are canonical in `specs/`.
   - Shared parsing/helpers where needed.
 - **Acceptance checks:**
   - Invalid role/state values are rejected at DB boundary.
+- **Completion notes:**
+  - Added DB-level normalization constraints in `Application/Schema.sql`:
+    - `users.role` limited to `staff|manager|admin`.
+    - `leave_requests.status` limited to `pending|approved|denied`.
+    - `timesheet_entries` approval metadata consistency check requires `approved_at`/`approved_by_user_id` to be set exactly when `is_approved = true`.
+  - Added shared parsing/serialization helpers in `Application/Helper/Controller.hs` for normalized role and leave-status values (`parse*`, `*ToText`, and canonical value lists).
+  - Extended `Test/SchemaSpec.hs` with helper coverage for accepted/rejected values and text round-trips.
+  - Verification run: `direnv exec . regen-types`, `direnv exec . typecheck`, and `direnv exec . test` passed.
 
 ---
 

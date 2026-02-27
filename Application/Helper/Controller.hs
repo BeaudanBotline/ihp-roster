@@ -7,3 +7,43 @@ import IHP.ControllerPrelude
 
 fetchVenueConfig :: (?modelContext :: ModelContext) => IO VenueConfig
 fetchVenueConfig = query @VenueConfig |> fetchOne
+
+data UserRole
+    = StaffRole
+    | ManagerRole
+    | AdminRole
+    deriving (Eq, Show)
+
+data LeaveRequestStatus
+    = LeavePending
+    | LeaveApproved
+    | LeaveDenied
+    deriving (Eq, Show)
+
+allUserRoleValues :: [Text]
+allUserRoleValues = ["staff", "manager", "admin"]
+
+allLeaveRequestStatusValues :: [Text]
+allLeaveRequestStatusValues = ["pending", "approved", "denied"]
+
+parseUserRole :: Text -> Maybe UserRole
+parseUserRole "staff"   = Just StaffRole
+parseUserRole "manager" = Just ManagerRole
+parseUserRole "admin"   = Just AdminRole
+parseUserRole _         = Nothing
+
+parseLeaveRequestStatus :: Text -> Maybe LeaveRequestStatus
+parseLeaveRequestStatus "pending"  = Just LeavePending
+parseLeaveRequestStatus "approved" = Just LeaveApproved
+parseLeaveRequestStatus "denied"   = Just LeaveDenied
+parseLeaveRequestStatus _          = Nothing
+
+userRoleToText :: UserRole -> Text
+userRoleToText StaffRole   = "staff"
+userRoleToText ManagerRole = "manager"
+userRoleToText AdminRole   = "admin"
+
+leaveRequestStatusToText :: LeaveRequestStatus -> Text
+leaveRequestStatusToText LeavePending  = "pending"
+leaveRequestStatusToText LeaveApproved = "approved"
+leaveRequestStatusToText LeaveDenied   = "denied"
