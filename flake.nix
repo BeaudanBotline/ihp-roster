@@ -53,6 +53,73 @@
                         # Uncomment if you use tailwindcss.
                         # tailwind.exec = "tailwindcss -c tailwind/tailwind.config.js -i ./tailwind/app.css -o static/app.css --watch=always";
                     };
+
+                    scripts = {
+                        # Fast typecheck (~2-3s) without producing binaries.
+                        # Usage: typecheck [file]  (default: Main.hs)
+                        typecheck.exec = ''
+                            set -euo pipefail
+                            TARGET="''${1:-Main.hs}"
+                            GHC_OPTS=$(make print-ghc-options GHC_RTS_FLAGS='' 2>/dev/null \
+                              | sed 's/-iIHP[^ ]* //g; s/-fbyte-code//g')
+                            exec ghc -fno-code $GHC_OPTS "$TARGET"
+                        '';
+
+                        # Regenerate Haskell types from Application/Schema.sql.
+                        # Run after any schema change.
+                        regen-types.exec = ''
+                            set -euo pipefail
+                            mkdir -p build/Generated
+                            build-generated-code
+                            echo "Types regenerated in build/Generated/"
+                        '';
+
+                        # Run the hspec test suite.
+                        # Usage: test
+                        test.exec = ''
+                            set -euo pipefail
+                            GHC_OPTS=$(make print-ghc-options GHC_RTS_FLAGS='' 2>/dev/null \
+                              | sed 's/-iIHP[^ ]* //g; s/-fbyte-code//g')
+                            mkdir -p build/Test
+                            ghc $GHC_OPTS -iTest -main-is Main Test/Main.hs -o build/Test/Main -odir build/Test -hidir build/Test
+                            exec build/Test/Main "$@"
+                        '';
+
+                        # Run hlint on app source files.
+                        # Usage: lint [file_or_dir]  (default: all app sources)
+                        lint.exec = ''
+                            set -euo pipefail
+                            if [ $# -gt 0 ]; then
+                                exec hlint "$@"
+                            fi
+                            hlint Main.hs Web/ Application/Helper/ Config/
+                        '';
+
+                        # Format Haskell files with stylish-haskell.
+                        # Usage: format [file ...]  (default: all app sources)
+                        format.exec = ''
+                            set -euo pipefail
+                            if [ $# -gt 0 ]; then
+                                exec stylish-haskell -i "$@"
+                            fi
+                            find . -name '*.hs' \
+                                -not -path './IHP/*' \
+                                -not -path './build/*' \
+                                -not -path './.devenv/*' \
+                                -not -path './.direnv/*' \
+                                -exec stylish-haskell -i {} +
+                            echo "Formatted all app sources."
+                        '';
+
+                        # Launch GHCi with the full app loaded.
+                        # Usage: ghci-app
+                        ghci-app.exec = ''
+                            set -euo pipefail
+                            GHC_OPTS=$(make print-ghc-options GHC_RTS_FLAGS='' 2>/dev/null \
+                              | sed 's/-iIHP[^ ]* //g; s/-fbyte-code//g')
+                            exec ghci $GHC_OPTS Main.hs "$@"
+                        '';
+                    };
                 };
             };
 

@@ -30,33 +30,35 @@
 - Form handling uses IHP's form helpers — see `IHP/Guide/form.markdown`
 
 ## Verification Tools
-- **`bin/typecheck`** — Fast (~2-3s) typecheck without full build. **Run after every code change** to catch errors immediately. Exit 0 = success.
-- **`bin/regen-types`** — Regenerate `build/Generated/Types.hs` after editing `Application/Schema.sql`. Always run this before `bin/typecheck` when schema has changed.
-- **`bin/test`** — Compile and run the hspec test suite. **Add tests for every new controller** (see `Test/AGENTS.md`).
-- **`bin/lint`** — Run hlint on app sources. Provides suggestions for idiomatic Haskell.
-- **`bin/format`** — Format app sources with stylish-haskell (config in `.stylish-haskell.yaml`).
-- **`bin/ghci-app`** — Launch GHCi with the full app loaded for testing expressions interactively.
+These are devenv scripts — run them directly by name inside the devenv shell (they are on PATH automatically):
+
+- **`typecheck`** — Fast (~2-3s) typecheck without full build. **Run after every code change** to catch errors immediately. Exit 0 = success.
+- **`regen-types`** — Regenerate `build/Generated/Types.hs` after editing `Application/Schema.sql`. Always run this before `typecheck` when schema has changed.
+- **`test`** — Compile and run the hspec test suite. **Add tests for every new controller** (see `Test/AGENTS.md`).
+- **`lint`** — Run hlint on app sources. Provides suggestions for idiomatic Haskell.
+- **`format`** — Format app sources with stylish-haskell (config in `.stylish-haskell.yaml`).
+- **`ghci-app`** — Launch GHCi with the full app loaded for testing expressions interactively.
 - **`new-controller NAME`** — IHP code generator that scaffolds controller, views, types, and routes. Prefer this for new CRUD controllers, then customize.
 - The app runs via `devenv up` — it auto-reloads on file changes, so you can check the browser for runtime behavior.
 
 ## Adding a New Feature (e.g. a new page with database table)
 
-1. **Schema** — Add table to `Application/Schema.sql`, then run `bin/regen-types`
+1. **Schema** — Add table to `Application/Schema.sql`, then run `regen-types`
 2. **Types** — Add controller type to `Web/Types.hs` (see `Web/Controller/AGENTS.md` for pattern)
 3. **Routes** — Add `instance AutoRoute MyController` to `Web/Routes.hs`
 4. **Controller** — Create `Web/Controller/My.hs` with action implementations
 5. **Views** — Create `Web/View/My/Index.hs`, `Show.hs`, etc. (see `Web/View/AGENTS.md`)
 6. **Mount** — Add `import Web.Controller.My` and `parseRoute @MyController` to `Web/FrontController.hs`
-7. **Verify** — Run `bin/typecheck` (must pass before moving on)
-8. **Polish** — Run `bin/lint`, then `bin/format`
+7. **Verify** — Run `typecheck` (must pass before moving on)
+8. **Polish** — Run `lint`, then `format`
 
 For simple CRUD, prefer running `new-controller NAME` to scaffold all files, then customize.
 
 ## Verification Workflow
-- **After every code change**: `bin/typecheck` (fast, ~2-3s)
-- **After schema changes**: `bin/regen-types` first, then `bin/typecheck`
-- **After adding/changing controllers**: `bin/test` to run the test suite
-- **Before committing**: `bin/lint` then `bin/format`
+- **After every code change**: `typecheck` (fast, ~2-3s)
+- **After schema changes**: `regen-types` first, then `typecheck`
+- **After adding/changing controllers**: `test` to run the test suite
+- **Before committing**: `lint` then `format`
 
 ## Maintaining Agent Documentation
 - Subdirectory `AGENTS.md` files exist in `Web/Controller/`, `Web/View/`, and `Application/` with detailed patterns

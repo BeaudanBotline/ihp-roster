@@ -5,8 +5,8 @@ Read `IHP/Guide/testing.markdown` for full IHP testing documentation.
 
 ## Running Tests
 ```bash
-bin/test          # compile and run all tests
-bin/test --match "PostsController"  # run tests matching a pattern
+test          # compile and run all tests
+test --match "PostsController"  # run tests matching a pattern
 ```
 
 ## Adding Tests for a New Controller
