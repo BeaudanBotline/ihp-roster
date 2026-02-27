@@ -73,11 +73,14 @@ CREATE TABLE pay_level_day_rules (
 
 CREATE TABLE venue_config (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
+    is_singleton BOOLEAN DEFAULT TRUE NOT NULL,
     timezone TEXT NOT NULL,
     week_offset_epoch DATE NOT NULL,
     late_to_early_min_start_gap_minutes INT DEFAULT 0 NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    CONSTRAINT venue_config_is_singleton_true CHECK (is_singleton),
+    CONSTRAINT venue_config_is_singleton_unique UNIQUE (is_singleton)
 );
 
 CREATE TABLE roster_weeks (

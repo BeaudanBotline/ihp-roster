@@ -43,7 +43,7 @@ Business requirements are canonical in `specs/`.
   - `make db` could not be completed in this session because the local dev Postgres socket at `build/db` was not running (requires `devenv up`).
 
 ### 0.2 Venue config singleton and bootstrap seed
-- **Status:** [ ]
+- **Status:** [x]
 - **Goal:** Ensure exactly one `venue_config` row is created and contains required global controls.
 - **Spec sources:** `specs/02-domain-model.md`, `specs/04-roster-and-conflict-rules.md`
 - **Deliverables:**
@@ -52,6 +52,13 @@ Business requirements are canonical in `specs/`.
 - **Acceptance checks:**
   - App can read config safely without null assumptions.
   - Duplicate singleton creation is prevented by schema/app logic.
+- **Completion notes:**
+  - Added singleton enforcement to `venue_config` in `Application/Schema.sql` via `is_singleton` (`CHECK (is_singleton)` + `UNIQUE`), keeping the table restricted to exactly one logical row.
+  - Added bootstrap seed in `Application/Fixtures.sql` for `venue_config` with defaults: timezone `UTC`, epoch `2025-01-06`, and late-to-early threshold `600` minutes.
+  - Added `fetchVenueConfig` helper in `Application/Helper/Controller.hs` to read config as a required record (`fetchOne`, no `Maybe` handling at call sites).
+  - Updated `Test/SchemaSpec.hs` to cover the new singleton/config fields at compile-time.
+  - Verification run: `direnv exec . regen-types`, `direnv exec . typecheck`, and `direnv exec . test` passed.
+  - `direnv exec . lint` reports pre-existing HSX parse errors in view files; `make db`/`psql` schema sync checks could not run because local dev Postgres at `build/db` was not running (requires `devenv up`).
 
 ### 0.3 Enum/value normalization for statuses and roles
 - **Status:** [ ]

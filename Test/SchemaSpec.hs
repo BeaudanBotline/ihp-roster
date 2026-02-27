@@ -1,7 +1,7 @@
 module Test.SchemaSpec where
 
-import IHP.Prelude
 import Generated.Types
+import IHP.Prelude
 import Test.Hspec
 
 tests :: Spec
@@ -20,4 +20,13 @@ tests = describe "Schema" do
         let _ = (Nothing :: Maybe SlotName)
         let _ = (Nothing :: Maybe DayName)
         let _ = (Nothing :: Maybe PayLevelDayRule)
+        True `shouldBe` True
+
+    it "exposes singleton controls on venue config" do
+        let _readSingletonFields venueConfig =
+                ( get #timezone venueConfig
+                , get #weekOffsetEpoch venueConfig
+                , get #lateToEarlyMinStartGapMinutes venueConfig
+                , get #isSingleton venueConfig
+                )
         True `shouldBe` True
