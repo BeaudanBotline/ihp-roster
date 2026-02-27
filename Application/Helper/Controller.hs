@@ -2,6 +2,8 @@ module Application.Helper.Controller where
 
 import Generated.Types
 import IHP.ControllerPrelude
+import Web.Routes ()
+import Web.Types (ProfilesController (EditProfileAction))
 
 -- Here you can add functions which are available in all your controllers
 
@@ -52,3 +54,16 @@ leaveRequestStatusToText :: LeaveRequestStatus -> Text
 leaveRequestStatusToText LeavePending  = "pending"
 leaveRequestStatusToText LeaveApproved = "approved"
 leaveRequestStatusToText LeaveDenied   = "denied"
+
+requiredProfileFieldsCompleted :: Text -> Text -> Bool
+requiredProfileFieldsCompleted firstName lastName =
+    all (not . isEmpty) [firstName, lastName]
+
+isOperationallyActive :: User -> Bool
+isOperationallyActive user = user.isProfileCompleted
+
+ensureProfileCompleted :: (?context :: ControllerContext) => IO ()
+ensureProfileCompleted =
+    unless (isOperationallyActive currentUser) do
+        setErrorMessage "Please complete your profile to continue."
+        redirectTo EditProfileAction

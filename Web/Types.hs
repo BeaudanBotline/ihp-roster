@@ -25,6 +25,11 @@ data DashboardController
     = DashboardAction
     deriving (Eq, Show, Data)
 
+data ProfilesController
+    = EditProfileAction
+    | UpdateProfileAction
+    deriving (Eq, Show, Data)
+
 -- Auth support: where to redirect unauthenticated users
 instance HasNewSessionUrl User where
     newSessionUrl _ = "/NewSession"

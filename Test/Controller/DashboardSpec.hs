@@ -26,3 +26,6 @@ tests = beforeAll (mockContextNoDatabase WebApplication config) do
             -- No session set: ensureIsUser redirects to /NewSession
             response <- callAction DashboardAction
             response `responseStatusShouldBe` status302
+
+        it "enforces profile gate for authenticated users (requires real DB-backed auth context)" $ withContext do
+            pendingWith "requires real DB-backed mockContext to exercise withUser + initAuthentication"

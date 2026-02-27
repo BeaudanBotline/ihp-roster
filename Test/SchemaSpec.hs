@@ -2,6 +2,7 @@ module Test.SchemaSpec where
 
 import Application.Helper.Controller
 import Generated.Types
+import IHP.ControllerPrelude (newRecord)
 import IHP.Prelude
 import Test.Hspec
 
@@ -53,3 +54,20 @@ tests = describe "Schema" do
         bootstrapRegistrationRole 0 `shouldBe` AdminRole
         bootstrapRegistrationRole 1 `shouldBe` StaffRole
         bootstrapRegistrationRole 5 `shouldBe` StaffRole
+
+    it "requires first and last name for profile completion" do
+        requiredProfileFieldsCompleted "Taylor" "Smith" `shouldBe` True
+        requiredProfileFieldsCompleted "" "Smith" `shouldBe` False
+        requiredProfileFieldsCompleted "Taylor" "" `shouldBe` False
+
+    it "marks users operational only after profile completion" do
+        let incompleteUser =
+                newRecord @User
+                    |> set #email "incomplete@example.com"
+                    |> set #passwordHash "hashed"
+                    |> set #role_ "staff"
+                    |> set #isProfileCompleted False
+        let completeUser = incompleteUser |> set #isProfileCompleted True
+
+        isOperationallyActive incompleteUser `shouldBe` False
+        isOperationallyActive completeUser `shouldBe` True

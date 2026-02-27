@@ -101,7 +101,7 @@ Business requirements are canonical in `specs/`.
   - Verification run: `direnv exec . typecheck`, `direnv exec . test --match "Schema"`, `direnv exec . test`, `direnv exec . lint`, and `direnv exec . format` passed.
 
 ### 1.2 Mandatory profile completion gate
-- **Status:** [ ]
+- **Status:** [x]
 - **Goal:** Block operational app access until required profile fields are completed.
 - **Spec sources:** `specs/03-access-control-and-auth.md`
 - **Deliverables:**
@@ -110,6 +110,19 @@ Business requirements are canonical in `specs/`.
   - Tests for blocked and unblocked paths.
 - **Acceptance checks:**
   - Incomplete profile users are redirected consistently.
+- **Completion notes:**
+  - Added a dedicated `ProfilesController` with `EditProfileAction`/`UpdateProfileAction`, route wiring, and front-controller mounting.
+  - Implemented `Web/Controller/Profiles.hs` and `Web/View/Profiles/Edit.hs` to collect required profile fields (`firstName`, `lastName`) and upsert a user-linked `staff` row.
+  - Added shared profile-gate helpers in `Application/Helper/Controller.hs`:
+    - `requiredProfileFieldsCompleted`
+    - `isOperationallyActive`
+    - `ensureProfileCompleted` (redirects incomplete users to profile completion)
+  - Updated `Web/Controller/Dashboard.hs` to enforce the profile gate via `beforeAction`.
+  - Added/updated tests:
+    - `Test/Controller/ProfilesSpec.hs` for unauthenticated redirects on profile actions
+    - `Test/SchemaSpec.hs` coverage for profile completion field requirements and operational gate boolean behavior
+    - `Test/Controller/DashboardSpec.hs` documents DB-backed pending coverage for authenticated gate behavior
+  - Verification run passed: `direnv exec . typecheck`, `direnv exec . test`, `direnv exec . lint`, `direnv exec . format`, followed by `direnv exec . typecheck` and `direnv exec . test` (13 examples, 0 failures, 1 pending).
 
 ### 1.3 Role-based authorization helpers
 - **Status:** [ ]

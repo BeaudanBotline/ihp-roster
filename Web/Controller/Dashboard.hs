@@ -4,6 +4,9 @@ import Web.Controller.Prelude
 import Web.View.Dashboard.Index
 
 instance Controller DashboardController where
-    action DashboardAction = do
+    beforeAction = do
         ensureIsUser
+        ensureProfileCompleted
+
+    action DashboardAction = do
         render IndexView

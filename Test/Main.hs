@@ -4,6 +4,7 @@ import IHP.Prelude
 import Test.Hspec
 
 import qualified Test.Controller.DashboardSpec
+import qualified Test.Controller.ProfilesSpec
 import qualified Test.Controller.SessionsSpec
 import qualified Test.Controller.StaticSpec
 import qualified Test.Controller.UsersSpec
@@ -15,4 +16,5 @@ main = hspec do
     Test.Controller.SessionsSpec.tests
     Test.Controller.UsersSpec.tests
     Test.Controller.DashboardSpec.tests
+    Test.Controller.ProfilesSpec.tests
     Test.SchemaSpec.tests
