@@ -48,3 +48,8 @@ tests = describe "Schema" do
 
         map userRoleToText [StaffRole, ManagerRole, AdminRole] `shouldBe` allUserRoleValues
         map leaveRequestStatusToText [LeavePending, LeaveApproved, LeaveDenied] `shouldBe` allLeaveRequestStatusValues
+
+    it "assigns bootstrap registration role from existing user count" do
+        bootstrapRegistrationRole 0 `shouldBe` AdminRole
+        bootstrapRegistrationRole 1 `shouldBe` StaffRole
+        bootstrapRegistrationRole 5 `shouldBe` StaffRole

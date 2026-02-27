@@ -21,8 +21,11 @@ instance Controller UsersController where
                 Left user -> render NewView { .. }
                 Right user -> do
                     hashed <- hashPassword user.passwordHash
+                    existingUserCount <- query @User |> fetchCount
+                    let assignedRole = bootstrapRegistrationRole existingUserCount
                     user <- user
                         |> set #passwordHash hashed
+                        |> set #role_ (userRoleToText assignedRole)
                         |> createRecord
                     setSuccessMessage "Account created! Please log in."
                     redirectTo NewSessionAction

@@ -43,6 +43,11 @@ userRoleToText StaffRole   = "staff"
 userRoleToText ManagerRole = "manager"
 userRoleToText AdminRole   = "admin"
 
+bootstrapRegistrationRole :: Int -> UserRole
+bootstrapRegistrationRole existingUserCount
+    | existingUserCount <= 0 = AdminRole
+    | otherwise = StaffRole
+
 leaveRequestStatusToText :: LeaveRequestStatus -> Text
 leaveRequestStatusToText LeavePending  = "pending"
 leaveRequestStatusToText LeaveApproved = "approved"

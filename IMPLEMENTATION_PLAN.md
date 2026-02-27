@@ -83,7 +83,7 @@ Business requirements are canonical in `specs/`.
 ## Phase 1 — Auth and Access Control
 
 ### 1.1 First-user bootstrap admin
-- **Status:** [ ]
+- **Status:** [x]
 - **Goal:** First registered login user becomes admin automatically.
 - **Spec sources:** `specs/03-access-control-and-auth.md`
 - **Deliverables:**
@@ -92,6 +92,13 @@ Business requirements are canonical in `specs/`.
 - **Acceptance checks:**
   - Fresh DB: first user => admin.
   - Subsequent users do not auto-escalate.
+- **Completion notes:**
+  - Updated `Web/Controller/Users.hs` registration flow to assign role from current user count before create:
+    - first registered user gets `admin`
+    - all subsequent registrations get `staff`
+  - Added `bootstrapRegistrationRole` helper in `Application/Helper/Controller.hs` to centralize bootstrap role policy.
+  - Added regression coverage in `Test/SchemaSpec.hs` for bootstrap role assignment boundaries (`0 -> admin`, `>=1 -> staff`).
+  - Verification run: `direnv exec . typecheck`, `direnv exec . test --match "Schema"`, `direnv exec . test`, `direnv exec . lint`, and `direnv exec . format` passed.
 
 ### 1.2 Mandatory profile completion gate
 - **Status:** [ ]
