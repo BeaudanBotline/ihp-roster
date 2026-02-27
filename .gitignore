@@ -1,6 +1,8 @@
 .DS_Store
 .idea
 .env
+.envrc
+.ghci
 tmp
 result
 node_modules
