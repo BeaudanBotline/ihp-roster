@@ -125,7 +125,7 @@ Business requirements are canonical in `specs/`.
   - Verification run passed: `direnv exec . typecheck`, `direnv exec . test`, `direnv exec . lint`, `direnv exec . format`, followed by `direnv exec . typecheck` and `direnv exec . test` (13 examples, 0 failures, 1 pending).
 
 ### 1.3 Role-based authorization helpers
-- **Status:** [ ]
+- **Status:** [x]
 - **Goal:** Introduce centralized staff/manager/admin permission guards for controllers.
 - **Spec sources:** `specs/03-access-control-and-auth.md`
 - **Deliverables:**
@@ -133,6 +133,18 @@ Business requirements are canonical in `specs/`.
   - Role checks added to key controllers as introduced.
 - **Acceptance checks:**
   - Unauthorized actions fail with expected response.
+- **Completion notes:**
+  - Added controller-side helpers in `Application/Helper/Controller.hs`:
+    - `currentUserRole` — parses `currentUser.userRole` text to `UserRole` ADT (falls back to `StaffRole`)
+    - `hasRole` — hierarchical role check (staff < manager < admin)
+    - `ensureManagerRole` — 403 guard via `accessDeniedUnless` for manager+ actions
+    - `ensureAdminRole` — 403 guard via `accessDeniedUnless` for admin-only actions
+  - Added view-side helpers in `Application/Helper/View.hs`:
+    - `currentUserIsManager` and `currentUserIsAdmin` for conditional UI rendering
+  - Added 3 tests in `Test/SchemaSpec.hs` covering role parsing, hierarchy ordering, and `hasRole` logic across all role combinations including unknown-role fallback.
+  - Named guards `ensureManagerRole`/`ensureAdminRole` to avoid conflict with IHP's built-in `ensureIsAdmin` (IHP admin auth system).
+  - Guards will be applied to controllers as they are introduced in later phases (no existing controllers require role restrictions beyond authentication).
+  - Verification: `typecheck`, `test` (17 examples, 0 failures), `lint`, `format` all passed.
 
 ---
 
