@@ -30,7 +30,23 @@
 - Form handling uses IHP's form helpers — see `IHP/Guide/form.markdown`
 
 ## Verification Tools
-These are devenv scripts — run them directly by name inside the devenv shell (they are on PATH automatically):
+
+These scripts are defined in `flake.nix` as devenv shell scripts. They are placed on `PATH` automatically when the **direnv environment is active** (i.e. when a user's shell has been loaded by direnv via the `.envrc` file using `use flake`).
+
+**Agent/automation note:** Agents and CI running outside an interactive direnv shell must prefix commands with `direnv exec .` to run them inside the activated environment:
+
+```bash
+# Correct — works from any shell (e.g. Bash tool, CI)
+direnv exec . regen-types
+direnv exec . typecheck
+direnv exec . test
+direnv exec . lint
+direnv exec . format
+```
+
+Never use bare names like `regen-types` or `typecheck` in Bash tool calls — they will fail with "command not found" unless direnv has already activated the environment in that shell session.
+
+Available scripts:
 
 - **`typecheck`** — Fast (~2-3s) typecheck without full build. **Run after every code change** to catch errors immediately. Exit 0 = success.
 - **`regen-types`** — Regenerate `build/Generated/Types.hs` after editing `Application/Schema.sql`. Always run this before `typecheck` when schema has changed.
@@ -43,22 +59,26 @@ These are devenv scripts — run them directly by name inside the devenv shell (
 
 ## Adding a New Feature (e.g. a new page with database table)
 
-1. **Schema** — Add table to `Application/Schema.sql`, then run `regen-types`
+1. **Schema** — Add table to `Application/Schema.sql`, then:
+   - Run `direnv exec . regen-types` to regenerate Haskell types
+   - Run `make db` (requires `devenv up` running) to apply the schema to the dev database — **skipping this causes "relation does not exist" crashes at runtime even when typecheck passes**
 2. **Types** — Add controller type to `Web/Types.hs` (see `Web/Controller/AGENTS.md` for pattern)
 3. **Routes** — Add `instance AutoRoute MyController` to `Web/Routes.hs`
 4. **Controller** — Create `Web/Controller/My.hs` with action implementations
 5. **Views** — Create `Web/View/My/Index.hs`, `Show.hs`, etc. (see `Web/View/AGENTS.md`)
 6. **Mount** — Add `import Web.Controller.My` and `parseRoute @MyController` to `Web/FrontController.hs`
-7. **Verify** — Run `typecheck` (must pass before moving on)
-8. **Polish** — Run `lint`, then `format`
+7. **Verify** — Run `direnv exec . typecheck` (must pass before moving on)
+8. **DB check** — Confirm the table exists: `psql -h "$PWD/build/db" app -c "\dt"`
+9. **Polish** — Run `direnv exec . lint`, then `direnv exec . format`
 
 For simple CRUD, prefer running `new-controller NAME` to scaffold all files, then customize.
 
 ## Verification Workflow
-- **After every code change**: `typecheck` (fast, ~2-3s)
-- **After schema changes**: `regen-types` first, then `typecheck`
-- **After adding/changing controllers**: `test` to run the test suite
-- **Before committing**: `lint` then `format`
+- **After every code change**: `direnv exec . typecheck` (fast, ~2-3s)
+- **After schema changes**: `direnv exec . regen-types` first, then `direnv exec . typecheck`, then `make db` (requires `devenv up`)
+- **After adding/changing controllers**: `direnv exec . test` to run the test suite
+- **Before committing**: `direnv exec . lint` then `direnv exec . format`
+- **To confirm DB is in sync**: `psql -h "$PWD/build/db" app -c "\dt"` — all tables in `Schema.sql` should be present
 
 ## Maintaining Agent Documentation
 - Subdirectory `AGENTS.md` files exist in `Web/Controller/`, `Web/View/`, and `Application/` with detailed patterns

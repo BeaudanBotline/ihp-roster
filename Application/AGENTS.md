@@ -21,7 +21,17 @@ CREATE TABLE posts (
 );
 ```
 
-After editing the schema, the types in `build/Generated/Types.hs` are regenerated automatically.
+After editing the schema you must do **two things**:
+
+1. **Regenerate Haskell types** — run `direnv exec . regen-types` (updates `build/Generated/Types.hs`)
+2. **Apply to the running database** — run `make db` while `devenv up` is active in another terminal
+
+`make db` drops and recreates the entire database from `Schema.sql` + `Fixtures.sql`. This is safe in development. **Without running `make db` the app will crash at runtime with "relation does not exist"** even if typecheck passes.
+
+To verify the schema is applied, connect to the dev DB and check:
+```bash
+psql -h "$PWD/build/db" app -c "\dt"
+```
 
 ## Helpers
 - `Application/Helper/Controller.hs` — Functions available in all controllers

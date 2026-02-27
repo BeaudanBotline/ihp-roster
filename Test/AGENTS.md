@@ -4,9 +4,12 @@
 Read `IHP/Guide/testing.markdown` for full IHP testing documentation.
 
 ## Running Tests
+
+Tests are a devenv shell script — use `direnv exec .` outside an interactive shell:
+
 ```bash
-test          # compile and run all tests
-test --match "PostsController"  # run tests matching a pattern
+direnv exec . test                             # compile and run all tests
+direnv exec . test --match "PostsController"  # run tests matching a pattern
 ```
 
 ## Adding Tests for a New Controller
@@ -61,7 +64,7 @@ When adding a new controller (e.g., `PostsController`), create a corresponding s
 
 ## Available Test Helpers (from `IHP.Test.Mocking`)
 
-- `mockContextNoDatabase` — Create a mock context without database (for static pages)
+- `mockContextNoDatabase` — Create a mock context without a real DB connection (for static/form-render tests)
 - `callAction SomeAction` — Call a controller action, returns `Response`
 - `callActionWithParams SomeAction [("key", "value")]` — Call with form params
 - `responseStatusShouldBe response status200` — Assert HTTP status
@@ -69,6 +72,17 @@ When adding a new controller (e.g., `PostsController`), create a corresponding s
 - `responseBodyShouldNotContain response "text"` — Assert body does not contain text
 - `responseBody response` — Extract response body as `LBS.ByteString`
 - `withUser user do ...` — Set current user for auth-protected actions
+
+## `mockContextNoDatabase` Limitations
+
+`mockContextNoDatabase` sets up a connection pool but leaves the underlying DB connection `undefined`. Any action that touches the database at runtime will return a **500**.
+
+This means:
+
+- **Safe to test** with `mockContextNoDatabase`: rendering forms, unauthenticated redirects (`ensureIsUser` with no session), any action that never queries the DB
+- **Cannot test** with `mockContextNoDatabase`: `CreateSessionAction`/`DeleteSessionAction` (both query the DB), `withUser` + an auth-gated page (because `initAuthentication` fetches the user record from the DB by session ID, even when the session is set via `withUser`)
+
+For tests that require a real database, a separate test database and `mockContext` with a live connection would be needed. Document these as `-- requires real DB` and skip them until a test DB is configured.
 
 ## What to Test
 

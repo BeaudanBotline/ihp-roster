@@ -1,0 +1,37 @@
+module Web.View.Users.New where
+import Web.View.Prelude
+
+data NewView = NewView { user :: User }
+
+instance View NewView where
+    html NewView { .. } = [hsx|
+        <div class="min-vh-100 d-flex align-items-center justify-content-center bg-light">
+            <div class="card shadow-sm" style="width: 100%; max-width: 420px;">
+                <div class="card-body p-4">
+                    <h4 class="card-title mb-4 text-center">Create Account</h4>
+                    {renderForm user}
+                    <hr/>
+                    <p class="text-center mb-0 text-muted small">
+                        Already have an account?
+                        <a href={NewSessionAction}>Sign in</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    |]
+
+renderForm :: User -> Html
+renderForm user = formFor user [hsx|
+    {(textField #email) { fieldLabel = "Email address", placeholder = "you@example.com", autofocus = True }}
+    {(passwordField #passwordHash) { fieldLabel = "Password", placeholder = "••••••••", required = True }}
+    {(passwordField #passwordHash)
+        { fieldLabel = "Confirm Password"
+        , placeholder = "••••••••"
+        , fieldName = "passwordConfirmation"
+        , validatorResult = Nothing
+        , required = True
+        }}
+    <div class="d-grid mt-4">
+        <button type="submit" class="btn btn-primary">Create Account</button>
+    </div>
+|]
