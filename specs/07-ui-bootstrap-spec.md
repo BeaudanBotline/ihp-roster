@@ -20,6 +20,14 @@
   - **Start Time** (`TIME`)
   - **Staff** (`NAME`)
   - **Code/Flag** (`NOTE`) for short markers like `M`, `DEL`, `F`, `SUP`, `D`, `*AS`.
+- **Start Time Picker UX:** Start time uses a modal picker (not browser-native time input) with:
+  - 15-minute increments
+  - options from `6:00 AM` through `11:45 PM`
+  - 4 buttons per row in the option grid
+  - selected value highlighted when opened
+  - both `Clear time` and `Cancel` actions
+  - immediate close + auto-save on selection
+- **Time Display Format:** UI labels use 12-hour format with AM/PM (e.g. `6:15 AM`).
 - **Day Column:** Left-most column shows compact day/date (e.g. `Tue` + `24/02`) and spans all rows for that day.
 - **Day Controls:** Day header area includes `[+]` / `[-]` controls.
   - `[+]` adds a new visual row for the day (inserting an empty slot for Early, Mid, and Late sharing the same `row_index`).
@@ -38,6 +46,7 @@
 ## Timesheets
 
 - Simple create/edit form with strict 15-minute increment validation feedback.
+- Timesheet time selection should reuse the same modal quarter-hour picker component used by roster start-time fields.
 - Approval status badges and manager actions.
 
 ## Leave

@@ -56,3 +56,13 @@ renderForm post = formFor post [hsx|
 - For high-frequency roster edits, avoid `hx-target="#roster-content"` full-fragment swaps on each input.
 - Prefer row-targeted updates: set stable `<tr id=... data-roster-row="true">` IDs and return only affected rows with `hx-swap-oob="outerHTML"`.
 - Keep `hx-sync` on roster inputs (e.g. `#roster-content:queue last`) to prevent out-of-order UI overwrites.
+
+## Reusable Time Picker Pattern
+- Use a shared modal + JS behavior for quarter-hour time selection instead of native `<input type="time">` in dense grids.
+- Markup contract:
+  - wrap field with `data-time-picker-field`
+  - store canonical value in hidden `.js-time-picker-input` (`HH:MM` 24-hour)
+  - open picker via `.js-time-picker-trigger`
+  - render text in `.js-time-picker-label` (12-hour with AM/PM)
+- Include `renderQuarterHourTimePickerModal` once on pages that need the picker.
+- Keep HTMX autosave on the hidden input (`hx-trigger="change"`), and let JS dispatch `change` after selecting/clearing a modal option.

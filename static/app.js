@@ -118,6 +118,7 @@ $(document).on('ready turbolinks:load', function () {
 
     let inFlightRequests = 0;
     let resumeTimer = null;
+    const eventTarget = document;
 
     function pauseNow() {
         if (typeof window.pauseAutoRefresh === 'function') {
@@ -140,7 +141,7 @@ $(document).on('ready turbolinks:load', function () {
         }, 150);
     }
 
-    document.body.addEventListener('htmx:beforeRequest', function () {
+    eventTarget.addEventListener('htmx:beforeRequest', function () {
         inFlightRequests += 1;
         pauseNow();
     });
@@ -152,11 +153,149 @@ $(document).on('ready turbolinks:load', function () {
         scheduleResume();
     }
 
-    document.body.addEventListener('htmx:afterRequest', onRequestDone);
-    document.body.addEventListener('htmx:responseError', onRequestDone);
-    document.body.addEventListener('htmx:sendError', onRequestDone);
-    document.body.addEventListener('htmx:swapError', onRequestDone);
-    document.body.addEventListener('htmx:afterSettle', function () {
+    eventTarget.addEventListener('htmx:afterRequest', onRequestDone);
+    eventTarget.addEventListener('htmx:responseError', onRequestDone);
+    eventTarget.addEventListener('htmx:sendError', onRequestDone);
+    eventTarget.addEventListener('htmx:swapError', onRequestDone);
+    eventTarget.addEventListener('htmx:afterSettle', function () {
         scheduleResume();
+    });
+})();
+
+// Reusable quarter-hour modal time picker.
+// Any field using [data-time-picker-field] + .js-time-picker-input + .js-time-picker-trigger
+// can opt into this behavior.
+(function enableQuarterHourTimePicker() {
+    if (typeof window === 'undefined') return;
+
+    const modalId = 'quarter-hour-time-picker-modal';
+    const emptyLabel = 'Select time';
+    let activeField = null;
+
+    function getModalElement() {
+        return document.getElementById(modalId);
+    }
+
+    function getBootstrapModal(modalEl) {
+        if (!modalEl || !window.bootstrap || !window.bootstrap.Modal) return null;
+        return window.bootstrap.Modal.getOrCreateInstance(modalEl);
+    }
+
+    function getFieldInput(fieldEl) {
+        return fieldEl ? fieldEl.querySelector('.js-time-picker-input') : null;
+    }
+
+    function getFieldLabel(fieldEl) {
+        return fieldEl ? fieldEl.querySelector('.js-time-picker-label') : null;
+    }
+
+    function findOptionByValue(modalEl, value) {
+        if (!modalEl) return null;
+        return modalEl.querySelector(`.js-time-picker-option[data-time-value="${value}"]`);
+    }
+
+    function updateFieldLabel(fieldEl, value, explicitLabel) {
+        const labelEl = getFieldLabel(fieldEl);
+        if (!labelEl) return;
+
+        if (!value) {
+            labelEl.textContent = emptyLabel;
+            labelEl.classList.add('text-muted');
+            return;
+        }
+
+        labelEl.textContent = explicitLabel || value;
+        labelEl.classList.remove('text-muted');
+    }
+
+    function highlightSelectedOption(modalEl, value) {
+        if (!modalEl) return;
+
+        modalEl.querySelectorAll('.js-time-picker-option').forEach(function (optionEl) {
+            const isSelected = value && optionEl.dataset.timeValue === value;
+            optionEl.classList.toggle('active', Boolean(isSelected));
+            optionEl.classList.toggle('btn-primary', Boolean(isSelected));
+            optionEl.classList.toggle('btn-outline-secondary', !isSelected);
+        });
+    }
+
+    function applyTimeValue(fieldEl, value, labelText) {
+        const inputEl = getFieldInput(fieldEl);
+        if (!inputEl || inputEl.disabled) return;
+
+        const previousValue = inputEl.value || '';
+        const nextValue = value || '';
+
+        updateFieldLabel(fieldEl, nextValue, labelText);
+        if (previousValue === nextValue) return;
+
+        inputEl.value = nextValue;
+        inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    document.addEventListener('click', function (event) {
+        const triggerEl = event.target.closest('.js-time-picker-trigger');
+        if (!triggerEl) return;
+        if (triggerEl.disabled) return;
+
+        const fieldEl = triggerEl.closest('[data-time-picker-field]');
+        const inputEl = getFieldInput(fieldEl);
+        if (!fieldEl || !inputEl || inputEl.disabled) return;
+
+        const modalEl = getModalElement();
+        const bootstrapModal = getBootstrapModal(modalEl);
+        if (!modalEl || !bootstrapModal) return;
+
+        activeField = fieldEl;
+        highlightSelectedOption(modalEl, inputEl.value || '');
+        bootstrapModal.show();
+    });
+
+    document.addEventListener('click', function (event) {
+        const optionEl = event.target.closest('.js-time-picker-option');
+        if (!optionEl) return;
+        if (!activeField) return;
+
+        const modalEl = getModalElement();
+        const bootstrapModal = getBootstrapModal(modalEl);
+        const value = optionEl.dataset.timeValue || '';
+        const labelText = optionEl.textContent ? optionEl.textContent.trim() : value;
+
+        applyTimeValue(activeField, value, labelText);
+        highlightSelectedOption(modalEl, value);
+        if (bootstrapModal) bootstrapModal.hide();
+    });
+
+    document.addEventListener('click', function (event) {
+        const clearButton = event.target.closest('.js-time-picker-clear');
+        if (!clearButton) return;
+        if (!activeField) return;
+
+        const modalEl = getModalElement();
+        const bootstrapModal = getBootstrapModal(modalEl);
+
+        applyTimeValue(activeField, '', emptyLabel);
+        highlightSelectedOption(modalEl, '');
+        if (bootstrapModal) bootstrapModal.hide();
+    });
+
+    document.addEventListener('hidden.bs.modal', function (event) {
+        const modalEl = event.target;
+        if (!(modalEl instanceof HTMLElement)) return;
+        if (modalEl.id !== modalId) return;
+
+        activeField = null;
+    });
+
+    // Ensure labels stay in sync when rows are refreshed by AutoRefresh/HTMX.
+    document.addEventListener('turbolinks:load', function () {
+        document.querySelectorAll('[data-time-picker-field]').forEach(function (fieldEl) {
+            const inputEl = getFieldInput(fieldEl);
+            if (!inputEl) return;
+            const modalEl = getModalElement();
+            const selectedOption = findOptionByValue(modalEl, inputEl.value || '');
+            const selectedLabel = selectedOption ? selectedOption.textContent.trim() : inputEl.value;
+            updateFieldLabel(fieldEl, inputEl.value || '', selectedLabel);
+        });
     });
 })();

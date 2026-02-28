@@ -37,6 +37,12 @@ Each new controller requires:
   - Compact spacing tuned for desktop data entry and print-like readability.
   - Left day cell rendered once per day-group (visually spanning the day's rows) with row add/remove controls.
   - HTMX edits must submit full cell payload so single-field edits do not clear sibling fields.
+  - Start-time editing must use a reusable modal quarter-hour picker component:
+    - hidden input stores canonical `HH:MM` (24-hour) value
+    - visible label shows `h:mm AM/PM`
+    - selectable range is `06:00` to `23:45` in 15-minute increments
+    - UI interactions dispatch `change` on the hidden input so existing HTMX autosave remains unchanged
+    - component is shared for future timesheet forms
 
 ## Helpers and services
 

@@ -1,7 +1,9 @@
 module Test.SchemaSpec where
 
 import Application.Helper.Controller
-import Application.Helper.View (isTrialStaff)
+import Application.Helper.View (isTrialStaff, quarterHourTimeOptions,
+                                storageTimeToDisplayLabel)
+import qualified Data.Text as Text
 import Generated.Types
 import IHP.ControllerPrelude (newRecord)
 import IHP.NameSupport (columnNameToFieldName, fieldNameToColumnName)
@@ -134,6 +136,27 @@ tests = describe "Schema" do
                     |> set #lastName "Person"
                     |> set #userId (Just def)
             isTrialStaff linkedStaff `shouldBe` False
+
+    describe "Quarter-hour time picker helpers" do
+        it "generates canonical options from 06:00 to 23:45 in 15-minute increments" do
+            fmap fst quarterHourTimeOptions `shouldSatisfy` (not . null)
+            (fmap fst (head quarterHourTimeOptions)) `shouldBe` Just "06:00"
+            (fmap fst (last quarterHourTimeOptions)) `shouldBe` Just "23:45"
+            length quarterHourTimeOptions `shouldBe` 72
+
+        it "renders stored HH:MM values as 12-hour AM/PM labels" do
+            storageTimeToDisplayLabel "06:00" `shouldBe` "6:00 AM"
+            storageTimeToDisplayLabel "13:15" `shouldBe` "1:15 PM"
+            storageTimeToDisplayLabel "23:45" `shouldBe` "11:45 PM"
+
+        it "returns original text when value is not a valid HH:MM input" do
+            storageTimeToDisplayLabel "not-a-time" `shouldBe` "not-a-time"
+            storageTimeToDisplayLabel "" `shouldBe` ""
+
+        it "ensures all option labels are 12-hour AM/PM and values are HH:MM" do
+            forM_ quarterHourTimeOptions $ \(value, label) -> do
+                value `shouldSatisfy` (\v -> Text.length v == 5 && Text.index v 2 == ':')
+                label `shouldSatisfy` (\l -> "AM" `Text.isSuffixOf` l || "PM" `Text.isSuffixOf` l)
 
     it "all schema column names round-trip through IHP NameSupport" do
         -- Every column name must survive columnNameToFieldName and

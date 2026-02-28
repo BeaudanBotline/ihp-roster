@@ -293,6 +293,34 @@ Business requirements are canonical in `specs/`.
     - `direnv exec . typecheck`
     - `direnv exec . test`
 
+### 3.5 Reusable quarter-hour modal time picker
+- **Status:** [x]
+- **Goal:** Replace roster native time inputs with a reusable modal picker and establish a shared pattern for future timesheet forms.
+- **Spec sources:** `specs/07-ui-bootstrap-spec.md`, `specs/08-ihp-implementation-spec.md`, `specs/05-timesheets-and-leave.md`
+- **Deliverables:**
+  - Shared view helper generating quarter-hour options (`06:00` to `23:45`) and 12-hour labels.
+  - Reusable Bootstrap modal with 4-column time button grid, selected-state highlight, `Clear time`, and `Cancel`.
+  - Roster time-cell integration using hidden canonical input + visible trigger button.
+  - JS behavior that dispatches `change` on hidden input so existing HTMX autosave path remains intact.
+- **Acceptance checks:**
+  - Draft roster time fields open modal instead of browser-native time picker.
+  - Selecting a value writes `HH:MM` and auto-saves.
+  - Clear action empties the field and auto-saves.
+  - Picker behavior is drop-in reusable for future forms (e.g. timesheets).
+- **Completion notes:**
+  - Added reusable time-picker helpers in `Application/Helper/View.hs`:
+    - `quarterHourTimeOptions`
+    - `optionalTimeOfDayToStorageValue`
+    - `storageTimeToDisplayLabel`
+    - `renderQuarterHourTimePickerModal`
+  - Updated `Web/View/RosterWeeks/Show.hs` to replace `<input type="time">` with:
+    - hidden canonical `startTime` input (`HH:MM`)
+    - visible trigger button showing 12-hour label
+    - shared modal include
+  - Added delegated modal interaction logic in `static/app.js` for open/select/highlight/clear.
+  - Added CSS for roster trigger styling and 4-column modal button grid in `static/app.css`.
+  - Updated specs and view guidance docs to codify the shared component contract and timesheet reuse intent.
+
 ---
 
 ## Phase 4 — Conflict Detection

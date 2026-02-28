@@ -13,7 +13,8 @@ import Data.Time.Format (defaultTimeLocale, parseTimeM)
 import Data.Time.LocalTime (TimeOfDay)
 import qualified Data.UUID as UUID
 import Web.Controller.Prelude
-import Web.View.RosterWeeks.Show (ShowView (..), renderRosterContentFragment, renderRowOob, rowsForDay)
+import Web.View.RosterWeeks.Show (ShowView (..), renderRosterContentFragment,
+                                  renderRowOob, rowsForDay)
 
 instance Controller RosterWeeksController where
     beforeAction = do
@@ -353,13 +354,13 @@ fetchRelatedSlotsForStaffIds staffIds =
             |> fetch
 
 data RosterRenderData = RosterRenderData
-    { rosterWeek :: RosterWeek
-    , rosterDays :: [RosterDay]
-    , weekStartDate :: Calendar.Day
-    , staffMembers :: [Staff]
+    { rosterWeek       :: RosterWeek
+    , rosterDays       :: [RosterDay]
+    , weekStartDate    :: Calendar.Day
+    , staffMembers     :: [Staff]
     , orderedSlotNames :: [SlotName]
-    , allSlots :: [RosterSlot]
-    , slotConflicts :: [(Id RosterSlot, [RosterConflict])]
+    , allSlots         :: [RosterSlot]
+    , slotConflicts    :: [(Id RosterSlot, [RosterConflict])]
     }
 
 fetchRosterRenderData :: (?modelContext :: ModelContext) => Int -> IO (Maybe RosterRenderData)
@@ -420,4 +421,4 @@ applyOptionalField :: forall field model value. (SetField field model value) => 
 applyOptionalField _ parsedValue rawParam model =
     case rawParam of
         Nothing -> model
-        Just _ -> setField @field parsedValue model
+        Just _  -> setField @field parsedValue model

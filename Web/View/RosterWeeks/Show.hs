@@ -42,6 +42,7 @@ instance View ShowView where
         </div>
 
         {renderRosterContentFragment rosterWeek rosterDays weekOffset staffMembers slotNames weekStartDate allSlots slotConflicts}
+        {renderQuarterHourTimePickerModal}
     |]
 
 renderRosterContentFragment :: (?context :: ControllerContext) => Maybe RosterWeek -> [RosterDay] -> Int -> [Staff] -> [SlotName] -> Day -> [RosterSlot] -> [(Id RosterSlot, [RosterConflict])] -> Html
@@ -194,22 +195,28 @@ renderBlockCells :: (?context :: ControllerContext) => [Staff] -> Id RosterDay -
 renderBlockCells staffMembers rosterDayId rowIndex rowSlots slotConflicts (blockIndex, slotName) =
     case find (\slot -> slot.slotNameId == coerce slotName.id) rowSlots of
         Just slot ->
-            let currentStartTime = fromMaybe "" (tshow <$> slot.startTime)
+            let currentStartTime = optionalTimeOfDayToStorageValue slot.startTime
+                currentStartTimeLabel = if Text.null currentStartTime then "Select time" else storageTimeToDisplayLabel currentStartTime
                 currentNote = fromMaybe "" slot.note
                 currentConflicts = lookupConflicts slot.id slotConflicts
              in [hsx|
                 <td class={classes [("slot-time-cell", True), ("roster-block-start", blockIndex > 0)]}>
-                    <form class="m-0 d-flex align-items-center gap-1 slot-cell-form">
-                        <input type="time"
+                    <form class="m-0 d-flex align-items-center gap-1 slot-cell-form" data-time-picker-field="true">
+                        <input type="hidden"
                                name="startTime"
                                value={currentStartTime}
-                               class="form-control form-control-sm slot-time-input slot-cell-input"
+                               class="slot-time-input slot-cell-input js-time-picker-input"
                                hx-post={UpdateRosterSlotAction slot.id}
                                hx-trigger="change"
                                hx-include="closest form"
                                hx-sync="#roster-content:queue last"
                                hx-swap="none"
                                disabled={not currentUserIsManager} />
+                        <button type="button"
+                                class="btn btn-sm slot-time-trigger js-time-picker-trigger"
+                                disabled={not currentUserIsManager}>
+                            <span class={classes [("js-time-picker-label", True), ("text-muted", Text.null currentStartTime)]}>{currentStartTimeLabel}</span>
+                        </button>
                         {when (blockIndex == 0) (renderDeleteRowButton rosterDayId rowIndex)}
                     </form>
                 </td>

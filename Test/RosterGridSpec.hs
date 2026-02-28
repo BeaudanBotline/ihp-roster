@@ -1,10 +1,10 @@
 module Test.RosterGridSpec where
 
+import qualified Data.UUID as UUID
 import Generated.Types
 import IHP.ControllerPrelude (newRecord)
 import IHP.Prelude
 import Test.Hspec
-import qualified Data.UUID as UUID
 import Web.Controller.RosterWeeks (impactedRowKeysForSlotUpdate)
 import Web.View.RosterWeeks.Show (rowsForDay)
 
