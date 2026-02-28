@@ -200,12 +200,12 @@ $(document).on('ready turbolinks:load', function () {
 
         if (!value) {
             labelEl.textContent = emptyLabel;
-            labelEl.classList.add('text-muted');
+            labelEl.classList.add('app-muted');
             return;
         }
 
         labelEl.textContent = explicitLabel || value;
-        labelEl.classList.remove('text-muted');
+        labelEl.classList.remove('app-muted');
     }
 
     function highlightSelectedOption(modalEl, value) {

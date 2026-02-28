@@ -1,3 +1,165 @@
+:root {
+    color-scheme: dark;
+    --app-bg: #0d1119;
+    --app-surface: #141a24;
+    --app-surface-2: #1a2230;
+    --app-border: #2a3446;
+    --app-border-strong: #3a465d;
+    --app-text: #e8edf7;
+    --app-muted: #9aa8c0;
+    --app-link: #8bb5ff;
+    --app-link-hover: #b7cfff;
+    --app-accent-soft: rgba(139, 181, 255, 0.15);
+    --app-success: #42b883;
+    --app-warning: #f0c572;
+    --app-danger: #f47777;
+
+    --roster-header: #2c3a4f;
+    --roster-subhead: #243041;
+    --roster-day-a: #1a2433;
+    --roster-day-b: #131d2c;
+    --roster-empty: #101825;
+    --roster-danger: #5e1e23;
+    --roster-warning: #4a3a1c;
+}
+
+body.theme-dark {
+    background: radial-gradient(circle at top, #172033 0%, var(--app-bg) 46%);
+    color: var(--app-text);
+}
+
+a:not(.btn) {
+    color: var(--app-link);
+}
+
+a:not(.btn):hover {
+    color: var(--app-link-hover);
+}
+
+.app-shell {
+    min-height: 100vh;
+}
+
+.app-content {
+    max-width: 1200px;
+}
+
+.app-page-auth {
+    min-height: calc(100vh - 5rem);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem 0.75rem;
+}
+
+.app-auth-card,
+.app-panel {
+    width: 100%;
+    border: 1px solid var(--app-border);
+    border-radius: 0.9rem;
+    background: linear-gradient(180deg, var(--app-surface-2), var(--app-surface));
+    box-shadow: 0 0.7rem 1.7rem rgba(0, 0, 0, 0.25);
+}
+
+.app-auth-card {
+    max-width: 26rem;
+}
+
+.app-auth-card.app-auth-card-wide {
+    max-width: 30rem;
+}
+
+.app-auth-body,
+.app-panel-body {
+    padding: 1.5rem;
+}
+
+.app-form-width {
+    max-width: 30rem;
+}
+
+.app-muted {
+    color: var(--app-muted) !important;
+}
+
+.card {
+    border-color: var(--app-border);
+    background-color: var(--app-surface);
+}
+
+.card-header {
+    border-bottom-color: var(--app-border);
+    background-color: var(--app-surface-2) !important;
+}
+
+.breadcrumb {
+    --bs-breadcrumb-divider-color: var(--app-muted);
+    --bs-breadcrumb-item-active-color: var(--app-muted);
+}
+
+.nav-tabs {
+    border-bottom-color: var(--app-border);
+}
+
+.nav-tabs .nav-link {
+    color: var(--app-muted);
+}
+
+.nav-tabs .nav-link.active,
+.nav-tabs .nav-item.show .nav-link {
+    color: var(--app-text);
+    background-color: var(--app-surface-2);
+    border-color: var(--app-border) var(--app-border) var(--app-surface-2);
+}
+
+.table {
+    --bs-table-color: var(--app-text);
+    --bs-table-bg: transparent;
+    --bs-table-border-color: var(--app-border);
+    --bs-table-striped-bg: rgba(255, 255, 255, 0.02);
+    --bs-table-striped-color: var(--app-text);
+    --bs-table-hover-bg: rgba(139, 181, 255, 0.08);
+    --bs-table-hover-color: var(--app-text);
+}
+
+.form-control,
+.form-select {
+    border-color: var(--app-border-strong);
+    background-color: #0f1622;
+    color: var(--app-text);
+}
+
+.form-control::placeholder {
+    color: #7f8da5;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: #6d97de;
+    box-shadow: 0 0 0 0.18rem var(--app-accent-soft);
+}
+
+.btn-outline-secondary {
+    border-color: #64748a;
+    color: #c8d3e3;
+}
+
+.btn-outline-secondary:hover {
+    background-color: #607692;
+    border-color: #607692;
+    color: #f5f8ff;
+}
+
+.btn-outline-danger {
+    border-color: #c46473;
+    color: #f1a5b0;
+}
+
+.btn-outline-primary {
+    border-color: #7ea6e6;
+    color: #a9c6f5;
+}
+
 .roster-grid {
     font-size: 0.72rem;
     table-layout: fixed;
@@ -5,29 +167,34 @@
 
 .roster-grid th,
 .roster-grid td {
-    border-color: #d7dde3;
+    border-color: var(--app-border);
     vertical-align: middle;
 }
 
 .roster-grid .roster-grid-head th {
     letter-spacing: 0.02em;
-    border-bottom: 1px solid #c7ced6;
+    border-bottom: 1px solid var(--app-border-strong);
+}
+
+.roster-grid .roster-day-column {
+    width: 170px;
 }
 
 .roster-grid .roster-block-header {
-    background-color: #b9bcc1;
-    color: #111;
+    background-color: var(--roster-header);
+    color: var(--app-text);
 }
 
 .roster-grid .roster-subhead {
-    background-color: #d0d2d6;
+    background-color: var(--roster-subhead);
     font-size: 0.64rem;
 }
 
 .roster-grid .day-label {
     min-width: 130px;
-    border-right: 2px solid #adb5bd;
+    border-right: 2px solid var(--app-border-strong);
     vertical-align: top;
+    background-color: #121b28 !important;
 }
 
 .roster-grid .roster-day-heading {
@@ -50,15 +217,15 @@
 }
 
 .roster-grid .roster-block-start {
-    border-left: 2px solid #adb5bd !important;
+    border-left: 2px solid var(--app-border-strong) !important;
 }
 
 .roster-grid .roster-block-end {
-    border-right: 2px solid #adb5bd !important;
+    border-right: 2px solid var(--app-border-strong) !important;
 }
 
 .roster-grid .slot-empty-cell {
-    background-color: #fbfcfd;
+    background-color: var(--roster-empty);
 }
 
 .roster-grid .form-control-sm,
@@ -98,7 +265,7 @@
     border: 0 !important;
     border-radius: 0 !important;
     background-color: transparent !important;
-    color: #1b1b1b;
+    color: var(--app-text);
     font-size: 0.7rem;
     font-weight: 700;
     text-align: left;
@@ -107,8 +274,8 @@
 
 .roster-grid .slot-time-trigger:focus,
 .roster-grid .slot-time-trigger:hover {
-    background-color: rgba(13, 110, 253, 0.12) !important;
-    color: #1b1b1b;
+    background-color: var(--app-accent-soft) !important;
+    color: var(--app-text);
 }
 
 .time-picker-grid {
@@ -137,25 +304,25 @@
 }
 
 .roster-grid tr.day-row.day-alt-dark {
-    background-color: #c5c7cb;
+    background-color: var(--roster-day-a);
 }
 
 .roster-grid tr.day-row.day-alt-light {
-    background-color: #ececef;
+    background-color: var(--roster-day-b);
 }
 
 .roster-grid .day-row + .day-row td {
-    border-top-color: #8d9095;
+    border-top-color: var(--app-border-strong);
 }
 
 .conflict-critical {
-    background-color: #e03a3a !important;
-    color: #1b1b1b !important;
+    background-color: var(--roster-danger) !important;
+    color: var(--app-text) !important;
 }
 
 .conflict-advisory {
-    background-color: #f2b7bc !important;
-    color: #1b1b1b !important;
+    background-color: var(--roster-warning) !important;
+    color: var(--app-text) !important;
 }
 
 .roster-grid .conflict-critical .slot-cell-input,

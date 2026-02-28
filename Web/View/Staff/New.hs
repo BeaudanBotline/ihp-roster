@@ -20,7 +20,7 @@ instance View NewView where
 
 renderForm :: Staff -> StaffController -> Html
 renderForm staff action = [hsx|
-    <form method="POST" action={action} class="mt-3" style="max-width: 480px;">
+    <form method="POST" action={action} class="mt-3 app-form-width">
         <div class="mb-3">
             <label for="firstName" class="form-label">First Name</label>
             <input
@@ -65,6 +65,6 @@ renderForm staff action = [hsx|
             </select>
         </div>
         <button type="submit" class="btn btn-primary">Save</button>
-        <a href={StaffAction} class="btn btn-secondary ms-2">Cancel</a>
+        <a href={StaffAction} class="btn btn-outline-secondary ms-2">Cancel</a>
     </form>
 |]

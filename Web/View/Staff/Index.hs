@@ -23,20 +23,22 @@ instance View IndexView where
 
         {renderFilterTabs staffFilter}
 
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>First Name</th>
-                    <th>Last Name</th>
-                    <th>Type</th>
-                    <th>Status</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                {forEach staffMembers renderStaffRow}
-            </tbody>
-        </table>
+        <div class="table-responsive">
+            <table class="table table-striped align-middle">
+                <thead>
+                    <tr>
+                        <th>First Name</th>
+                        <th>Last Name</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {forEach staffMembers renderStaffRow}
+                </tbody>
+            </table>
+        </div>
     |]
 
 renderFilterTabs :: Text -> Html

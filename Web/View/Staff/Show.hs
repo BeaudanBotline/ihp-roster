@@ -22,7 +22,7 @@ instance View ShowView where
             </div>
         </div>
 
-        <dl class="row" style="max-width: 480px;">
+        <dl class="row app-form-width">
             <dt class="col-sm-4">First Name</dt>
             <dd class="col-sm-8">{staff.firstName}</dd>
 

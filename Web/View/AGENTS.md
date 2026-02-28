@@ -66,3 +66,14 @@ renderForm post = formFor post [hsx|
   - render text in `.js-time-picker-label` (12-hour with AM/PM)
 - Include `renderQuarterHourTimePickerModal` once on pages that need the picker.
 - Keep HTMX autosave on the hidden input (`hx-trigger="change"`), and let JS dispatch `change` after selecting/clearing a modal option.
+
+## Theming Pattern (Dark Mode)
+- The app uses a centralized token system in `static/app.css` (`:root` CSS variables) with dark mode as the default.
+- Root layout sets dark mode via `<html data-bs-theme="dark">`; all new views should inherit this instead of setting per-page theme flags.
+- Prefer semantic app wrappers/classes over one-off utilities:
+  - page shells: `app-shell`, `app-content`, `app-page-auth`
+  - surfaces: `app-panel`, `app-auth-card`, `app-panel-body`, `app-auth-body`
+  - sizing/text helpers: `app-form-width`, `app-muted`
+- Avoid inline `style="..."` in HSX for layout/sizing; add a reusable class in `static/app.css` instead.
+- Avoid hardcoded light-mode classes (`bg-light`, `text-muted`) in new views; use semantic classes/tokens.
+- For new component colors, add/consume CSS variables first, then apply them in selectors (including Bootstrap overrides).

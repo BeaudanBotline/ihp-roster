@@ -5,13 +5,15 @@ data IndexView = IndexView
 
 instance View IndexView where
     html IndexView = [hsx|
-        <div class="min-vh-100 d-flex align-items-center justify-content-center bg-light">
-            <div class="text-center">
-                <p class="text-muted mb-4">Logged in as <strong>{currentUser.email}</strong></p>
-                {when currentUserIsManager managerLinks}
-                <a class="btn btn-outline-danger js-delete js-delete-no-confirm" href={DeleteSessionAction}>
-                    Logout
-                </a>
+        <div class="app-page-auth">
+            <div class="app-panel app-form-width text-center">
+                <div class="app-panel-body">
+                    <p class="app-muted mb-4">Logged in as <strong>{currentUser.email}</strong></p>
+                    {when currentUserIsManager managerLinks}
+                    <a class="btn btn-outline-danger js-delete js-delete-no-confirm" href={DeleteSessionAction}>
+                        Logout
+                    </a>
+                </div>
             </div>
         </div>
     |]

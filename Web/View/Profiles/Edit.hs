@@ -6,11 +6,11 @@ newtype EditView = EditView { staff :: Staff }
 
 instance View EditView where
     html EditView { .. } = [hsx|
-        <div class="min-vh-100 d-flex align-items-center justify-content-center bg-light">
-            <div class="card shadow-sm" style="width: 100%; max-width: 480px;">
-                <div class="card-body p-4">
+        <div class="app-page-auth">
+            <div class="app-auth-card app-auth-card-wide">
+                <div class="app-auth-body">
                     <h4 class="card-title mb-3 text-center">Complete Your Profile</h4>
-                    <p class="text-muted text-center">Add your name to continue.</p>
+                    <p class="app-muted text-center">Add your name to continue.</p>
                     {renderForm staff}
                 </div>
             </div>

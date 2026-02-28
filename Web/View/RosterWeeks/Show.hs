@@ -33,7 +33,7 @@ instance View ShowView where
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
                 <h1 class="mb-0">Roster Week {weekOffset}</h1>
-                <p class="text-muted mb-0">{tshow weekStartDate} to {tshow weekEndDate}</p>
+                <p class="app-muted mb-0">{tshow weekStartDate} to {tshow weekEndDate}</p>
             </div>
             <div class="d-flex gap-2 align-items-center">
                 <a href={ShowRosterWeekAction (weekOffset - 1)} class="btn btn-outline-secondary">&larr; Prev Week</a>
@@ -57,7 +57,7 @@ renderRosterContent Nothing _ weekOffset _ _ _ _ _ = [hsx|
     <div class="alert alert-info d-flex justify-content-between align-items-center shadow-sm">
         <div>
             <strong class="d-block mb-1">No roster exists for this week yet.</strong>
-            <p class="mb-0 text-muted small">This week is currently empty. You can create a draft to start assigning staff.</p>
+            <p class="mb-0 app-muted small">This week is currently empty. You can create a draft to start assigning staff.</p>
         </div>
         {when currentUserIsManager (renderCreateForm weekOffset)}
     </div>
@@ -65,7 +65,7 @@ renderRosterContent Nothing _ weekOffset _ _ _ _ _ = [hsx|
 
 renderRosterContent (Just rosterWeek) rosterDays _ staffMembers slotNames weekStartDate allSlots slotConflicts = [hsx|
     <div class="card shadow-sm mb-5">
-        <div class="card-header bg-light d-flex justify-content-between align-items-center py-3">
+        <div class="card-header d-flex justify-content-between align-items-center py-3">
             <div class="d-flex align-items-center gap-3">
                 <span class="fw-bold">Status:</span>
                 {renderStatusBadge rosterWeek.isLive}
@@ -74,9 +74,9 @@ renderRosterContent (Just rosterWeek) rosterDays _ staffMembers slotNames weekSt
         </div>
         <div class="table-responsive">
             <table class="table table-bordered table-sm mb-0 align-middle roster-grid">
-                <thead class="table-light text-center text-uppercase fw-bold roster-grid-head">
+                <thead class="text-center text-uppercase fw-bold roster-grid-head">
                     <tr>
-                        <th rowspan="2" style="width: 170px;" class="py-2">Day / Date</th>
+                        <th rowspan="2" class="py-2 roster-day-column">Day / Date</th>
                         {forEach slotNames renderSlotHeaderGroup}
                     </tr>
                     <tr>
@@ -150,10 +150,10 @@ rosterRowDomIdText rosterDayId rowIndex = "roster-row-" <> tshow rosterDayId <> 
 
 renderDayLabel :: (?context :: ControllerContext) => Day -> RosterDay -> Int -> Html
 renderDayLabel date rosterDay rowCount = [hsx|
-    <td class="bg-light fw-bold day-label p-2" rowspan={tshow rowCount}>
+    <td class="fw-bold day-label p-2" rowspan={tshow rowCount}>
         <div class="d-flex flex-column gap-2">
             <div class="roster-day-heading">
-                <div class="small text-primary">{Text.pack (formatTime defaultTimeLocale "%a" date)}</div>
+                <div class="small app-muted">{Text.pack (formatTime defaultTimeLocale "%a" date)}</div>
                 <div>{Text.pack (formatTime defaultTimeLocale "%d/%m" date)}</div>
             </div>
             {renderAddRowButton rosterDay}
@@ -215,7 +215,7 @@ renderBlockCells staffMembers rosterDayId rowIndex rowSlots slotConflicts (block
                         <button type="button"
                                 class="btn btn-sm slot-time-trigger js-time-picker-trigger"
                                 disabled={not currentUserIsManager}>
-                            <span class={classes [("js-time-picker-label", True), ("text-muted", Text.null currentStartTime)]}>{currentStartTimeLabel}</span>
+                            <span class={classes [("js-time-picker-label", True), ("app-muted", Text.null currentStartTime)]}>{currentStartTimeLabel}</span>
                         </button>
                         {when (blockIndex == 0) (renderDeleteRowButton rosterDayId rowIndex)}
                     </form>
