@@ -29,6 +29,9 @@ instance View ShowView where
             <dt class="col-sm-4">Last Name</dt>
             <dd class="col-sm-8">{staff.lastName}</dd>
 
+            <dt class="col-sm-4">Ideal Shifts/Wk</dt>
+            <dd class="col-sm-8">{fromMaybe "-" (show <$> staff.idealShiftsPerWeek)}</dd>
+
             <dt class="col-sm-4">Type</dt>
             <dd class="col-sm-8">{renderTypeBadge staff}</dd>
 

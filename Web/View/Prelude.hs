@@ -4,8 +4,10 @@ module Web.View.Prelude
 , module Generated.Types
 , module Web.Types
 , module Application.Helper.View
+, module Application.Helper.Conflict
 ) where
 
+import Application.Helper.Conflict
 import Application.Helper.View
 import Generated.Types
 import IHP.ViewPrelude

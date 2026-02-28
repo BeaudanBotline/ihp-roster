@@ -3,6 +3,7 @@ module Main where
 import IHP.Prelude
 import Test.Hspec
 
+import qualified Test.ConflictSpec
 import qualified Test.Controller.DashboardSpec
 import qualified Test.Controller.ProfilesSpec
 import qualified Test.Controller.RosterWeeksSpec
@@ -22,3 +23,4 @@ main = hspec do
     Test.Controller.StaffSpec.tests
     Test.Controller.RosterWeeksSpec.tests
     Test.SchemaSpec.tests
+    Test.ConflictSpec.tests

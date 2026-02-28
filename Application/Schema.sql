@@ -17,6 +17,7 @@ CREATE TABLE staff (
     user_id UUID,
     first_name TEXT NOT NULL,
     last_name TEXT NOT NULL,
+    ideal_shifts_per_week INT DEFAULT NULL,
     is_active BOOLEAN DEFAULT TRUE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,

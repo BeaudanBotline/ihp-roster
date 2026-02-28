@@ -62,6 +62,6 @@ instance Controller StaffController where
         redirectTo StaffAction
 
 buildStaff staff = staff
-    |> fill @'["firstName", "lastName", "isActive"]
+    |> fill @'["firstName", "lastName", "idealShiftsPerWeek", "isActive"]
     |> validateField #firstName nonEmpty
     |> validateField #lastName nonEmpty

@@ -249,7 +249,7 @@ Business requirements are canonical in `specs/`.
 ## Phase 4 — Conflict Detection
 
 ### 4.1 Conflict engine baseline (non-pay)
-- **Status:** [ ]
+- **Status:** [x]
 - **Goal:** Compute and expose conflict flags for roster assignments.
 - **Spec sources:** `specs/04-roster-and-conflict-rules.md`
 - **Deliverables:**
@@ -257,6 +257,12 @@ Business requirements are canonical in `specs/`.
   - Conflict type representation for UI.
 - **Acceptance checks:**
   - Duplicate/leave/availability/preference/ideal conflicts are detected.
+- **Completion notes:**
+  - Added `Application.Helper.Conflict` defining `ConflictType`, `RosterConflict`, and the baseline engine.
+  - Implemented logic for `DuplicateAssignment`, `LeaveConflict`, `AvailabilityRefusal`, and `IdealShiftThresholdExceeded`.
+  - Added `ideal_shifts_per_week` to the `staff` table in schema and wired it to `Web.Controller.Staff`, `Web.View.Staff.New`, `Web.View.Staff.Edit`, and `Web.View.Staff.Show`.
+  - Added test suite `Test/ConflictSpec.hs` asserting priority order and basic flag detection.
+  - Exported `Application.Helper.Conflict` through `Web.Controller.Prelude` and `Web.View.Prelude` for future consumption by roster view features.
 
 ### 4.2 Late-to-Early start-gap conflict
 - **Status:** [ ]

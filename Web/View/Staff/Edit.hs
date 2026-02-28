@@ -45,6 +45,19 @@ renderForm staff action = [hsx|
             />
         </div>
         <div class="mb-3">
+            <label for="idealShiftsPerWeek" class="form-label">Ideal Shifts Per Week</label>
+            <input
+                id="idealShiftsPerWeek"
+                name="idealShiftsPerWeek"
+                type="number"
+                min="0"
+                max="14"
+                class="form-control"
+                value={maybe "" show staff.idealShiftsPerWeek}
+                placeholder="Optional"
+            />
+        </div>
+        <div class="mb-3">
             <label for="isActive" class="form-label">Status</label>
             <select name="isActive" id="isActive" class="form-select">
                 <option value="on" selected={staff.isActive}>Active</option>
