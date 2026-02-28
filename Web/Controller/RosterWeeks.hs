@@ -35,7 +35,12 @@ instance Controller RosterWeeksController where
             |> filterWhere (#weekOffset, weekOffset)
             |> fetchOneOrNothing
 
-        case rosterWeekOrNothing of
+        let isManager = hasRole ManagerRole
+        let visibleRosterWeek = case rosterWeekOrNothing of
+                Just rw -> if not rw.isLive && not isManager then Nothing else Just rw
+                Nothing -> Nothing
+
+        case visibleRosterWeek of
             Just rosterWeek -> do
                 -- We found it, render the week view
                 rosterDays <- query @RosterDay

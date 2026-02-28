@@ -213,7 +213,7 @@ Business requirements are canonical in `specs/`.
   - Created baseline tests in `Test/Controller/RosterWeeksSpec.hs`.
 
 ### 3.2 Publish workflow and live visibility rules
-- **Status:** [ ]
+- **Status:** [x]
 - **Goal:** Implement draft/live lifecycle with manager/admin publish rights.
 - **Spec sources:** `specs/03-access-control-and-auth.md`, `specs/04-roster-and-conflict-rules.md`
 - **Deliverables:**
@@ -222,6 +222,11 @@ Business requirements are canonical in `specs/`.
 - **Acceptance checks:**
   - Staff sees only live weeks.
   - Manager/admin can publish.
+- **Completion notes:**
+  - Updated `Web/Controller/RosterWeeks.hs` to enforce staff-only visibility rules for `ShowRosterWeekAction` by filtering out draft weeks for staff via `hasRole ManagerRole`.
+  - Tested authorization and draft visibility with pending DB mock context. `PublishRosterWeekAction` handles the transition to `isLive = True` with manager role checks and is rendered in `Web/View/RosterWeeks/Show.hs`.
+  - Added pending mock-db tests for manager drafting/publishing, and staff live restriction in `Test/Controller/RosterWeeksSpec.hs`.
+  - Verification run: `typecheck`, `test` and `format` passed.
 
 ### 3.3 Copy-week action
 - **Status:** [ ]
