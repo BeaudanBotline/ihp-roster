@@ -67,9 +67,14 @@ renderStatusBadge isLive =
 
 renderCreateForm :: Int -> Html
 renderCreateForm weekOffset = [hsx|
-    <form method="POST" action={CreateRosterWeekAction weekOffset}>
-        <button type="submit" class="btn btn-primary">Create Draft Roster</button>
-    </form>
+    <div class="d-flex gap-2">
+        <form method="POST" action={CopyRosterWeekAction (weekOffset - 1) weekOffset}>
+            <button type="submit" class="btn btn-outline-primary">Copy Previous Week</button>
+        </form>
+        <form method="POST" action={CreateRosterWeekAction weekOffset}>
+            <button type="submit" class="btn btn-primary">Create Draft Roster</button>
+        </form>
+    </div>
 |]
 
 renderPublishForm :: RosterWeek -> Html

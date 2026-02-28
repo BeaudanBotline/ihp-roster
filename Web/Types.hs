@@ -44,6 +44,7 @@ data RosterWeeksController
     = RosterWeeksAction
     | ShowRosterWeekAction { weekOffset :: !Int }
     | CreateRosterWeekAction { weekOffset :: !Int }
+    | CopyRosterWeekAction { sourceWeekOffset :: !Int, targetWeekOffset :: !Int }
     | PublishRosterWeekAction { rosterWeekId :: !(Id RosterWeek) }
     deriving (Eq, Show, Data)
 

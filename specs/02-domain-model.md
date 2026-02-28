@@ -23,7 +23,9 @@
   - `day_offset` (0..6)
 - `roster_slots`
   - `roster_day_id`
-  - Slot metadata (name/type/start time), assigned staff, and optional provisional duration fields.
+  - Slot metadata: `start_time` (roster explicitly tracks only start times, end times are captured in timesheets) and `note` (short free-text codes like "M", "DEL").
+  - Underlying backend categorizations: `slot_name_id`, `shift_type_id`.
+  - Assigned `staff_id`.
 
 ## Time and approval
 

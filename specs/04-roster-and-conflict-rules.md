@@ -22,14 +22,16 @@ Roster assignment UI must support filter toggles:
 
 ## Conflict flagging
 
-A slot assignment can produce conflict flags. Priority order for display:
+A slot assignment can produce conflict flags. Priority order and visual severity for display:
 
+**Critical Conflicts (Rendered as Dark Red dropdown background):**
 1. Duplicate assignment conflict.
 2. Leave conflict.
-3. Availability conflict.
-4. Preference refusal conflict.
+3. Late-to-Early conflict.
+
+**Advisory Conflicts (Rendered as Light Pink dropdown background):**
+4. Availability refusal conflict.
 5. Ideal-shift threshold exceeded.
-6. Late-to-Early conflict.
 
 ## Late-to-Early rule
 

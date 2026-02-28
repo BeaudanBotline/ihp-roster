@@ -229,7 +229,7 @@ Business requirements are canonical in `specs/`.
   - Verification run: `typecheck`, `test` and `format` passed.
 
 ### 3.3 Copy-week action
-- **Status:** [ ]
+- **Status:** [x]
 - **Goal:** Duplicate a source week into a target offset as draft.
 - **Spec sources:** `specs/04-roster-and-conflict-rules.md`
 - **Deliverables:**
@@ -237,6 +237,12 @@ Business requirements are canonical in `specs/`.
   - Tests ensuring copied week is always `is_live = false`.
 - **Acceptance checks:**
   - Structure and assignments copy correctly.
+- **Completion notes:**
+  - Added `CopyRosterWeekAction` to `Web/Types.hs` taking `sourceWeekOffset` and `targetWeekOffset`.
+  - Implemented copy logic in `Web/Controller/RosterWeeks.hs` protecting with `ensureManagerRole`. It correctly asserts target week doesn't exist, fetches source week, creates the target week as draft (`isLive = False`), creates corresponding 7 `RosterDay`s and duplicates all `RosterSlot`s from the source days onto the target days.
+  - Updated `Web/View/RosterWeeks/Show.hs` to include a "Copy Previous Week" button when a roster week does not exist.
+  - Added test coverage in `Test/Controller/RosterWeeksSpec.hs` checking unauthenticated access is redirected and documented DB-backed test requirements.
+  - Verified via `typecheck` and `test` which passed successfully.
 
 ---
 

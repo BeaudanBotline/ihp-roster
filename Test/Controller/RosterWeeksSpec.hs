@@ -30,6 +30,10 @@ tests = beforeAll (mockContextNoDatabase WebApplication config) do
             response <- callAction (CreateRosterWeekAction 0)
             response `responseStatusShouldBe` status302
 
+        it "redirects unauthenticated users from CopyRosterWeekAction" $ withContext do
+            response <- callAction (CopyRosterWeekAction 0 1)
+            response `responseStatusShouldBe` status302
+
         it "staff cannot see draft weeks (treats as empty/non-existent)" $ withContext do
             pendingWith "requires real DB-backed mockContext to exercise withUser + query"
 
@@ -41,4 +45,7 @@ tests = beforeAll (mockContextNoDatabase WebApplication config) do
 
         it "manager can publish a draft week" $ withContext do
             pendingWith "requires real DB-backed mockContext to exercise withUser + updateRecord"
+
+        it "manager can copy a week and it is created as draft with copied slots" $ withContext do
+            pendingWith "requires real DB-backed mockContext to exercise withUser + createRecord + copy logic"
 
