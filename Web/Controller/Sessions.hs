@@ -10,5 +10,5 @@ instance Controller SessionsController where
     action DeleteSessionAction = Sessions.deleteSessionAction @User
 
 instance Sessions.SessionsControllerConfig User where
-    -- Redirect to the dashboard after a successful login
-    afterLoginRedirectPath = "/Dashboard"
+    -- Redirect to the current roster week after a successful login
+    afterLoginRedirectPath = "/RosterWeeks"
