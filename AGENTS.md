@@ -49,6 +49,8 @@ direnv exec . e2e-report
 
 Never use bare names like `regen-types` or `typecheck` in Bash tool calls — they will fail with "command not found" unless direnv has already activated the environment in that shell session.
 
+If you hit `attempt to write a readonly database` for nix fetcher cache, ensure `XDG_CACHE_HOME` points to a writable path (this repo defaults to `/tmp/nix-cache` in `.envrc` and `dev-start`).
+
 Available scripts:
 
 - **`typecheck`** — Fast (~2-3s) typecheck without full build. **Run after every code change** to catch errors immediately. Exit 0 = success.
@@ -61,10 +63,10 @@ Available scripts:
 - **`e2e`** — Run Playwright end-to-end tests against the live dev server. Accepts playwright args (e.g. `e2e --headed`, `e2e e2e/auth.spec.ts`). Requires `devenv up` running.
 - **`screenshot`** — Take a screenshot of a page. Usage: `screenshot http://localhost:8000/Dashboard dash.png`. Requires `devenv up` running.
 - **`e2e-report`** — Open the Playwright HTML test report from the last run.
-- **`dev-start`** — Start `devenv up` in background for automation. Writes pid/log to `.devenv/agent/`.
-- **`dev-stop`** — Stop background server started by `dev-start`.
-- **`dev-status`** — Health check for background dev server (process + DB + HTTP).
-- **`dev-wait [seconds]`** — Wait until `dev-status` is healthy (default timeout: 90s).
+- **`dev-start`** — Start the IHP `start` script in background for automation (no PTY dependency). Writes pid/log to `.devenv/agent/` and fails fast if startup exits early.
+- **`dev-stop`** — Stop background server started by `dev-start`. If the app is healthy but was started outside `dev-start`, it reports `healthy but unmanaged` and does not kill it.
+- **`dev-status`** — Health check for background dev server (process/socket + DB + HTTP). In restricted sandboxes it may report `*_blocked=true` and still succeed when the process is running.
+- **`dev-wait [seconds]`** — Wait until `dev-status` is healthy (default timeout: 90s). On timeout it prints `dev-status` plus recent `.devenv/agent/devenv.log` lines for debugging.
 - The app runs via `devenv up` — it auto-reloads on file changes, so you can check the browser for runtime behavior.
 
 For reliable non-interactive automation, prefer:
