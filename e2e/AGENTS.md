@@ -20,6 +20,9 @@ direnv exec . e2e --ui
 # Take a screenshot of a page
 direnv exec . screenshot http://localhost:8000/Dashboard dash.png
 
+# Take a screenshot of a protected page with reusable login flow
+direnv exec . screenshot-page /RosterWeeks roster.png --selector 'table.roster-grid'
+
 # View the last test report
 direnv exec . e2e-report
 ```
@@ -73,6 +76,21 @@ test('authenticated feature', async ({ page }) => {
 - `global-teardown.ts` deletes all users with `email LIKE 'e2e-%'` after tests complete
 - To add more fixture data, add SQL to `e2e/fixtures/seed.sql` using the `e2e-` prefix
 - Use `ON CONFLICT DO UPDATE` for idempotency
+
+## Authenticated Screenshot Helper
+
+Use `screenshot-page` when a page requires login/profile completion before rendering:
+
+```bash
+direnv exec . screenshot-page /RosterWeeks test-results/roster.png --selector 'table.roster-grid'
+```
+
+Useful options:
+
+- `--email` and `--password` to change credentials
+- `--no-login` for public pages
+- `--base-url` to target a non-default host
+- `--wait-ms` for delayed UI states
 
 ## Common Selectors for IHP/Bootstrap Forms
 

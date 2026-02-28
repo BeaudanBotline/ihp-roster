@@ -13,7 +13,7 @@ import Data.Time.Format (defaultTimeLocale, parseTimeM)
 import Data.Time.LocalTime (TimeOfDay)
 import qualified Data.UUID as UUID
 import Web.Controller.Prelude
-import Web.View.RosterWeeks.Show
+import Web.View.RosterWeeks.Show (ShowView (..), renderRosterContentFragment)
 
 instance Controller RosterWeeksController where
     beforeAction = do
@@ -206,8 +206,10 @@ instance Controller RosterWeeksController where
                 |> set #rowIndex nextRowIndex
                 |> createRecord
 
-        -- Use respondHtml for HTMX/AutoRefresh consistency
-        respondHtml ""
+        rosterDay <- fetch rosterDayId
+        let rosterWeekId = (coerce rosterDay.rosterWeekId :: Id RosterWeek)
+        rosterWeek <- fetch rosterWeekId
+        respondWithRosterContent rosterWeek.weekOffset
 
     action DeleteRosterRowAction { rosterDayId, rowIndex } = do
         ensureManagerRole
@@ -220,12 +222,19 @@ instance Controller RosterWeeksController where
 
         deleteRecords slotsToDelete
 
-        respondHtml ""
+        rosterDay <- fetch rosterDayId
+        let rosterWeekId = (coerce rosterDay.rosterWeekId :: Id RosterWeek)
+        rosterWeek <- fetch rosterWeekId
+        respondWithRosterContent rosterWeek.weekOffset
 
     action UpdateRosterSlotAction { rosterSlotId } = do
         ensureManagerRole
 
         rosterSlot <- fetch rosterSlotId
+        let rosterDayId = (coerce rosterSlot.rosterDayId :: Id RosterDay)
+        rosterDay <- fetch rosterDayId
+        let rosterWeekId = (coerce rosterDay.rosterWeekId :: Id RosterWeek)
+        rosterWeek <- fetch rosterWeekId
 
         -- Each edit posts the whole cell form via HTMX, so we can update atomically.
         let staffId = parseOptionalStaffId $ paramOrNothing @Text "staffId"
@@ -238,7 +247,7 @@ instance Controller RosterWeeksController where
             |> set #note note
             |> updateRecord
 
-        respondHtml ""
+        respondWithRosterContent rosterWeek.weekOffset
 
 slotNameOrder :: Text -> Int
 slotNameOrder slotName =
@@ -303,3 +312,48 @@ buildSlotConflicts weekStartDate rosterDays allSlots staffMembers = do
             if null conflicts
                 then Nothing
                 else Just (slot.id, conflicts)
+
+respondWithRosterContent :: (?context :: ControllerContext, ?modelContext :: ModelContext) => Int -> IO ()
+respondWithRosterContent weekOffset = do
+    venueConfig <- fetchVenueConfig
+    let epoch = venueConfig.weekOffsetEpoch
+    let weekStartDate = Calendar.addDays (toInteger (weekOffset * 7)) epoch
+
+    rosterWeekOrNothing <- query @RosterWeek
+        |> filterWhere (#weekOffset, weekOffset)
+        |> fetchOneOrNothing
+
+    case rosterWeekOrNothing of
+        Nothing -> respondHtml [hsx|<div id="roster-content"></div>|]
+        Just rosterWeek -> do
+            rosterDays <- query @RosterDay
+                |> filterWhere (#rosterWeekId, coerce rosterWeek.id)
+                |> orderBy #dayOffset
+                |> fetch
+
+            allSlots <- query @RosterSlot
+                |> filterWhereIn (#rosterDayId, map (coerce . (.id)) rosterDays)
+                |> fetch
+
+            staffMembers <- query @Staff
+                |> filterWhere (#isActive, True)
+                |> orderBy #lastName
+                |> fetch
+
+            slotNames <- query @SlotName
+                |> filterWhere (#isActive, True)
+                |> fetch
+
+            let orderedSlotNames = sortBy (comparing (slotNameOrder . (.name))) slotNames
+            slotConflicts <- buildSlotConflicts weekStartDate rosterDays allSlots staffMembers
+
+            respondHtml $
+                renderRosterContentFragment
+                    (Just rosterWeek)
+                    rosterDays
+                    weekOffset
+                    staffMembers
+                    orderedSlotNames
+                    weekStartDate
+                    allSlots
+                    slotConflicts

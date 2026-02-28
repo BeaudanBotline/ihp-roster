@@ -144,6 +144,12 @@
                             exec npx playwright screenshot "$@"
                         '';
 
+                        # Take a screenshot of an authenticated page with reusable login/navigation flow.
+                        # Usage: screenshot-page <path-or-url> <output.png> [--selector <css>] [--email <email>] [--password <password>] [--no-login]
+                        screenshot-page.exec = ''
+                            exec node ./e2e/screenshot-page.mjs "$@"
+                        '';
+
                         # Open the Playwright HTML test report.
                         # Usage: e2e-report
                         e2e-report.exec = ''

@@ -41,8 +41,15 @@ instance View ShowView where
             </div>
         </div>
 
-        {renderRosterContent rosterWeek rosterDays weekOffset staffMembers slotNames weekStartDate allSlots slotConflicts}
+        {renderRosterContentFragment rosterWeek rosterDays weekOffset staffMembers slotNames weekStartDate allSlots slotConflicts}
     |]
+
+renderRosterContentFragment :: (?context :: ControllerContext) => Maybe RosterWeek -> [RosterDay] -> Int -> [Staff] -> [SlotName] -> Day -> [RosterSlot] -> [(Id RosterSlot, [RosterConflict])] -> Html
+renderRosterContentFragment rosterWeek rosterDays weekOffset staffMembers slotNames weekStartDate allSlots slotConflicts = [hsx|
+    <div id="roster-content">
+        {renderRosterContent rosterWeek rosterDays weekOffset staffMembers slotNames weekStartDate allSlots slotConflicts}
+    </div>
+|]
 
 renderRosterContent :: (?context :: ControllerContext) => Maybe RosterWeek -> [RosterDay] -> Int -> [Staff] -> [SlotName] -> Day -> [RosterSlot] -> [(Id RosterSlot, [RosterConflict])] -> Html
 renderRosterContent Nothing _ weekOffset _ _ _ _ _ = [hsx|
@@ -91,9 +98,9 @@ renderSlotHeaderGroup slotName = [hsx|
 renderSlotSubHeaders :: SlotName -> Html
 renderSlotSubHeaders _ =
     mconcat
-        [ [hsx|<th class="py-1 roster-subhead">Time</th>|]
-        , [hsx|<th class="py-1 roster-subhead">Staff</th>|]
-        , [hsx|<th class="py-1 roster-subhead">Code</th>|]
+        [ [hsx|<th class="py-1 roster-subhead roster-col-time">Time</th>|]
+        , [hsx|<th class="py-1 roster-subhead roster-col-staff">Staff</th>|]
+        , [hsx|<th class="py-1 roster-subhead roster-col-code roster-block-end">Code</th>|]
         ]
 
 renderRosterDay :: (?context :: ControllerContext) => [SlotName] -> [Staff] -> Day -> [RosterSlot] -> [(Id RosterSlot, [RosterConflict])] -> RosterDay -> Html
@@ -120,7 +127,7 @@ renderDayRows slotNames staffMembers date rosterDay slots slotConflicts = [hsx|
 
 renderRow :: (?context :: ControllerContext) => [SlotName] -> [Staff] -> Day -> RosterDay -> Int -> [(Id RosterSlot, [RosterConflict])] -> (Int, (Int, [RosterSlot])) -> Html
 renderRow slotNames staffMembers date rosterDay rowCount slotConflicts (rowPosition, (rowIndex, rowSlots)) = [hsx|
-    <tr class={classes [("day-row", True), ("day-row-" <> tshow (get #dayOffset rosterDay), True)]}>
+    <tr class={classes [("day-row", True), ("day-row-" <> tshow (get #dayOffset rosterDay), True), ("day-alt-dark", odd (get #dayOffset rosterDay)), ("day-alt-light", even (get #dayOffset rosterDay))]}>
         {when (rowPosition == 0) (renderDayLabel date rosterDay rowCount)}
         {forEach (zip [0 :: Int ..] slotNames) (renderBlockCells staffMembers rosterDay.id rowIndex rowSlots slotConflicts)}
     </tr>
@@ -130,7 +137,7 @@ renderDayLabel :: (?context :: ControllerContext) => Day -> RosterDay -> Int -> 
 renderDayLabel date rosterDay rowCount = [hsx|
     <td class="bg-light fw-bold day-label p-2" rowspan={tshow rowCount}>
         <div class="d-flex flex-column gap-2">
-            <div>
+            <div class="roster-day-heading">
                 <div class="small text-primary">{Text.pack (formatTime defaultTimeLocale "%a" date)}</div>
                 <div>{Text.pack (formatTime defaultTimeLocale "%d/%m" date)}</div>
             </div>
@@ -145,7 +152,8 @@ renderAddRowButton rosterDay =
         then [hsx|
             <button class="btn btn-link btn-sm p-0 text-decoration-none roster-day-control"
                     hx-post={AddRosterRowAction rosterDay.id}
-                    hx-swap="none"
+                    hx-target="#roster-content"
+                    hx-swap="outerHTML"
                     title="Add shift row">
                 [+]
             </button>
@@ -160,7 +168,8 @@ renderDeleteRowButton rosterDayId rowIndex =
             <button class="btn btn-link btn-sm p-0 text-danger text-decoration-none roster-day-control"
                     hx-post={DeleteRosterRowAction rosterDayId rowIndex}
                     hx-confirm="Delete this entire shift row?"
-                    hx-swap="none"
+                    hx-target="#roster-content"
+                    hx-swap="outerHTML"
                     title="Delete row">
                 [-]
             </button>
@@ -176,33 +185,35 @@ renderBlockCells staffMembers rosterDayId rowIndex rowSlots slotConflicts (block
                 currentStaffId = fromMaybe "" (tshow <$> slot.staffId)
                 currentConflicts = lookupConflicts slot.id slotConflicts
              in [hsx|
-                <td class="slot-time-cell p-1">
-                    <form class="m-0 d-flex align-items-center gap-1">
+                <td class={classes [("slot-time-cell", True), ("roster-block-start", blockIndex > 0)]}>
+                    <form class="m-0 d-flex align-items-center gap-1 slot-cell-form">
                         <input type="hidden" name="staffId" value={currentStaffId} />
                         <input type="hidden" name="note" value={currentNote} />
                         <input type="time"
                                name="startTime"
                                value={currentStartTime}
-                               class="form-control form-control-sm slot-time-input"
+                               class="form-control form-control-sm slot-time-input slot-cell-input"
                                hx-post={UpdateRosterSlotAction slot.id}
                                hx-trigger="change"
                                hx-include="closest form"
-                               hx-swap="none"
+                               hx-target="#roster-content"
+                               hx-swap="outerHTML"
                                disabled={not currentUserIsManager} />
                         {when (blockIndex == 0) (renderDeleteRowButton rosterDayId rowIndex)}
                     </form>
                 </td>
 
-                <td class="slot-staff-cell p-1 position-relative">
-                    <form class="m-0">
+                <td class={classes [("slot-staff-cell position-relative", True), (renderConflictClass currentConflicts, True)]}>
+                    <form class="m-0 slot-cell-form">
                         <input type="hidden" name="startTime" value={currentStartTime} />
                         <input type="hidden" name="note" value={currentNote} />
                         <select name="staffId"
-                                class={classes [("form-select", True), ("form-select-sm", True), (renderConflictClass currentConflicts, True)]}
+                                class="form-select form-select-sm slot-cell-input slot-staff-input"
                                 hx-post={UpdateRosterSlotAction slot.id}
                                 hx-trigger="change"
                                 hx-include="closest form"
-                                hx-swap="none"
+                                hx-target="#roster-content"
+                                hx-swap="outerHTML"
                                 disabled={not currentUserIsManager}>
                             <option value="">Unassigned</option>
                             {forEach staffMembers (renderStaffOption slot.staffId)}
@@ -211,28 +222,29 @@ renderBlockCells staffMembers rosterDayId rowIndex rowSlots slotConflicts (block
                     </form>
                 </td>
 
-                <td class="slot-note-cell p-1">
-                    <form class="m-0">
+                <td class="slot-note-cell roster-block-end">
+                    <form class="m-0 slot-cell-form">
                         <input type="hidden" name="staffId" value={currentStaffId} />
                         <input type="hidden" name="startTime" value={currentStartTime} />
                         <input type="text"
                                name="note"
                                value={currentNote}
                                placeholder="Code"
-                               class="form-control form-control-sm slot-note-input"
+                               class="form-control form-control-sm slot-note-input slot-cell-input"
                                hx-post={UpdateRosterSlotAction slot.id}
                                hx-trigger="keyup changed delay:500ms"
                                hx-include="closest form"
-                               hx-swap="none"
+                               hx-target="#roster-content"
+                               hx-swap="outerHTML"
                                disabled={not currentUserIsManager} />
                     </form>
                 </td>
             |]
         Nothing ->
             mconcat
-                [ [hsx|<td class="slot-empty-cell"></td>|]
+                [ [hsx|<td class={classes [("slot-empty-cell", True), ("roster-block-start", blockIndex > 0)]}></td>|]
                 , [hsx|<td class="slot-empty-cell"></td>|]
-                , [hsx|<td class="slot-empty-cell"></td>|]
+                , [hsx|<td class="slot-empty-cell roster-block-end"></td>|]
                 ]
 
 renderStaffOption :: Maybe UUID -> Staff -> Html
