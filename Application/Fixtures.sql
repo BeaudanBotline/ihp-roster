@@ -13,7 +13,7 @@ INSERT INTO shift_types (id, name, default_pay_level_id, is_active) VALUES
 
 -- Slot Names
 INSERT INTO slot_names (id, name, is_active) VALUES
-('55555555-5555-5555-5555-555555555555', 'Main Bar', true),
-('66666666-6666-6666-6666-666666666666', 'Floor', true),
-('77777777-7777-7777-7777-777777777777', 'Kitchen', true);
+('55555555-5555-5555-5555-555555555555', 'Early', true),
+('66666666-6666-6666-6666-666666666666', 'Mid', true),
+('77777777-7777-7777-7777-777777777777', 'Late', true);
 

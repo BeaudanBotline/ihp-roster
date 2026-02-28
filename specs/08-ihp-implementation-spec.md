@@ -30,6 +30,13 @@ Each new controller requires:
 - HSX views under `Web/View/*`.
 - Layout integration through `Web/View/Layout.hs`.
 - Bootstrap classes first; custom CSS in `static/app.css`.
+- Roster grid rendering should support a dense sheet-style table:
+  - Day/date column with day-level row grouping.
+  - Header with grouped blocks (`Early`, `Mid`, `Late`) and per-block subcolumns (`time/staff/note`).
+  - Each visual row maps to a shared `row_index` across the three blocks.
+  - Compact spacing tuned for desktop data entry and print-like readability.
+  - Left day cell rendered once per day-group (visually spanning the day's rows) with row add/remove controls.
+  - HTMX edits must submit full cell payload so single-field edits do not clear sibling fields.
 
 ## Helpers and services
 

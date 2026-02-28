@@ -10,15 +10,26 @@
 
 ## Roster grid
 
-- **Matrix Layout:** A high-density data-entry grid. The Y-axis represents Days of the week. The X-axis is divided into three fixed chronological blocks: "Early", "Mid", and "Late".
-- **Day Controls:** The left-most column contains Day/Date labels, a `[ ] Closed` checkbox, and `[+]` / `[-]` controls.
+- **Matrix Layout:** A high-density roster sheet inspired by a printed weekly schedule. Y-axis is days, X-axis is fixed chronological blocks: "Early", "Mid", and "Late".
+- **Header Structure:** The table header uses grouped columns:
+  - `Day`
+  - `Early` with subheaders `Time | Staff | Code`
+  - `Mid` with subheaders `Time | Staff | Code`
+  - `Late` with subheaders `Time | Staff | Code`
+- **Block Subcolumns:** Each block is rendered as three tight subcolumns:
+  - **Start Time** (`TIME`)
+  - **Staff** (`NAME`)
+  - **Code/Flag** (`NOTE`) for short markers like `M`, `DEL`, `F`, `SUP`, `D`, `*AS`.
+- **Day Column:** Left-most column shows compact day/date (e.g. `Tue` + `24/02`) and spans all rows for that day.
+- **Day Controls:** Day header area includes `[+]` / `[-]` controls.
   - `[+]` adds a new visual row for the day (inserting an empty slot for Early, Mid, and Late sharing the same `row_index`).
   - `[-]` deletes the entire visual row (removing all Early/Mid/Late slots for that `row_index`).
-- **Shift Cells:** Each populated shift cell within a block contains:
-  - A text/time input for **Start Time** (e.g., "10AM", "1PM"). End times are explicitly not recorded in the roster UI.
-  - A `<select>` dropdown for **Staff Assignment**, enabling rapid reassignment.
-  - A short free-text **Note** input for attaching small codes (e.g., "M", "DEL", "F", "SUP").
-  - **Auto-save:** All cell inputs use HTMX to auto-save to the server on `change`. There is no global "Save Week" button for slot data.
+- **Row Semantics:** A day can have many stacked rows; each row is one "line" on the printed-style sheet and maps to one shared `row_index`.
+- **Shift Cells:** Each day-row has one slot in each block with inline controls for Start Time, Staff assignment, and Note/code.
+- **Auto-save:** Shift edits use HTMX for inline save. No global "Save Week" for slot data.
+- **Visual Density:** Table uses compact typography, narrow spacing, and day-group shading/separators to match paper-sheet readability.
+- **Desktop Priority:** The primary target is desktop/laptop schedule-editing density. Mobile remains usable via horizontal scroll.
+- **Print-readability:** The layout should remain legible when printed/exported (minimal decorative UI in print mode).
 - **Conflict Rendering:** Conflict states are visualized by changing the background color of the Staff Assignment dropdown:
   - **Dark Red:** Critical conflicts (e.g., Duplicate assignment, Leave conflict, Late-to-Early).
   - **Light Pink/Red:** Advisory conflicts (e.g., Availability preference mismatch, Ideal-shift threshold).

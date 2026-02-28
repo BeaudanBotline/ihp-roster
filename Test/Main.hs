@@ -11,6 +11,7 @@ import qualified Test.Controller.SessionsSpec
 import qualified Test.Controller.StaffSpec
 import qualified Test.Controller.StaticSpec
 import qualified Test.Controller.UsersSpec
+import qualified Test.RosterGridSpec
 import qualified Test.SchemaSpec
 
 main :: IO ()
@@ -22,5 +23,6 @@ main = hspec do
     Test.Controller.ProfilesSpec.tests
     Test.Controller.StaffSpec.tests
     Test.Controller.RosterWeeksSpec.tests
+    Test.RosterGridSpec.tests
     Test.SchemaSpec.tests
     Test.ConflictSpec.tests

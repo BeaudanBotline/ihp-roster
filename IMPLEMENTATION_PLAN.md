@@ -245,20 +245,53 @@ Business requirements are canonical in `specs/`.
   - Verified via `typecheck` and `test` which passed successfully.
 
 ### 3.4 Roster grid interactivity and slot assignment
-- **Status:** [ ]
-- **Goal:** Provide the interactive matrix UI to edit roster slots directly using HTMX and IHP AutoRefresh.
+- **Status:** [x]
+- **Goal:** Provide an interactive sheet-style roster UI (matching the printed roster reference) using HTMX and IHP AutoRefresh.
 - **Spec sources:** `specs/07-ui-bootstrap-spec.md`, `specs/08-ihp-implementation-spec.md`
 - **Deliverables:**
   - DB Migration: Remove `shift_type_id` from `roster_slots`, add `row_index`, and make `start_time` nullable.
-  - Matrix layout with Y-axis (Days) and X-axis (Early, Mid, Late).
+  - Sheet-style layout with Y-axis (Days) and grouped X-axis blocks (Early, Mid, Late), each with `Time | Staff | Code` subcolumns.
   - Day controls to add/remove slot rows (`[+]` / `[-]`) using `row_index` grouping.
-  - Inline editing: Dropdowns for Staff assignment, text inputs for Start Time, and notes using HTMX `hx-post` for auto-save.
+  - Inline editing: Staff, Start Time, and Code/Note inputs using HTMX `hx-post` for auto-save.
   - IHP AutoRefresh integration to reflect conflict badges and UI changes in real-time.
 - **Acceptance checks:**
   - Manager/Admin can add rows to a day (creating 3 empty slots).
   - Manager/Admin can delete a row (removing 3 slots).
   - Changes to staff/time/notes auto-save without page refresh.
   - Conflict badges update reactively via AutoRefresh.
+  - Grid structure visually matches the sheet reference: grouped day rows + Early/Mid/Late block subcolumns.
+- **Completion notes:**
+  - Updated `Application/Schema.sql` and `Application/Fixtures.sql` for roster-grid storage model:
+    - removed `roster_slots.shift_type_id`
+    - added `roster_slots.row_index`
+    - made `roster_slots.start_time` nullable
+    - added `roster_slots.note`
+    - normalized fixture slot names to `Early`, `Mid`, `Late`
+  - Extended `RosterWeeksController` (`Web/Controller/RosterWeeks.hs`) with interactive row/cell actions:
+    - `AddRosterRowAction` creates one empty slot per active slot-name for a new `row_index`
+    - `DeleteRosterRowAction` removes all slots in a day/row group
+    - `UpdateRosterSlotAction` auto-saves `staffId`, `startTime`, and `note`
+    - `ShowRosterWeekAction` now runs under `autoRefresh do` and preloads days/slots/staff/slot-names for matrix rendering
+  - Reworked `Web/View/RosterWeeks/Show.hs` into a matrix roster UI (Day/Date rows × Early/Mid/Late columns) using HTMX `hx-post` inline controls for add/delete/update without full-page refresh.
+  - Finalized grouped roster headers and cells to match the sheet spec:
+    - `Early/Mid/Late` now render `Time | Staff | Code` subcolumns
+    - day cell is rendered once per day-group with row-span and compact `[+]` controls
+    - per-row `[-]` controls remove the full `row_index` group
+  - Fixed inline update semantics so each HTMX mutation posts the full cell payload (`staffId`, `startTime`, `note`) and does not accidentally clear untouched fields.
+  - Added conflict integration in roster rendering by evaluating `Application.Helper.Conflict` per slot and displaying severity styles/badges on staff selectors.
+  - Completed density and print-readability pass in `static/app.css` (compact sizing, grouped header styling, conflict colors, print mode that hides interactive controls).
+  - Replaced the generated migration body with a safe, idempotent migration focused only on roster-slot changes (`shift_type_id` removal, `row_index`, nullable `start_time`, `note`).
+  - Added supporting action types in `Web/Types.hs` and loaded HTMX/bootstrap-icons assets in `Web/View/Layout.hs`.
+  - Updated tests for the new schema and actions:
+    - `Test/Controller/RosterWeeksSpec.hs` unauthenticated redirect coverage for add/delete/update actions
+    - `Test/ConflictSpec.hs` roster-slot fixture updated to new slot fields
+    - `Test/SchemaSpec.hs` schema column-name coverage updated for `row_index`
+    - added `Test/RosterGridSpec.hs` covering row grouping and empty-day placeholder behavior via `rowsForDay`
+  - Verification run:
+    - `direnv exec . lint` (warnings only)
+    - `direnv exec . format`
+    - `direnv exec . typecheck`
+    - `direnv exec . test`
 
 ---
 

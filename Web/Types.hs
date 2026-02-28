@@ -46,6 +46,9 @@ data RosterWeeksController
     | CreateRosterWeekAction { weekOffset :: !Int }
     | CopyRosterWeekAction { sourceWeekOffset :: !Int, targetWeekOffset :: !Int }
     | PublishRosterWeekAction { rosterWeekId :: !(Id RosterWeek) }
+    | AddRosterRowAction { rosterDayId :: !(Id RosterDay) }
+    | DeleteRosterRowAction { rosterDayId :: !(Id RosterDay), rowIndex :: !Int }
+    | UpdateRosterSlotAction { rosterSlotId :: !(Id RosterSlot) }
     deriving (Eq, Show, Data)
 
 -- Auth support: where to redirect unauthenticated users

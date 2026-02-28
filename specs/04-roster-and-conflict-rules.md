@@ -20,6 +20,14 @@ Roster assignment UI must support filter toggles:
 - Hide staff on leave.
 - Hide staff with preference conflicts.
 
+## Sheet-style roster presentation
+
+- Weekly roster should be representable in a print-friendly sheet format:
+  - Day/date left column.
+  - Repeating rows per day.
+  - Three chronological blocks (`Early`, `Mid`, `Late`) with `start_time`, `staff`, and short `note` code.
+- `note` is intended for short operational flags (e.g. `M`, `DEL`, `SUP`, `D`, `*AS`) and should stay concise.
+
 ## Conflict flagging
 
 A slot assignment can produce conflict flags. Priority order and visual severity for display:

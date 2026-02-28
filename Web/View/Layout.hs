@@ -36,6 +36,7 @@ defaultLayout inner = [hsx|
 stylesheets :: Html
 stylesheets = [hsx|
         <link rel="stylesheet" href={assetPath "/vendor/bootstrap-5.2.1/bootstrap.min.css"}/>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"/>
         <link rel="stylesheet" href={assetPath "/vendor/flatpickr.min.css"}/>
         <link rel="stylesheet" href={assetPath "/app.css"}/>
     |]
@@ -43,6 +44,7 @@ stylesheets = [hsx|
 scripts :: Html
 scripts = [hsx|
         {when isDevelopment devScripts}
+        <script src="https://unpkg.com/htmx.org@1.9.12"></script>
         <script src={assetPath "/vendor/jquery-3.6.0.slim.min.js"}></script>
         <script src={assetPath "/vendor/timeago.js"}></script>
         <script src={assetPath "/vendor/popper-2.11.6.min.js"}></script>

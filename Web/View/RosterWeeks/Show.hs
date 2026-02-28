@@ -1,6 +1,12 @@
 module Web.View.RosterWeeks.Show where
 
+import Data.Coerce (coerce)
+import Data.List (find, nub, sort)
+import qualified Data.Text as Text
 import Data.Time.Calendar (Day)
+import qualified Data.Time.Calendar as Calendar
+import Data.Time.Format (defaultTimeLocale, formatTime)
+import Data.UUID (UUID)
 import Web.View.Prelude
 
 data ShowView = ShowView
@@ -9,6 +15,10 @@ data ShowView = ShowView
     , weekOffset    :: Int
     , weekStartDate :: Day
     , weekEndDate   :: Day
+    , staffMembers  :: [Staff]
+    , slotNames     :: [SlotName]
+    , allSlots      :: [RosterSlot]
+    , slotConflicts :: [(Id RosterSlot, [RosterConflict])]
     }
 
 instance View ShowView where
@@ -21,58 +31,250 @@ instance View ShowView where
         </nav>
 
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1>Roster: {tshow weekStartDate} to {tshow weekEndDate}</h1>
+            <div>
+                <h1 class="mb-0">Roster Week {weekOffset}</h1>
+                <p class="text-muted mb-0">{tshow weekStartDate} to {tshow weekEndDate}</p>
+            </div>
             <div class="d-flex gap-2 align-items-center">
                 <a href={ShowRosterWeekAction (weekOffset - 1)} class="btn btn-outline-secondary">&larr; Prev Week</a>
                 <a href={ShowRosterWeekAction (weekOffset + 1)} class="btn btn-outline-secondary">Next Week &rarr;</a>
             </div>
         </div>
 
-        {renderRosterContent rosterWeek rosterDays weekOffset}
+        {renderRosterContent rosterWeek rosterDays weekOffset staffMembers slotNames weekStartDate allSlots slotConflicts}
     |]
 
-renderRosterContent :: (?context :: ControllerContext) => Maybe RosterWeek -> [RosterDay] -> Int -> Html
-renderRosterContent Nothing _ weekOffset = [hsx|
-    <div class="alert alert-info d-flex justify-content-between align-items-center">
+renderRosterContent :: (?context :: ControllerContext) => Maybe RosterWeek -> [RosterDay] -> Int -> [Staff] -> [SlotName] -> Day -> [RosterSlot] -> [(Id RosterSlot, [RosterConflict])] -> Html
+renderRosterContent Nothing _ weekOffset _ _ _ _ _ = [hsx|
+    <div class="alert alert-info d-flex justify-content-between align-items-center shadow-sm">
         <div>
-            <strong>No roster exists for this week yet.</strong>
-            <p class="mb-0 text-muted">This week is currently empty. You can create a draft to start assigning staff.</p>
+            <strong class="d-block mb-1">No roster exists for this week yet.</strong>
+            <p class="mb-0 text-muted small">This week is currently empty. You can create a draft to start assigning staff.</p>
         </div>
-
         {when currentUserIsManager (renderCreateForm weekOffset)}
     </div>
 |]
 
-renderRosterContent (Just rosterWeek) rosterDays _ = [hsx|
-    <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <span>
-                Status: {renderStatusBadge rosterWeek.isLive}
-            </span>
+renderRosterContent (Just rosterWeek) rosterDays _ staffMembers slotNames weekStartDate allSlots slotConflicts = [hsx|
+    <div class="card shadow-sm mb-5">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center py-3">
+            <div class="d-flex align-items-center gap-3">
+                <span class="fw-bold">Status:</span>
+                {renderStatusBadge rosterWeek.isLive}
+            </div>
             {when (not rosterWeek.isLive && currentUserIsManager) (renderPublishForm rosterWeek)}
         </div>
-        <div class="card-body">
-            <ul>
-                {forEach rosterDays renderRosterDay}
-            </ul>
+        <div class="table-responsive">
+            <table class="table table-bordered table-sm mb-0 align-middle roster-grid">
+                <thead class="table-light text-center text-uppercase fw-bold roster-grid-head">
+                    <tr>
+                        <th rowspan="2" style="width: 170px;" class="py-2">Day / Date</th>
+                        {forEach slotNames renderSlotHeaderGroup}
+                    </tr>
+                    <tr>
+                        {forEach slotNames renderSlotSubHeaders}
+                    </tr>
+                </thead>
+                <tbody>
+                    {forEach rosterDays (renderRosterDay slotNames staffMembers weekStartDate allSlots slotConflicts)}
+                </tbody>
+            </table>
         </div>
     </div>
+|]
+
+renderSlotHeaderGroup :: SlotName -> Html
+renderSlotHeaderGroup slotName = [hsx|
+    <th colspan="3" class="py-2 roster-block-header">{slotName.name}</th>
+|]
+
+renderSlotSubHeaders :: SlotName -> Html
+renderSlotSubHeaders _ =
+    mconcat
+        [ [hsx|<th class="py-1 roster-subhead">Time</th>|]
+        , [hsx|<th class="py-1 roster-subhead">Staff</th>|]
+        , [hsx|<th class="py-1 roster-subhead">Code</th>|]
+        ]
+
+renderRosterDay :: (?context :: ControllerContext) => [SlotName] -> [Staff] -> Day -> [RosterSlot] -> [(Id RosterSlot, [RosterConflict])] -> RosterDay -> Html
+renderRosterDay slotNames staffMembers weekStartDate allSlots slotConflicts rosterDay = [hsx|
+    {renderDayRows slotNames staffMembers (Calendar.addDays (toInteger (get #dayOffset rosterDay)) weekStartDate) rosterDay daySlots slotConflicts}
+|]
+    where
+        daySlots = filter (\s -> s.rosterDayId == coerce rosterDay.id) allSlots
+
+rowsForDay :: [RosterSlot] -> [(Int, [RosterSlot])]
+rowsForDay slots =
+    case (slots |> map (.rowIndex) |> nub |> sort) of
+        [] -> [(-1, [])]
+        indices -> map (\rowIndex -> (rowIndex, filter (\slot -> slot.rowIndex == rowIndex) slots)) indices
+
+renderDayRows :: (?context :: ControllerContext) => [SlotName] -> [Staff] -> Day -> RosterDay -> [RosterSlot] -> [(Id RosterSlot, [RosterConflict])] -> Html
+renderDayRows slotNames staffMembers date rosterDay slots slotConflicts = [hsx|
+    {forEach indexedRows (renderRow slotNames staffMembers date rosterDay rowCount slotConflicts)}
+|]
+    where
+        dayRows = rowsForDay slots
+        rowCount = length dayRows
+        indexedRows = zip [0 :: Int ..] dayRows
+
+renderRow :: (?context :: ControllerContext) => [SlotName] -> [Staff] -> Day -> RosterDay -> Int -> [(Id RosterSlot, [RosterConflict])] -> (Int, (Int, [RosterSlot])) -> Html
+renderRow slotNames staffMembers date rosterDay rowCount slotConflicts (rowPosition, (rowIndex, rowSlots)) = [hsx|
+    <tr class={classes [("day-row", True), ("day-row-" <> tshow (get #dayOffset rosterDay), True)]}>
+        {when (rowPosition == 0) (renderDayLabel date rosterDay rowCount)}
+        {forEach (zip [0 :: Int ..] slotNames) (renderBlockCells staffMembers rosterDay.id rowIndex rowSlots slotConflicts)}
+    </tr>
+|]
+
+renderDayLabel :: (?context :: ControllerContext) => Day -> RosterDay -> Int -> Html
+renderDayLabel date rosterDay rowCount = [hsx|
+    <td class="bg-light fw-bold day-label p-2" rowspan={tshow rowCount}>
+        <div class="d-flex flex-column gap-2">
+            <div>
+                <div class="small text-primary">{Text.pack (formatTime defaultTimeLocale "%a" date)}</div>
+                <div>{Text.pack (formatTime defaultTimeLocale "%d/%m" date)}</div>
+            </div>
+            {renderAddRowButton rosterDay}
+        </div>
+    </td>
+|]
+
+renderAddRowButton :: (?context :: ControllerContext) => RosterDay -> Html
+renderAddRowButton rosterDay =
+    if currentUserIsManager
+        then [hsx|
+            <button class="btn btn-link btn-sm p-0 text-decoration-none roster-day-control"
+                    hx-post={AddRosterRowAction rosterDay.id}
+                    hx-swap="none"
+                    title="Add shift row">
+                [+]
+            </button>
+        |]
+        else [hsx|<span></span>|]
+
+renderDeleteRowButton :: (?context :: ControllerContext) => Id RosterDay -> Int -> Html
+renderDeleteRowButton _ rowIndex | rowIndex < 0 = [hsx|<span></span>|]
+renderDeleteRowButton rosterDayId rowIndex =
+    if currentUserIsManager
+        then [hsx|
+            <button class="btn btn-link btn-sm p-0 text-danger text-decoration-none roster-day-control"
+                    hx-post={DeleteRosterRowAction rosterDayId rowIndex}
+                    hx-confirm="Delete this entire shift row?"
+                    hx-swap="none"
+                    title="Delete row">
+                [-]
+            </button>
+        |]
+        else [hsx|<span></span>|]
+
+renderBlockCells :: (?context :: ControllerContext) => [Staff] -> Id RosterDay -> Int -> [RosterSlot] -> [(Id RosterSlot, [RosterConflict])] -> (Int, SlotName) -> Html
+renderBlockCells staffMembers rosterDayId rowIndex rowSlots slotConflicts (blockIndex, slotName) =
+    case find (\slot -> slot.slotNameId == coerce slotName.id) rowSlots of
+        Just slot ->
+            let currentStartTime = fromMaybe "" (tshow <$> slot.startTime)
+                currentNote = fromMaybe "" slot.note
+                currentStaffId = fromMaybe "" (tshow <$> slot.staffId)
+                currentConflicts = lookupConflicts slot.id slotConflicts
+             in [hsx|
+                <td class="slot-time-cell p-1">
+                    <form class="m-0 d-flex align-items-center gap-1">
+                        <input type="hidden" name="staffId" value={currentStaffId} />
+                        <input type="hidden" name="note" value={currentNote} />
+                        <input type="time"
+                               name="startTime"
+                               value={currentStartTime}
+                               class="form-control form-control-sm slot-time-input"
+                               hx-post={UpdateRosterSlotAction slot.id}
+                               hx-trigger="change"
+                               hx-include="closest form"
+                               hx-swap="none"
+                               disabled={not currentUserIsManager} />
+                        {when (blockIndex == 0) (renderDeleteRowButton rosterDayId rowIndex)}
+                    </form>
+                </td>
+
+                <td class="slot-staff-cell p-1 position-relative">
+                    <form class="m-0">
+                        <input type="hidden" name="startTime" value={currentStartTime} />
+                        <input type="hidden" name="note" value={currentNote} />
+                        <select name="staffId"
+                                class={classes [("form-select", True), ("form-select-sm", True), (renderConflictClass currentConflicts, True)]}
+                                hx-post={UpdateRosterSlotAction slot.id}
+                                hx-trigger="change"
+                                hx-include="closest form"
+                                hx-swap="none"
+                                disabled={not currentUserIsManager}>
+                            <option value="">Unassigned</option>
+                            {forEach staffMembers (renderStaffOption slot.staffId)}
+                        </select>
+                        {renderConflictBadge currentConflicts}
+                    </form>
+                </td>
+
+                <td class="slot-note-cell p-1">
+                    <form class="m-0">
+                        <input type="hidden" name="staffId" value={currentStaffId} />
+                        <input type="hidden" name="startTime" value={currentStartTime} />
+                        <input type="text"
+                               name="note"
+                               value={currentNote}
+                               placeholder="Code"
+                               class="form-control form-control-sm slot-note-input"
+                               hx-post={UpdateRosterSlotAction slot.id}
+                               hx-trigger="keyup changed delay:500ms"
+                               hx-include="closest form"
+                               hx-swap="none"
+                               disabled={not currentUserIsManager} />
+                    </form>
+                </td>
+            |]
+        Nothing ->
+            mconcat
+                [ [hsx|<td class="slot-empty-cell"></td>|]
+                , [hsx|<td class="slot-empty-cell"></td>|]
+                , [hsx|<td class="slot-empty-cell"></td>|]
+                ]
+
+renderStaffOption :: Maybe UUID -> Staff -> Html
+renderStaffOption selectedStaffId staff = [hsx|
+    <option value={tshow staff.id} selected={Just (coerce staff.id) == selectedStaffId}>
+        {staff.lastName}, {staff.firstName}
+    </option>
+|]
+
+lookupConflicts :: Id RosterSlot -> [(Id RosterSlot, [RosterConflict])] -> [RosterConflict]
+lookupConflicts slotId slotConflicts = fromMaybe [] (lookup slotId slotConflicts)
+
+renderConflictClass :: [RosterConflict] -> Text
+renderConflictClass [] = ""
+renderConflictClass (conflict:_) =
+    case conflict.severity of
+        CriticalConflict -> "conflict-critical"
+        AdvisoryConflict -> "conflict-advisory"
+
+renderConflictBadge :: [RosterConflict] -> Html
+renderConflictBadge [] = [hsx|<span></span>|]
+renderConflictBadge (conflict:_) = [hsx|
+    <span class={classes [("badge", True), ("position-absolute", True), ("top-0", True), ("end-0", True), ("translate-middle", True), ("bg-danger", conflict.severity == CriticalConflict), ("bg-warning text-dark", conflict.severity == AdvisoryConflict)]}
+          title={conflict.message}>
+        !
+    </span>
 |]
 
 renderStatusBadge :: Bool -> Html
 renderStatusBadge isLive =
     if isLive
-        then [hsx|<span class="badge bg-success">Live / Published</span>|]
-        else [hsx|<span class="badge bg-warning text-dark">Draft</span>|]
+        then [hsx|<span class="badge bg-success shadow-sm px-3 py-2">Live / Published</span>|]
+        else [hsx|<span class="badge bg-warning text-dark shadow-sm px-3 py-2">Draft Mode</span>|]
 
 renderCreateForm :: Int -> Html
 renderCreateForm weekOffset = [hsx|
     <div class="d-flex gap-2">
         <form method="POST" action={CopyRosterWeekAction (weekOffset - 1) weekOffset}>
-            <button type="submit" class="btn btn-outline-primary">Copy Previous Week</button>
+            <button type="submit" class="btn btn-outline-primary px-4 py-2">Copy Previous Week</button>
         </form>
         <form method="POST" action={CreateRosterWeekAction weekOffset}>
-            <button type="submit" class="btn btn-primary">Create Draft Roster</button>
+            <button type="submit" class="btn btn-primary px-4 py-2">Create Draft Roster</button>
         </form>
     </div>
 |]
@@ -80,11 +282,6 @@ renderCreateForm weekOffset = [hsx|
 renderPublishForm :: RosterWeek -> Html
 renderPublishForm rosterWeek = [hsx|
     <form method="POST" action={PublishRosterWeekAction rosterWeek.id} class="d-inline">
-        <button type="submit" class="btn btn-sm btn-success">Publish Week</button>
+        <button type="submit" class="btn btn-success px-4 py-2 fw-bold">Publish Week</button>
     </form>
-|]
-
-renderRosterDay :: RosterDay -> Html
-renderRosterDay rosterDay = [hsx|
-    <li>Day Offset {rosterDay.dayOffset}</li>
 |]

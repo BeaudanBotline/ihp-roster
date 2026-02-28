@@ -1,0 +1,95 @@
+.roster-grid {
+    font-size: 0.73rem;
+}
+
+.roster-grid th,
+.roster-grid td {
+    border-color: #d7dde3;
+    vertical-align: middle;
+}
+
+.roster-grid .roster-grid-head th {
+    letter-spacing: 0.02em;
+}
+
+.roster-grid .roster-block-header {
+    background-color: #eef3f7;
+}
+
+.roster-grid .roster-subhead {
+    background-color: #f7f9fb;
+    font-size: 0.64rem;
+}
+
+.roster-grid .day-label {
+    min-width: 130px;
+    border-right: 2px solid #adb5bd;
+}
+
+.roster-grid .slot-time-cell {
+    min-width: 108px;
+}
+
+.roster-grid .slot-staff-cell {
+    min-width: 165px;
+}
+
+.roster-grid .slot-note-cell {
+    min-width: 82px;
+}
+
+.roster-grid .slot-empty-cell {
+    background-color: #fbfcfd;
+}
+
+.roster-grid .form-control-sm,
+.roster-grid .form-select-sm {
+    font-size: 0.7rem;
+    padding: 0.15rem 0.32rem;
+    border-color: #dbe1e7;
+}
+
+.roster-grid .slot-time-input {
+    width: 76px;
+}
+
+.roster-grid .slot-note-input {
+    width: 100%;
+}
+
+.roster-grid .roster-day-control {
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.roster-grid tr.day-row:nth-of-type(even) {
+    background-color: #fcfdff;
+}
+
+.conflict-critical {
+    background-color: #8f1d2c !important;
+    color: #fff !important;
+    border-color: #7f1624 !important;
+}
+
+.conflict-advisory {
+    background-color: #f7d7dc !important;
+    border-color: #efc2ca !important;
+}
+
+@media print {
+    .btn,
+    .roster-day-control,
+    .breadcrumb {
+        display: none !important;
+    }
+
+    .roster-grid {
+        font-size: 0.66rem;
+    }
+
+    .roster-grid th,
+    .roster-grid td {
+        padding: 0.15rem !important;
+    }
+}

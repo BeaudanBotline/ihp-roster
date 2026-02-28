@@ -149,7 +149,7 @@ tests = describe "Schema" do
                 , "is_singleton", "timezone", "week_offset_epoch"
                 , "late_to_early_min_start_gap_minutes", "week_offset"
                 , "is_live", "roster_week_id", "day_offset", "roster_day_id"
-                , "staff_id", "slot_name_id", "shift_type_id", "start_time"
+                , "staff_id", "slot_name_id", "row_index", "start_time"
                 , "duration_minutes", "specific_date", "is_available", "note"
                 , "start_date", "end_date", "status", "notes", "worked_on"
                 , "end_time", "break_minutes", "is_approved", "approved_at"
