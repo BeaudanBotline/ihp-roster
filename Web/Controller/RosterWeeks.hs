@@ -74,7 +74,7 @@ instance Controller RosterWeeksController where
                     |> fetch
 
                 let orderedSlotNames = sortBy (comparing (slotNameOrder . (.name))) slotNames
-                slotConflicts <- buildSlotConflicts weekStartDate rosterDays allSlots staffMembers
+                slotConflicts <- buildSlotConflicts venueConfig.lateToEarlyMinStartGapMinutes weekStartDate rosterDays allSlots staffMembers
 
                 render ShowView
                     { rosterWeek = Just rosterWeek
@@ -278,8 +278,8 @@ normalizeOptionalText = \case
         let trimmed = Text.strip value
          in if Text.null trimmed then Nothing else Just trimmed
 
-buildSlotConflicts :: (?modelContext :: ModelContext) => Calendar.Day -> [RosterDay] -> [RosterSlot] -> [Staff] -> IO [(Id RosterSlot, [RosterConflict])]
-buildSlotConflicts weekStartDate rosterDays allSlots staffMembers = do
+buildSlotConflicts :: (?modelContext :: ModelContext) => Int -> Calendar.Day -> [RosterDay] -> [RosterSlot] -> [Staff] -> IO [(Id RosterSlot, [RosterConflict])]
+buildSlotConflicts lateToEarlyMinStartGapMinutes weekStartDate rosterDays allSlots staffMembers = do
     let assignedStaffIds = nub $ mapMaybe (.staffId) allSlots
     if null assignedStaffIds
         then pure []
@@ -309,9 +309,11 @@ buildSlotConflicts weekStartDate rosterDays allSlots staffMembers = do
                     { slot
                     , weekSlots = weekSlotsForStaff
                     , daySlots = daySlotsForStaff
+                    , weekRosterDays = rosterDays
                     , leaveRequests = leaveRequestsForStaff
                     , availabilities = availabilitiesForStaff
                     , rosterDayDate
+                    , lateToEarlyMinStartGapMinutes
                     , staffIdealShifts
                     }
             if null conflicts
@@ -395,7 +397,7 @@ fetchRosterRenderData weekOffset = do
                 |> fetch
 
             let orderedSlotNames = sortBy (comparing (slotNameOrder . (.name))) slotNames
-            slotConflicts <- buildSlotConflicts weekStartDate rosterDays allSlots staffMembers
+            slotConflicts <- buildSlotConflicts venueConfig.lateToEarlyMinStartGapMinutes weekStartDate rosterDays allSlots staffMembers
             pure (Just RosterRenderData { rosterWeek, rosterDays, weekStartDate, staffMembers, orderedSlotNames, allSlots, slotConflicts })
 
 renderRequestedRow rosterDays weekStartDate orderedSlotNames staffMembers allSlots slotConflicts (rosterDayUuid, targetRowIndex) = do

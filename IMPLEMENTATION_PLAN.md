@@ -342,7 +342,7 @@ Business requirements are canonical in `specs/`.
   - Exported `Application.Helper.Conflict` through `Web.Controller.Prelude` and `Web.View.Prelude` for future consumption by roster view features.
 
 ### 4.2 Late-to-Early start-gap conflict
-- **Status:** [ ]
+- **Status:** [x]
 - **Goal:** Add start-to-start threshold rule using venue config.
 - **Spec sources:** `specs/02-domain-model.md`, `specs/04-roster-and-conflict-rules.md`
 - **Deliverables:**
@@ -351,6 +351,14 @@ Business requirements are canonical in `specs/`.
   - Tests around boundary values.
 - **Acceptance checks:**
   - Conflicts trigger when gap < threshold.
+- **Completion notes:**
+  - Implemented `checkLateToEarlyConflict` in `Application/Helper/Conflict.hs` and integrated it into `evaluateConflicts`.
+  - Extended `ConflictContext` to include weekly roster-day context and `lateToEarlyMinStartGapMinutes`, then compute start-to-start gaps using chronological slot start times across the week.
+  - Wired config threshold from `venue_config` in `Web/Controller/RosterWeeks.hs` so roster conflict evaluation uses the singleton setting.
+  - Added boundary coverage in `Test/ConflictSpec.hs`:
+    - conflict when gap is below threshold
+    - no conflict when gap equals threshold
+  - Verification run: `direnv exec . typecheck` passed.
 
 ### 4.3 Conflict priority rendering
 - **Status:** [ ]

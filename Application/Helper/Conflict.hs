@@ -3,7 +3,9 @@ module Application.Helper.Conflict where
 import Application.Helper.Controller (LeaveRequestStatus (..),
                                       parseLeaveRequestStatus)
 import Data.Time.Calendar (Day, dayOfWeek)
+import Data.Time.LocalTime (TimeOfDay (..))
 import Generated.Types
+import IHP.ModelSupport (unpackId)
 import IHP.Prelude
 
 data ConflictSeverity
@@ -50,13 +52,15 @@ instance Ord RosterConflict where
 
 -- | Roster data needed to evaluate conflicts for a staff member in a given slot
 data ConflictContext = ConflictContext
-    { slot             :: RosterSlot
-    , weekSlots        :: [RosterSlot] -- All slots for this staff in the current week
-    , daySlots         :: [RosterSlot]  -- All slots for this staff on the current day
-    , leaveRequests    :: [LeaveRequest] -- All leave requests for this staff
-    , availabilities   :: [StaffAvailability] -- All availabilities for this staff
-    , rosterDayDate    :: Day -- The derived date of the roster day
-    , staffIdealShifts :: Maybe Int -- staff.idealShiftsPerWeek
+    { slot                          :: RosterSlot
+    , weekSlots                     :: [RosterSlot] -- All slots for this staff in the current week
+    , daySlots                      :: [RosterSlot]  -- All slots for this staff on the current day
+    , weekRosterDays                :: [RosterDay] -- All days for the current week
+    , leaveRequests                 :: [LeaveRequest] -- All leave requests for this staff
+    , availabilities                :: [StaffAvailability] -- All availabilities for this staff
+    , rosterDayDate                 :: Day -- The derived date of the roster day
+    , lateToEarlyMinStartGapMinutes :: Int -- venue config threshold
+    , staffIdealShifts              :: Maybe Int -- staff.idealShiftsPerWeek
     }
 
 evaluateConflicts :: ConflictContext -> [RosterConflict]
@@ -64,6 +68,7 @@ evaluateConflicts ctx =
     sort $ catMaybes
         [ checkDuplicateAssignment ctx
         , checkLeaveConflict ctx
+        , checkLateToEarlyConflict ctx
         , checkAvailabilityRefusal ctx
         , checkIdealShiftThreshold ctx
         ]
@@ -114,6 +119,41 @@ checkAvailabilityRefusal ctx =
             , message = "Staff is explicitly unavailable for this day."
             }
         else Nothing
+
+checkLateToEarlyConflict :: ConflictContext -> Maybe RosterConflict
+checkLateToEarlyConflict ctx
+    | ctx.lateToEarlyMinStartGapMinutes <= 0 = Nothing
+    | otherwise =
+        case findIndex ((== ctx.slot.id) . fst) timeline of
+            Nothing -> Nothing
+            Just currentIndex ->
+                let previousGap = if currentIndex > 0 then Just (snd (timeline !! currentIndex) - snd (timeline !! (currentIndex - 1))) else Nothing
+                    nextGap = if currentIndex + 1 < length timeline then Just (snd (timeline !! (currentIndex + 1)) - snd (timeline !! currentIndex)) else Nothing
+                    isBelowThreshold = any (< ctx.lateToEarlyMinStartGapMinutes) (catMaybes [previousGap, nextGap])
+                 in if isBelowThreshold
+                        then Just RosterConflict
+                            { conflictType = LateToEarlyConflict
+                            , severity = getConflictSeverity LateToEarlyConflict
+                            , message = "Start-to-start gap is below venue minimum."
+                            }
+                        else Nothing
+    where
+        timeline =
+            ctx.weekSlots
+                |> mapMaybe (\candidate -> (,) candidate.id <$> slotStartMinuteOfWeek ctx.weekRosterDays candidate)
+                |> sortBy (comparing snd)
+
+slotStartMinuteOfWeek :: [RosterDay] -> RosterSlot -> Maybe Int
+slotStartMinuteOfWeek rosterDays candidate = do
+    dayOffset <- findDayOffset candidate.rosterDayId
+    startTime <- candidate.startTime
+    let minutesFromDayStart = todHour startTime * 60 + todMin startTime
+    pure (dayOffset * 1440 + minutesFromDayStart)
+    where
+        findDayOffset rosterDayId =
+            rosterDays
+                |> find (\day -> unpackId day.id == rosterDayId)
+                |> fmap (.dayOffset)
 
 checkIdealShiftThreshold :: ConflictContext -> Maybe RosterConflict
 checkIdealShiftThreshold ctx =
