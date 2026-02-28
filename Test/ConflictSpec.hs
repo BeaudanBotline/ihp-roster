@@ -168,3 +168,38 @@ tests = describe "Conflict Engine" do
                     }
         let conflicts = evaluateConflicts ctx
         map conflictType conflicts `shouldBe` []
+
+    it "selects duplicate-assignment as primary conflict in multi-rule scenarios" do
+        let day0 = mockRosterDay { id = "00000000-0000-0000-0000-000000000100", dayOffset = 0 }
+        let day1 = mockRosterDay { id = "00000000-0000-0000-0000-000000000101", dayOffset = 1 }
+        let staffUuid = "00000000-0000-0000-0000-0000000000cc"
+        let previousLateSlot = mockSlot
+                { id = "00000000-0000-0000-0000-000000000110"
+                , rosterDayId = unpackId day0.id
+                , staffId = Just staffUuid
+                , startTime = Just (TimeOfDay 22 0 0)
+                }
+        let currentEarlySlot = mockSlot
+                { id = "00000000-0000-0000-0000-000000000111"
+                , rosterDayId = unpackId day1.id
+                , staffId = Just staffUuid
+                , startTime = Just (TimeOfDay 5 0 0)
+                }
+        let duplicateSameDaySlot = mockSlot
+                { id = "00000000-0000-0000-0000-000000000112"
+                , rosterDayId = unpackId day1.id
+                , staffId = Just staffUuid
+                , startTime = Just (TimeOfDay 10 0 0)
+                }
+        let ctx = mkContext \base ->
+                base
+                    { slot = currentEarlySlot
+                    , weekSlots = [previousLateSlot, currentEarlySlot, duplicateSameDaySlot]
+                    , daySlots = [currentEarlySlot, duplicateSameDaySlot]
+                    , weekRosterDays = [day0, day1]
+                    , lateToEarlyMinStartGapMinutes = 600
+                    , staffIdealShifts = Just 2
+                    }
+        let conflicts = evaluateConflicts ctx
+        map conflictType conflicts `shouldBe` [DuplicateAssignment, LateToEarlyConflict, IdealShiftThresholdExceeded]
+        (conflictType <$> primaryConflict conflicts) `shouldBe` Just DuplicateAssignment

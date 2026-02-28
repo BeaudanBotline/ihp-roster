@@ -198,7 +198,7 @@ renderBlockCells staffMembers rosterDayId rowIndex rowSlots slotConflicts (block
             let currentStartTime = optionalTimeOfDayToStorageValue slot.startTime
                 currentStartTimeLabel = if Text.null currentStartTime then "Select time" else storageTimeToDisplayLabel currentStartTime
                 currentNote = fromMaybe "" slot.note
-                currentConflicts = lookupConflicts slot.id slotConflicts
+                currentPrimaryConflict = primaryConflict (lookupConflicts slot.id slotConflicts)
              in [hsx|
                 <td class={classes [("slot-time-cell", True), ("roster-block-start", blockIndex > 0)]}>
                     <form class="m-0 d-flex align-items-center gap-1 slot-cell-form" data-time-picker-field="true">
@@ -221,7 +221,7 @@ renderBlockCells staffMembers rosterDayId rowIndex rowSlots slotConflicts (block
                     </form>
                 </td>
 
-                <td class={classes [("slot-staff-cell position-relative", True), (renderConflictClass currentConflicts, True)]}>
+                <td class={classes [("slot-staff-cell position-relative", True), (renderConflictClass currentPrimaryConflict, True)]}>
                     <form class="m-0 slot-cell-form">
                         <select name="staffId"
                                 class="form-select form-select-sm slot-cell-input slot-staff-input"
@@ -234,7 +234,7 @@ renderBlockCells staffMembers rosterDayId rowIndex rowSlots slotConflicts (block
                             <option value="">Unassigned</option>
                             {forEach staffMembers (renderStaffOption slot.staffId)}
                         </select>
-                        {renderConflictBadge currentConflicts}
+                        {renderConflictBadge currentPrimaryConflict}
                     </form>
                 </td>
 
@@ -271,16 +271,16 @@ renderStaffOption selectedStaffId staff = [hsx|
 lookupConflicts :: Id RosterSlot -> [(Id RosterSlot, [RosterConflict])] -> [RosterConflict]
 lookupConflicts slotId slotConflicts = fromMaybe [] (lookup slotId slotConflicts)
 
-renderConflictClass :: [RosterConflict] -> Text
-renderConflictClass [] = ""
-renderConflictClass (conflict:_) =
+renderConflictClass :: Maybe RosterConflict -> Text
+renderConflictClass Nothing = ""
+renderConflictClass (Just conflict) =
     case conflict.severity of
         CriticalConflict -> "conflict-critical"
         AdvisoryConflict -> "conflict-advisory"
 
-renderConflictBadge :: [RosterConflict] -> Html
-renderConflictBadge [] = [hsx|<span></span>|]
-renderConflictBadge (conflict:_) = [hsx|
+renderConflictBadge :: Maybe RosterConflict -> Html
+renderConflictBadge Nothing = [hsx|<span></span>|]
+renderConflictBadge (Just conflict) = [hsx|
     <span class={classes [("badge", True), ("position-absolute", True), ("top-0", True), ("end-0", True), ("translate-middle", True), ("bg-danger", conflict.severity == CriticalConflict), ("bg-warning text-dark", conflict.severity == AdvisoryConflict)]}
           title={conflict.message}>
         !

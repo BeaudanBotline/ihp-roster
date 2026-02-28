@@ -361,7 +361,7 @@ Business requirements are canonical in `specs/`.
   - Verification run: `direnv exec . typecheck` passed.
 
 ### 4.3 Conflict priority rendering
-- **Status:** [ ]
+- **Status:** [x]
 - **Goal:** Ensure deterministic primary conflict display order.
 - **Spec sources:** `specs/04-roster-and-conflict-rules.md`, `specs/07-ui-bootstrap-spec.md`
 - **Deliverables:**
@@ -369,6 +369,11 @@ Business requirements are canonical in `specs/`.
   - UI badge rendering based on top-priority conflict.
 - **Acceptance checks:**
   - Conflicting multi-rule scenarios render expected top flag.
+- **Completion notes:**
+  - Added `primaryConflict` in `Application/Helper/Conflict.hs` to explicitly select the highest-priority conflict from any conflict list.
+  - Updated roster staff-cell rendering in `Web/View/RosterWeeks/Show.hs` to derive CSS severity class and conflict badge from `primaryConflict`, ensuring display behavior is deterministic even if input ordering changes.
+  - Added `Test/ConflictSpec.hs` coverage for a multi-rule slot (`DuplicateAssignment`, `LateToEarlyConflict`, `IdealShiftThresholdExceeded`) and asserted that the selected primary conflict is `DuplicateAssignment`.
+  - Verification run: `direnv exec . typecheck` and `direnv exec . test` passed.
 
 ---
 

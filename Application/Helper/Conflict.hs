@@ -73,6 +73,9 @@ evaluateConflicts ctx =
         , checkIdealShiftThreshold ctx
         ]
 
+primaryConflict :: [RosterConflict] -> Maybe RosterConflict
+primaryConflict conflicts = listToMaybe (sort conflicts)
+
 checkDuplicateAssignment :: ConflictContext -> Maybe RosterConflict
 checkDuplicateAssignment ctx =
     if length ctx.daySlots > 1
