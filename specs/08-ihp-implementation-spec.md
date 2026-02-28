@@ -39,7 +39,9 @@ Each new controller requires:
 
 ## Realtime considerations
 
-- Roster/timesheet UX may use AutoRefresh/WebSocket patterns supported by IHP.
+- Roster/timesheet UX utilizes HTMX and IHP AutoRefresh.
+- **HTMX** is used for inline mutation (e.g. `hx-post` on slot inputs) to update the server without page reloads.
+- **AutoRefresh** provides the reactivity: when the database updates, IHP pushes the rendered HTML changes to the client, instantly reflecting updated states and recalculating conflict badges.
 - Realtime updates are an optimization layer; canonical state transitions remain server-side.
 
 ## Data consistency

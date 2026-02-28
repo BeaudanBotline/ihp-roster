@@ -244,6 +244,22 @@ Business requirements are canonical in `specs/`.
   - Added test coverage in `Test/Controller/RosterWeeksSpec.hs` checking unauthenticated access is redirected and documented DB-backed test requirements.
   - Verified via `typecheck` and `test` which passed successfully.
 
+### 3.4 Roster grid interactivity and slot assignment
+- **Status:** [ ]
+- **Goal:** Provide the interactive matrix UI to edit roster slots directly using HTMX and IHP AutoRefresh.
+- **Spec sources:** `specs/07-ui-bootstrap-spec.md`, `specs/08-ihp-implementation-spec.md`
+- **Deliverables:**
+  - DB Migration: Remove `shift_type_id` from `roster_slots`, add `row_index`, and make `start_time` nullable.
+  - Matrix layout with Y-axis (Days) and X-axis (Early, Mid, Late).
+  - Day controls to add/remove slot rows (`[+]` / `[-]`) using `row_index` grouping.
+  - Inline editing: Dropdowns for Staff assignment, text inputs for Start Time, and notes using HTMX `hx-post` for auto-save.
+  - IHP AutoRefresh integration to reflect conflict badges and UI changes in real-time.
+- **Acceptance checks:**
+  - Manager/Admin can add rows to a day (creating 3 empty slots).
+  - Manager/Admin can delete a row (removing 3 slots).
+  - Changes to staff/time/notes auto-save without page refresh.
+  - Conflict badges update reactively via AutoRefresh.
+
 ---
 
 ## Phase 4 — Conflict Detection
