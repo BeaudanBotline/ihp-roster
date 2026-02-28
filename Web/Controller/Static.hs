@@ -4,5 +4,8 @@ import Web.View.Static.Welcome
 
 instance Controller StaticController where
     action WelcomeAction = do
-        setTitle "Welcome"
-        render WelcomeView
+        case currentUserOrNothing of
+            Just _ -> redirectTo RosterWeeksAction
+            Nothing -> do
+                setTitle "Welcome"
+                render WelcomeView

@@ -20,8 +20,11 @@ import Web.Types
 tests :: Spec
 tests = beforeAll (mockContextNoDatabase WebApplication config) do
     describe "StaticController" do
-        it "renders the welcome page" $ withContext do
+        it "renders the welcome page for unauthenticated users" $ withContext do
             response <- callAction WelcomeAction
             response `responseStatusShouldBe` status200
             response `responseBodyShouldContain` "Sign In"
             response `responseBodyShouldContain` "Create Account"
+
+        it "redirects authenticated users to the roster week view" $ withContext do
+            pendingWith "requires real DB-backed mockContext to exercise withUser + initAuthentication"
