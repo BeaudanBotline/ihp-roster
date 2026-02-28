@@ -126,12 +126,26 @@ renderDayRows slotNames staffMembers date rosterDay slots slotConflicts = [hsx|
         indexedRows = zip [0 :: Int ..] dayRows
 
 renderRow :: (?context :: ControllerContext) => [SlotName] -> [Staff] -> Day -> RosterDay -> Int -> [(Id RosterSlot, [RosterConflict])] -> (Int, (Int, [RosterSlot])) -> Html
-renderRow slotNames staffMembers date rosterDay rowCount slotConflicts (rowPosition, (rowIndex, rowSlots)) = [hsx|
-    <tr class={classes [("day-row", True), ("day-row-" <> tshow (get #dayOffset rosterDay), True), ("day-alt-dark", odd (get #dayOffset rosterDay)), ("day-alt-light", even (get #dayOffset rosterDay))]}>
+renderRow slotNames staffMembers date rosterDay rowCount slotConflicts rowData =
+    renderRowWithAttrs slotNames staffMembers date rosterDay rowCount slotConflicts rowData Nothing
+
+renderRowOob :: (?context :: ControllerContext) => [SlotName] -> [Staff] -> Day -> RosterDay -> Int -> [(Id RosterSlot, [RosterConflict])] -> (Int, (Int, [RosterSlot])) -> Html
+renderRowOob slotNames staffMembers date rosterDay rowCount slotConflicts rowData =
+    renderRowWithAttrs slotNames staffMembers date rosterDay rowCount slotConflicts rowData (Just "outerHTML")
+
+renderRowWithAttrs :: (?context :: ControllerContext) => [SlotName] -> [Staff] -> Day -> RosterDay -> Int -> [(Id RosterSlot, [RosterConflict])] -> (Int, (Int, [RosterSlot])) -> Maybe Text -> Html
+renderRowWithAttrs slotNames staffMembers date rosterDay rowCount slotConflicts (rowPosition, (rowIndex, rowSlots)) maybeSwapOob = [hsx|
+    <tr id={rosterRowDomIdText rosterDay.id rowIndex}
+        data-roster-row="true"
+        hx-swap-oob={maybeSwapOob}
+        class={classes [("day-row", True), ("day-row-" <> tshow (get #dayOffset rosterDay), True), ("day-alt-dark", odd (get #dayOffset rosterDay)), ("day-alt-light", even (get #dayOffset rosterDay))]}>
         {when (rowPosition == 0) (renderDayLabel date rosterDay rowCount)}
         {forEach (zip [0 :: Int ..] slotNames) (renderBlockCells staffMembers rosterDay.id rowIndex rowSlots slotConflicts)}
     </tr>
 |]
+
+rosterRowDomIdText :: Id RosterDay -> Int -> Text
+rosterRowDomIdText rosterDayId rowIndex = "roster-row-" <> tshow rosterDayId <> "-" <> tshow rowIndex
 
 renderDayLabel :: (?context :: ControllerContext) => Day -> RosterDay -> Int -> Html
 renderDayLabel date rosterDay rowCount = [hsx|
@@ -182,13 +196,10 @@ renderBlockCells staffMembers rosterDayId rowIndex rowSlots slotConflicts (block
         Just slot ->
             let currentStartTime = fromMaybe "" (tshow <$> slot.startTime)
                 currentNote = fromMaybe "" slot.note
-                currentStaffId = fromMaybe "" (tshow <$> slot.staffId)
                 currentConflicts = lookupConflicts slot.id slotConflicts
              in [hsx|
                 <td class={classes [("slot-time-cell", True), ("roster-block-start", blockIndex > 0)]}>
                     <form class="m-0 d-flex align-items-center gap-1 slot-cell-form">
-                        <input type="hidden" name="staffId" value={currentStaffId} />
-                        <input type="hidden" name="note" value={currentNote} />
                         <input type="time"
                                name="startTime"
                                value={currentStartTime}
@@ -196,8 +207,8 @@ renderBlockCells staffMembers rosterDayId rowIndex rowSlots slotConflicts (block
                                hx-post={UpdateRosterSlotAction slot.id}
                                hx-trigger="change"
                                hx-include="closest form"
-                               hx-target="#roster-content"
-                               hx-swap="outerHTML"
+                               hx-sync="#roster-content:queue last"
+                               hx-swap="none"
                                disabled={not currentUserIsManager} />
                         {when (blockIndex == 0) (renderDeleteRowButton rosterDayId rowIndex)}
                     </form>
@@ -205,15 +216,13 @@ renderBlockCells staffMembers rosterDayId rowIndex rowSlots slotConflicts (block
 
                 <td class={classes [("slot-staff-cell position-relative", True), (renderConflictClass currentConflicts, True)]}>
                     <form class="m-0 slot-cell-form">
-                        <input type="hidden" name="startTime" value={currentStartTime} />
-                        <input type="hidden" name="note" value={currentNote} />
                         <select name="staffId"
                                 class="form-select form-select-sm slot-cell-input slot-staff-input"
                                 hx-post={UpdateRosterSlotAction slot.id}
                                 hx-trigger="change"
                                 hx-include="closest form"
-                                hx-target="#roster-content"
-                                hx-swap="outerHTML"
+                                hx-sync="#roster-content:queue last"
+                                hx-swap="none"
                                 disabled={not currentUserIsManager}>
                             <option value="">Unassigned</option>
                             {forEach staffMembers (renderStaffOption slot.staffId)}
@@ -224,18 +233,16 @@ renderBlockCells staffMembers rosterDayId rowIndex rowSlots slotConflicts (block
 
                 <td class="slot-note-cell roster-block-end">
                     <form class="m-0 slot-cell-form">
-                        <input type="hidden" name="staffId" value={currentStaffId} />
-                        <input type="hidden" name="startTime" value={currentStartTime} />
                         <input type="text"
                                name="note"
                                value={currentNote}
                                placeholder="Code"
                                class="form-control form-control-sm slot-note-input slot-cell-input"
                                hx-post={UpdateRosterSlotAction slot.id}
-                               hx-trigger="keyup changed delay:500ms"
+                               hx-trigger="change"
                                hx-include="closest form"
-                               hx-target="#roster-content"
-                               hx-swap="outerHTML"
+                               hx-sync="#roster-content:queue last"
+                               hx-swap="none"
                                disabled={not currentUserIsManager} />
                     </form>
                 </td>

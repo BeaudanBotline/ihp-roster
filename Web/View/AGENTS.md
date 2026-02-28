@@ -51,3 +51,8 @@ renderForm post = formFor post [hsx|
 - Always import `Web.View.Prelude` — it re-exports `IHP.ViewPrelude`, `Web.View.Layout`, `Generated.Types`, `Web.Types`, and `Application.Helper.View`
 - Shared view helpers go in `Application/Helper/View.hs`
 - Layout is defined in `Web/View/Layout.hs`
+
+## Roster HTMX Pattern
+- For high-frequency roster edits, avoid `hx-target="#roster-content"` full-fragment swaps on each input.
+- Prefer row-targeted updates: set stable `<tr id=... data-roster-row="true">` IDs and return only affected rows with `hx-swap-oob="outerHTML"`.
+- Keep `hx-sync` on roster inputs (e.g. `#roster-content:queue last`) to prevent out-of-order UI overwrites.

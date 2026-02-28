@@ -4,7 +4,7 @@ import Application.Helper.Conflict
 import Application.Helper.Controller
 import Data.Coerce (coerce)
 import Data.List (find, nub, sortBy)
-import Data.Maybe (mapMaybe)
+import Data.Maybe (catMaybes, mapMaybe)
 import Data.Ord (comparing)
 import qualified Data.Text as Text
 import Data.Time (diffDays, getCurrentTime, utctDay)
@@ -13,7 +13,7 @@ import Data.Time.Format (defaultTimeLocale, parseTimeM)
 import Data.Time.LocalTime (TimeOfDay)
 import qualified Data.UUID as UUID
 import Web.Controller.Prelude
-import Web.View.RosterWeeks.Show (ShowView (..), renderRosterContentFragment)
+import Web.View.RosterWeeks.Show (ShowView (..), renderRosterContentFragment, renderRowOob, rowsForDay)
 
 instance Controller RosterWeeksController where
     beforeAction = do
@@ -231,23 +231,27 @@ instance Controller RosterWeeksController where
         ensureManagerRole
 
         rosterSlot <- fetch rosterSlotId
+        let previousStaffId = rosterSlot.staffId
         let rosterDayId = (coerce rosterSlot.rosterDayId :: Id RosterDay)
         rosterDay <- fetch rosterDayId
         let rosterWeekId = (coerce rosterDay.rosterWeekId :: Id RosterWeek)
         rosterWeek <- fetch rosterWeekId
 
-        -- Each edit posts the whole cell form via HTMX, so we can update atomically.
-        let staffId = parseOptionalStaffId $ paramOrNothing @Text "staffId"
-        let startTime = parseOptionalTime $ paramOrNothing @Text "startTime"
-        let note = normalizeOptionalText $ paramOrNothing @Text "note"
+        let maybeStaffParam = paramOrNothing @Text "staffId"
+        let maybeStartTimeParam = paramOrNothing @Text "startTime"
+        let maybeNoteParam = paramOrNothing @Text "note"
 
-        rosterSlot
-            |> set #staffId staffId
-            |> set #startTime startTime
-            |> set #note note
-            |> updateRecord
+        let updatedSlot =
+                rosterSlot
+                    |> applyOptionalField #staffId (parseOptionalStaffId maybeStaffParam) maybeStaffParam
+                    |> applyOptionalField #startTime (parseOptionalTime maybeStartTimeParam) maybeStartTimeParam
+                    |> applyOptionalField #note (normalizeOptionalText maybeNoteParam) maybeNoteParam
 
-        respondWithRosterContent rosterWeek.weekOffset
+        _ <- updatedSlot |> updateRecord
+
+        relatedSlots <- fetchRelatedSlotsForStaffIds (catMaybes [previousStaffId, updatedSlot.staffId])
+        let impactedRowKeys = impactedRowKeysForSlotUpdate previousStaffId updatedSlot relatedSlots
+        respondWithRosterRows rosterWeek.weekOffset impactedRowKeys
 
 slotNameOrder :: Text -> Int
 slotNameOrder slotName =
@@ -315,6 +319,51 @@ buildSlotConflicts weekStartDate rosterDays allSlots staffMembers = do
 
 respondWithRosterContent :: (?context :: ControllerContext, ?modelContext :: ModelContext) => Int -> IO ()
 respondWithRosterContent weekOffset = do
+    rosterData <- fetchRosterRenderData weekOffset
+    case rosterData of
+        Nothing -> respondHtml [hsx|<div id="roster-content"></div>|]
+        Just RosterRenderData { rosterWeek, rosterDays, weekStartDate, staffMembers, orderedSlotNames, allSlots, slotConflicts } ->
+            respondHtml $
+                renderRosterContentFragment
+                    (Just rosterWeek)
+                    rosterDays
+                    weekOffset
+                    staffMembers
+                    orderedSlotNames
+                    weekStartDate
+                    allSlots
+                    slotConflicts
+
+respondWithRosterRows :: (?context :: ControllerContext, ?modelContext :: ModelContext) => Int -> [(UUID.UUID, Int)] -> IO ()
+respondWithRosterRows weekOffset requestedRowKeys = do
+    rosterData <- fetchRosterRenderData weekOffset
+    case rosterData of
+        Nothing -> respondHtml [hsx||]
+        Just RosterRenderData { rosterDays, weekStartDate, staffMembers, orderedSlotNames, allSlots, slotConflicts } -> do
+            let uniqueRowKeys = nub requestedRowKeys
+            let renderedRows = mapMaybe (renderRequestedRow rosterDays weekStartDate orderedSlotNames staffMembers allSlots slotConflicts) uniqueRowKeys
+            respondHtml (mconcat renderedRows)
+
+fetchRelatedSlotsForStaffIds :: (?modelContext :: ModelContext) => [UUID.UUID] -> IO [RosterSlot]
+fetchRelatedSlotsForStaffIds staffIds =
+    if null staffIds
+        then pure []
+        else query @RosterSlot
+            |> filterWhereIn (#staffId, map Just (nub staffIds))
+            |> fetch
+
+data RosterRenderData = RosterRenderData
+    { rosterWeek :: RosterWeek
+    , rosterDays :: [RosterDay]
+    , weekStartDate :: Calendar.Day
+    , staffMembers :: [Staff]
+    , orderedSlotNames :: [SlotName]
+    , allSlots :: [RosterSlot]
+    , slotConflicts :: [(Id RosterSlot, [RosterConflict])]
+    }
+
+fetchRosterRenderData :: (?modelContext :: ModelContext) => Int -> IO (Maybe RosterRenderData)
+fetchRosterRenderData weekOffset = do
     venueConfig <- fetchVenueConfig
     let epoch = venueConfig.weekOffsetEpoch
     let weekStartDate = Calendar.addDays (toInteger (weekOffset * 7)) epoch
@@ -324,7 +373,7 @@ respondWithRosterContent weekOffset = do
         |> fetchOneOrNothing
 
     case rosterWeekOrNothing of
-        Nothing -> respondHtml [hsx|<div id="roster-content"></div>|]
+        Nothing -> pure Nothing
         Just rosterWeek -> do
             rosterDays <- query @RosterDay
                 |> filterWhere (#rosterWeekId, coerce rosterWeek.id)
@@ -346,14 +395,29 @@ respondWithRosterContent weekOffset = do
 
             let orderedSlotNames = sortBy (comparing (slotNameOrder . (.name))) slotNames
             slotConflicts <- buildSlotConflicts weekStartDate rosterDays allSlots staffMembers
+            pure (Just RosterRenderData { rosterWeek, rosterDays, weekStartDate, staffMembers, orderedSlotNames, allSlots, slotConflicts })
 
-            respondHtml $
-                renderRosterContentFragment
-                    (Just rosterWeek)
-                    rosterDays
-                    weekOffset
-                    staffMembers
-                    orderedSlotNames
-                    weekStartDate
-                    allSlots
-                    slotConflicts
+renderRequestedRow rosterDays weekStartDate orderedSlotNames staffMembers allSlots slotConflicts (rosterDayUuid, targetRowIndex) = do
+    rosterDay <- find (\day -> coerce day.id == rosterDayUuid) rosterDays
+    let daySlots = filter (\slot -> slot.rosterDayId == rosterDayUuid) allSlots
+    let dayRows = rowsForDay daySlots
+    let rowCount = length dayRows
+    let indexedRows = zip [0 :: Int ..] dayRows
+    (rowPosition, (_, rowSlots)) <- find (\(_, (rowIndex, _)) -> rowIndex == targetRowIndex) indexedRows
+    let date = Calendar.addDays (toInteger (get #dayOffset rosterDay)) weekStartDate
+    pure (renderRowOob orderedSlotNames staffMembers date rosterDay rowCount slotConflicts (rowPosition, (targetRowIndex, rowSlots)))
+
+impactedRowKeysForSlotUpdate :: Maybe UUID.UUID -> RosterSlot -> [RosterSlot] -> [(UUID.UUID, Int)]
+impactedRowKeysForSlotUpdate previousStaffId updatedSlot relatedSlots =
+    nub $
+        (updatedSlot.rosterDayId, updatedSlot.rowIndex)
+            : map (\slot -> (slot.rosterDayId, slot.rowIndex)) affectedSlots
+    where
+        impactedStaffIds = catMaybes [previousStaffId, updatedSlot.staffId]
+        affectedSlots = filter (\slot -> slot.staffId `elem` map Just impactedStaffIds) relatedSlots
+
+applyOptionalField :: forall field model value. (SetField field model value) => Proxy field -> value -> Maybe Text -> model -> model
+applyOptionalField _ parsedValue rawParam model =
+    case rawParam of
+        Nothing -> model
+        Just _ -> setField @field parsedValue model
