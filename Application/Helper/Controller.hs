@@ -1,5 +1,7 @@
 module Application.Helper.Controller where
 
+import Data.Time.Format (defaultTimeLocale, parseTimeM)
+import Data.Time.LocalTime (TimeOfDay (..))
 import Generated.Types
 import IHP.ControllerPrelude
 import Web.Routes ()
@@ -88,3 +90,22 @@ ensureManagerRole = accessDeniedUnless (hasRole ManagerRole)
 -- | Deny access (403) unless the current user is an admin.
 ensureAdminRole :: (?context :: ControllerContext) => IO ()
 ensureAdminRole = accessDeniedUnless (hasRole AdminRole)
+
+-- | Parse a HH:MM text value into a TimeOfDay.
+parseTimeParam :: Text -> Maybe TimeOfDay
+parseTimeParam value = parseTimeM True defaultTimeLocale "%H:%M" (cs value)
+
+-- | True when a TimeOfDay falls on a 15-minute boundary.
+isQuarterHourTime :: TimeOfDay -> Bool
+isQuarterHourTime tod = todMin tod `mod` 15 == 0 && todSec tod == 0
+
+-- | True when minutes are non-negative and divisible by 15.
+isQuarterHourMinutes :: Int -> Bool
+isQuarterHourMinutes mins = mins >= 0 && mins `mod` 15 == 0
+
+-- | Compute shift duration in minutes (end - start).
+shiftDurationMinutes :: TimeOfDay -> TimeOfDay -> Int
+shiftDurationMinutes start end =
+    let startMins = todHour start * 60 + todMin start
+        endMins = todHour end * 60 + todMin end
+    in endMins - startMins

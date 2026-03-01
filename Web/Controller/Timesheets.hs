@@ -1,7 +1,9 @@
 module Web.Controller.Timesheets where
 
 import Web.Controller.Prelude
+import Web.View.Timesheets.Edit
 import Web.View.Timesheets.Index
+import Web.View.Timesheets.New
 
 instance Controller TimesheetsController where
     beforeAction = do
@@ -9,4 +11,123 @@ instance Controller TimesheetsController where
         ensureProfileCompleted
 
     action TimesheetsAction = do
-        render IndexView
+        (entries, staffMembers) <- fetchTimesheetData
+        render IndexView { .. }
+
+    action NewTimesheetEntryAction = do
+        staffMembers <- fetchStaffForForm
+        case staffMembers of
+            [] -> do
+                setErrorMessage "No staff record found. Contact an administrator."
+                redirectTo TimesheetsAction
+            _ -> do
+                let timesheetEntry = newRecord @TimesheetEntry
+                render NewView { .. }
+
+    action CreateTimesheetEntryAction = do
+        staffMembers <- fetchStaffForForm
+        let timesheetEntry = newRecord @TimesheetEntry
+                |> buildTimesheetEntry
+        timesheetEntry
+            |> ifValid \case
+                Left timesheetEntry -> render NewView { .. }
+                Right timesheetEntry -> do
+                    timesheetEntry <- timesheetEntry |> createRecord
+                    setSuccessMessage "Timesheet entry created"
+                    redirectTo TimesheetsAction
+
+    action EditTimesheetEntryAction { timesheetEntryId } = do
+        timesheetEntry <- fetch timesheetEntryId
+        staffMembers <- fetchStaffForForm
+        render EditView { .. }
+
+    action UpdateTimesheetEntryAction { timesheetEntryId } = do
+        staffMembers <- fetchStaffForForm
+        timesheetEntry <- fetch timesheetEntryId
+        timesheetEntry
+            |> buildTimesheetEntry
+            |> ifValid \case
+                Left timesheetEntry -> render EditView { .. }
+                Right timesheetEntry -> do
+                    timesheetEntry <- timesheetEntry |> updateRecord
+                    setSuccessMessage "Timesheet entry updated"
+                    redirectTo TimesheetsAction
+
+    action DeleteTimesheetEntryAction { timesheetEntryId } = do
+        timesheetEntry <- fetch timesheetEntryId
+        deleteRecord timesheetEntry
+        setSuccessMessage "Timesheet entry deleted"
+        redirectTo TimesheetsAction
+
+fetchTimesheetData :: (?modelContext :: ModelContext, ?context :: ControllerContext) => IO ([TimesheetEntry], [Staff])
+fetchTimesheetData = do
+    staffMembers <- query @Staff |> orderByAsc #lastName |> fetch
+    entries <- if hasRole ManagerRole
+        then query @TimesheetEntry |> orderByDesc #workedOn |> fetch
+        else do
+            maybeStaff <- fetchCurrentUserStaff
+            case maybeStaff of
+                Nothing -> pure []
+                Just staff -> query @TimesheetEntry
+                    |> filterWhere (#staffId, unpackId staff.id)
+                    |> orderByDesc #workedOn
+                    |> fetch
+    pure (entries, staffMembers)
+
+fetchStaffForForm :: (?modelContext :: ModelContext, ?context :: ControllerContext) => IO [Staff]
+fetchStaffForForm =
+    if hasRole ManagerRole
+        then query @Staff |> filterWhere (#isActive, True) |> orderByAsc #lastName |> fetch
+        else do
+            maybeStaff <- fetchCurrentUserStaff
+            pure $ maybeToList maybeStaff
+
+fetchCurrentUserStaff :: (?modelContext :: ModelContext, ?context :: ControllerContext) => IO (Maybe Staff)
+fetchCurrentUserStaff = query @Staff
+    |> filterWhere (#userId, Just (unpackId currentUser.id))
+    |> fetchOneOrNothing
+
+buildTimesheetEntry :: (?context :: ControllerContext) => TimesheetEntry -> TimesheetEntry
+buildTimesheetEntry entry =
+    entry
+        |> fill @'["staffId", "workedOn", "breakMinutes"]
+        |> parseAndSetStartTime
+        |> parseAndSetEndTime
+        |> validateField #breakMinutes (\mins ->
+            if isQuarterHourMinutes mins
+                then Success
+                else Failure "Break must be in 15-minute increments")
+        |> validateTimingConstraints
+    where
+        parseAndSetStartTime record =
+            case parseTimeParam (paramOrDefault "" "startTime") of
+                Just tod -> record
+                    |> set #startTime tod
+                    |> validateField #startTime (\t ->
+                        if isQuarterHourTime t
+                            then Success
+                            else Failure "Start time must be on a 15-minute increment")
+                Nothing -> record |> attachFailure #startTime "Please select a start time"
+
+        parseAndSetEndTime record =
+            case parseTimeParam (paramOrDefault "" "endTime") of
+                Just tod -> record
+                    |> set #endTime tod
+                    |> validateField #endTime (\t ->
+                        if isQuarterHourTime t
+                            then Success
+                            else Failure "End time must be on a 15-minute increment")
+                Nothing -> record |> attachFailure #endTime "Please select an end time"
+
+        validateTimingConstraints record =
+            let duration = shiftDurationMinutes record.startTime record.endTime
+            in record
+                |> (\r -> if duration <= 0
+                    then r |> attachFailure #endTime "End time must be after start time"
+                    else r)
+                |> (\r -> if duration > 0 && record.breakMinutes > duration
+                    then r |> attachFailure #breakMinutes "Break cannot exceed shift duration"
+                    else r)
+                |> (\r -> if duration > 960
+                    then r |> attachFailure #endTime "Shift cannot exceed 16 hours"
+                    else r)

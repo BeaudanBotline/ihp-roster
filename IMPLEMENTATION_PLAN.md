@@ -396,7 +396,7 @@ Business requirements are canonical in `specs/`.
 ## Phase 5 — Timesheets and Leave
 
 ### 5.1 Timesheet CRUD with exact 15-minute validation
-- **Status:** [ ]
+- **Status:** [x]
 - **Goal:** Build timesheet entry flow with strict time increment validation.
 - **Spec sources:** `specs/05-timesheets-and-leave.md`
 - **Deliverables:**
@@ -405,6 +405,19 @@ Business requirements are canonical in `specs/`.
   - Tests for pass/fail inputs.
 - **Acceptance checks:**
   - Any minute value not divisible by 15 is rejected.
+- **Completion notes:**
+  - Expanded `TimesheetsController` in `Web/Types.hs` with full CRUD actions (index, new, create, edit, update, delete).
+  - Implemented `Web/Controller/Timesheets.hs` with `buildTimesheetEntry` validation:
+    - Start/end times parsed from `HH:MM` via `parseTimeParam` (IHP's `ParamReader TimeOfDay` requires `HH:MM:SS`).
+    - 15-minute increment validation on start time, end time, and break minutes.
+    - Sanity checks: end > start, break <= shift duration, max 16-hour shift.
+    - Staff sees own entries (via linked staff record); manager+ sees all.
+  - Created views: `Web/View/Timesheets/Index.hs` (table with date/staff/start/end/break/duration/approval columns), `New.hs`, `Edit.hs`.
+  - Added shared `renderTimesheetForm` in `Application/Helper/View.hs` with quarter-hour time picker integration, staff dropdown (manager+) or hidden input (staff), and break minutes select.
+  - Added validation helpers to `Application/Helper/Controller.hs`: `parseTimeParam`, `isQuarterHourTime`, `isQuarterHourMinutes`, `shiftDurationMinutes`.
+  - Updated `Test/Controller/TimesheetsSpec.hs` with 3 unauthenticated redirect tests (index, new, create).
+  - Added 6 validation helper tests in `Test/SchemaSpec.hs` covering parse, quarter-hour, and duration logic.
+  - Verification: `typecheck`, `test` (60 examples, 0 failures), `format` all passed.
 
 ### 5.2 Timesheet approval workflow
 - **Status:** [ ]

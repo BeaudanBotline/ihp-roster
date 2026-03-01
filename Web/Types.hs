@@ -32,6 +32,11 @@ data ProfilesController
 
 data TimesheetsController
     = TimesheetsAction
+    | NewTimesheetEntryAction
+    | CreateTimesheetEntryAction
+    | EditTimesheetEntryAction { timesheetEntryId :: !(Id TimesheetEntry) }
+    | UpdateTimesheetEntryAction { timesheetEntryId :: !(Id TimesheetEntry) }
+    | DeleteTimesheetEntryAction { timesheetEntryId :: !(Id TimesheetEntry) }
     deriving (Eq, Show, Data)
 
 data AdminController

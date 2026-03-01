@@ -4,6 +4,7 @@ import Application.Helper.Controller
 import Application.Helper.View (isTrialStaff, quarterHourTimeOptions,
                                 storageTimeToDisplayLabel)
 import qualified Data.Text as Text
+import Data.Time.LocalTime (TimeOfDay (..))
 import Generated.Types
 import IHP.ControllerPrelude (newRecord)
 import IHP.NameSupport (columnNameToFieldName, fieldNameToColumnName)
@@ -182,3 +183,37 @@ tests = describe "Schema" do
             let fieldName = columnNameToFieldName col
             let backToCol = fieldNameToColumnName fieldName
             backToCol `shouldBe` col
+
+    describe "Timesheet validation helpers" do
+        it "parseTimeParam parses valid HH:MM values" do
+            parseTimeParam "09:00" `shouldBe` Just (TimeOfDay 9 0 0)
+            parseTimeParam "14:30" `shouldBe` Just (TimeOfDay 14 30 0)
+            parseTimeParam "23:45" `shouldBe` Just (TimeOfDay 23 45 0)
+
+        it "parseTimeParam rejects invalid values" do
+            parseTimeParam "" `shouldBe` Nothing
+            parseTimeParam "25:00" `shouldBe` Nothing
+            parseTimeParam "abc" `shouldBe` Nothing
+
+        it "isQuarterHourTime accepts 15-minute boundaries" do
+            isQuarterHourTime (TimeOfDay 9 0 0) `shouldBe` True
+            isQuarterHourTime (TimeOfDay 9 15 0) `shouldBe` True
+            isQuarterHourTime (TimeOfDay 9 30 0) `shouldBe` True
+            isQuarterHourTime (TimeOfDay 9 45 0) `shouldBe` True
+
+        it "isQuarterHourTime rejects non-15-minute values" do
+            isQuarterHourTime (TimeOfDay 9 10 0) `shouldBe` False
+            isQuarterHourTime (TimeOfDay 9 1 0) `shouldBe` False
+            isQuarterHourTime (TimeOfDay 9 0 30) `shouldBe` False
+
+        it "isQuarterHourMinutes validates break values" do
+            isQuarterHourMinutes 0 `shouldBe` True
+            isQuarterHourMinutes 15 `shouldBe` True
+            isQuarterHourMinutes 30 `shouldBe` True
+            isQuarterHourMinutes 10 `shouldBe` False
+            isQuarterHourMinutes (-15) `shouldBe` False
+
+        it "shiftDurationMinutes computes correct durations" do
+            shiftDurationMinutes (TimeOfDay 9 0 0) (TimeOfDay 17 0 0) `shouldBe` 480
+            shiftDurationMinutes (TimeOfDay 6 0 0) (TimeOfDay 6 15 0) `shouldBe` 15
+            shiftDurationMinutes (TimeOfDay 9 0 0) (TimeOfDay 9 0 0) `shouldBe` 0
