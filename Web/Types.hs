@@ -41,6 +41,14 @@ data TimesheetsController
     | UnapproveTimesheetEntryAction { timesheetEntryId :: !(Id TimesheetEntry) }
     deriving (Eq, Show, Data)
 
+data LeaveRequestsController
+    = LeaveRequestsAction
+    | NewLeaveRequestAction
+    | CreateLeaveRequestAction
+    | ApproveLeaveRequestAction { leaveRequestId :: !(Id LeaveRequest) }
+    | DenyLeaveRequestAction { leaveRequestId :: !(Id LeaveRequest) }
+    deriving (Eq, Show, Data)
+
 data AdminController
     = AdminAction
     deriving (Eq, Show, Data)

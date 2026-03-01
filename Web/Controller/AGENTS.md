@@ -73,3 +73,6 @@ Every controller requires changes in **four files** (missing any will cause comp
 - Keep `RosterWeeksAction` as the canonical "this week" redirect endpoint.
 - Week navigation should remain URL-driven via `ShowRosterWeekAction { weekOffset }`.
 - For planned modules (e.g. timesheets/admin), scaffold lightweight placeholder controllers/views/routes early so header links are always valid.
+
+## State Transition Pattern
+- For status transitions with side effects (e.g. leave approval triggering roster conflict refresh), wrap the update + side-effect hook in `withTransaction` so both commit atomically.

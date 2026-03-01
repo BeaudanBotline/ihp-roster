@@ -8,6 +8,7 @@ import Web.View.Layout (defaultLayout)
 -- Controller Imports
 import Web.Controller.Admin
 import Web.Controller.Dashboard
+import Web.Controller.LeaveRequests
 import Web.Controller.Profiles
 import Web.Controller.RosterWeeks
 import Web.Controller.Sessions
@@ -24,6 +25,7 @@ instance FrontController WebApplication where
         , parseRoute @DashboardController
         , parseRoute @ProfilesController
         , parseRoute @TimesheetsController
+        , parseRoute @LeaveRequestsController
         , parseRoute @AdminController
         , parseRoute @StaffController
         , parseRoute @RosterWeeksController

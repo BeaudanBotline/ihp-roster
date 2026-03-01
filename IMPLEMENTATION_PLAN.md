@@ -456,7 +456,7 @@ Business requirements are canonical in `specs/`.
   - Verification: `regen-types`, `typecheck`, `test` (67 examples, 0 failures), `lint` (pre-existing only), `format` all passed.
 
 ### 5.4 Leave request lifecycle + roster recalculation trigger
-- **Status:** [ ]
+- **Status:** [x]
 - **Goal:** Implement leave request statuses and conflict recompute on approval.
 - **Spec sources:** `specs/05-timesheets-and-leave.md`, `specs/04-roster-and-conflict-rules.md`
 - **Deliverables:**
@@ -465,6 +465,31 @@ Business requirements are canonical in `specs/`.
   - Recompute hook after approval.
 - **Acceptance checks:**
   - Leave approval affects roster conflict outcomes.
+- **Completion notes:**
+  - Added `LeaveRequestsController` with lifecycle actions in `Web/Types.hs`, `Web/Routes.hs`, and `Web/FrontController.hs`:
+    - `LeaveRequestsAction`, `NewLeaveRequestAction`, `CreateLeaveRequestAction`
+    - manager review actions: `ApproveLeaveRequestAction` and `DenyLeaveRequestAction`
+  - Implemented leave request flow in `Web/Controller/LeaveRequests.hs`:
+    - staff submission defaults to `pending`
+    - manager+ approval/denial transitions
+    - explicit transaction boundaries for review transitions (`withTransaction`)
+  - Added leave validation and recompute helpers in `Application/Helper/Controller.hs`:
+    - `isLeaveDateRangeValid` (`end_date >= start_date`)
+    - `affectedWeekOffsetsForDateRange`
+    - `triggerRosterConflictRecomputeForLeave` (touches impacted `roster_weeks.updated_at` to force roster auto-refresh/recompute)
+  - Added leave views:
+    - `Web/View/LeaveRequests/Index.hs` (status badges + manager review buttons)
+    - `Web/View/LeaveRequests/New.hs` (date range form + validation feedback)
+  - Added a quick entrypoint to leave requests from `Web/View/Timesheets/Index.hs`.
+  - Added tests:
+    - `Test/Controller/LeaveRequestsSpec.hs` (unauthenticated redirect coverage for list/new/create/approve/deny)
+    - `Test/SchemaSpec.hs` helper coverage for leave date-range validity and affected week-offset computation
+    - registered in `Test/Main.hs`
+  - Verification run:
+    - `direnv exec . typecheck` passed
+    - `direnv exec . test` passed (74 examples, 0 failures, 7 pending)
+    - `direnv exec . format` passed
+    - `direnv exec . lint` reports existing project warnings (including redundant-id suggestions in older files)
 
 ---
 

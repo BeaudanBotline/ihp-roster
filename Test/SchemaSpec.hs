@@ -58,6 +58,24 @@ tests = describe "Schema" do
         map userRoleToText [StaffRole, ManagerRole, AdminRole] `shouldBe` allUserRoleValues
         map leaveRequestStatusToText [LeavePending, LeaveApproved, LeaveDenied] `shouldBe` allLeaveRequestStatusValues
 
+    describe "Leave request helpers" do
+        it "validates leave date ranges as inclusive and ordered" do
+            let startDate = fromGregorian 2025 3 10
+            let sameDay = fromGregorian 2025 3 10
+            let laterDate = fromGregorian 2025 3 12
+            let earlierDate = fromGregorian 2025 3 9
+
+            isLeaveDateRangeValid startDate sameDay `shouldBe` True
+            isLeaveDateRangeValid startDate laterDate `shouldBe` True
+            isLeaveDateRangeValid startDate earlierDate `shouldBe` False
+
+        it "computes affected week offsets for a leave range" do
+            let epoch = fromGregorian 2025 1 6
+            affectedWeekOffsetsForDateRange epoch (fromGregorian 2025 1 6) (fromGregorian 2025 1 12) `shouldBe` [0]
+            affectedWeekOffsetsForDateRange epoch (fromGregorian 2025 1 12) (fromGregorian 2025 1 13) `shouldBe` [0, 1]
+            affectedWeekOffsetsForDateRange epoch (fromGregorian 2025 1 20) (fromGregorian 2025 1 20) `shouldBe` [2]
+            affectedWeekOffsetsForDateRange epoch (fromGregorian 2025 1 21) (fromGregorian 2025 1 20) `shouldBe` []
+
     it "assigns bootstrap registration role from existing user count" do
         bootstrapRegistrationRole 0 `shouldBe` AdminRole
         bootstrapRegistrationRole 1 `shouldBe` StaffRole

@@ -1,6 +1,6 @@
 module Application.Helper.Controller where
 
-import Data.Time.Calendar (diffDays)
+import Data.Time.Calendar (Day, diffDays)
 import Data.Time.Clock (UTCTime (..), getCurrentTime)
 import Data.Time.Format (defaultTimeLocale, parseTimeM)
 import Data.Time.LocalTime (TimeOfDay (..))
@@ -126,3 +126,38 @@ ensureEditWindowOrManager workedOn =
         config <- fetchVenueConfig
         today <- utctDay <$> getCurrentTime
         accessDeniedUnless (isWithinEditWindow today workedOn config.staffTimesheetEditWindowDays)
+
+-- | True when leave date range is valid (inclusive).
+isLeaveDateRangeValid :: Day -> Day -> Bool
+isLeaveDateRangeValid startDate endDate = endDate >= startDate
+
+-- | Returns all week offsets overlapped by an inclusive date range.
+affectedWeekOffsetsForDateRange :: Day -> Day -> Day -> [Int]
+affectedWeekOffsetsForDateRange epoch startDate endDate
+    | not (isLeaveDateRangeValid startDate endDate) = []
+    | otherwise = [startOffset .. endOffset]
+    where
+        toWeekOffset day = fromInteger (diffDays day epoch `div` 7)
+        startOffset = toWeekOffset startDate
+        endOffset = toWeekOffset endDate
+
+-- | Touch affected roster weeks so roster pages auto-refresh and recompute conflicts.
+triggerRosterConflictRecomputeForLeave :: (?modelContext :: ModelContext) => LeaveRequest -> IO ()
+triggerRosterConflictRecomputeForLeave leaveRequest = do
+    venueConfig <- fetchVenueConfig
+    let affectedOffsets =
+            affectedWeekOffsetsForDateRange
+                venueConfig.weekOffsetEpoch
+                leaveRequest.startDate
+                leaveRequest.endDate
+
+    unless (null affectedOffsets) do
+        now <- getCurrentTime
+        affectedWeeks <- query @RosterWeek
+            |> filterWhereIn (#weekOffset, affectedOffsets)
+            |> fetch
+
+        forM_ affectedWeeks \rosterWeek ->
+            rosterWeek
+                |> set #updatedAt now
+                |> updateRecordDiscardResult

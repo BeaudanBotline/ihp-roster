@@ -14,7 +14,10 @@ instance View IndexView where
     html IndexView { .. } = [hsx|
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h1>Timesheets</h1>
-            <a href={NewTimesheetEntryAction} class="btn btn-primary">New Entry</a>
+            <div class="d-flex gap-2">
+                <a href={LeaveRequestsAction} class="btn btn-outline-secondary">Leave Requests</a>
+                <a href={NewTimesheetEntryAction} class="btn btn-primary">New Entry</a>
+            </div>
         </div>
 
         {if null entries
