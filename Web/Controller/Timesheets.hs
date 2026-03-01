@@ -12,6 +12,10 @@ instance Controller TimesheetsController where
 
     action TimesheetsAction = do
         (entries, staffMembers) <- fetchTimesheetData
+        config <- fetchVenueConfig
+        now <- getCurrentTime
+        let today = utctDay now
+        let editWindowDays = config.staffTimesheetEditWindowDays
         render IndexView { .. }
 
     action NewTimesheetEntryAction = do
@@ -38,12 +42,14 @@ instance Controller TimesheetsController where
 
     action EditTimesheetEntryAction { timesheetEntryId } = do
         timesheetEntry <- fetch timesheetEntryId
+        ensureEditWindowOrManager timesheetEntry.workedOn
         staffMembers <- fetchStaffForForm
         render EditView { .. }
 
     action UpdateTimesheetEntryAction { timesheetEntryId } = do
         staffMembers <- fetchStaffForForm
         timesheetEntry <- fetch timesheetEntryId
+        ensureEditWindowOrManager timesheetEntry.workedOn
         let wasApproved = timesheetEntry.isApproved
         timesheetEntry
             |> buildTimesheetEntry
@@ -61,6 +67,7 @@ instance Controller TimesheetsController where
 
     action DeleteTimesheetEntryAction { timesheetEntryId } = do
         timesheetEntry <- fetch timesheetEntryId
+        ensureEditWindowOrManager timesheetEntry.workedOn
         deleteRecord timesheetEntry
         setSuccessMessage "Timesheet entry deleted"
         redirectTo TimesheetsAction

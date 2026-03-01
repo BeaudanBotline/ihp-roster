@@ -4,6 +4,7 @@ import Application.Helper.Controller
 import Application.Helper.View (isTrialStaff, quarterHourTimeOptions,
                                 storageTimeToDisplayLabel)
 import qualified Data.Text as Text
+import Data.Time.Calendar (fromGregorian)
 import Data.Time.LocalTime (TimeOfDay (..))
 import Generated.Types
 import IHP.ControllerPrelude (newRecord)
@@ -173,7 +174,8 @@ tests = describe "Schema" do
                 , "last_name", "is_active", "name", "default_pay_level_id"
                 , "weekday_index", "pay_level_id", "day_name_id", "multiplier"
                 , "is_singleton", "timezone", "week_offset_epoch"
-                , "late_to_early_min_start_gap_minutes", "week_offset"
+                , "late_to_early_min_start_gap_minutes"
+                , "staff_timesheet_edit_window_days", "week_offset"
                 , "is_live", "roster_week_id", "day_offset", "roster_day_id"
                 , "staff_id", "slot_name_id", "row_index", "start_time"
                 , "duration_minutes", "specific_date", "is_available", "note"
@@ -219,6 +221,23 @@ tests = describe "Schema" do
             shiftDurationMinutes (TimeOfDay 9 0 0) (TimeOfDay 17 0 0) `shouldBe` 480
             shiftDurationMinutes (TimeOfDay 6 0 0) (TimeOfDay 6 15 0) `shouldBe` 15
             shiftDurationMinutes (TimeOfDay 9 0 0) (TimeOfDay 9 0 0) `shouldBe` 0
+
+    describe "Timesheet edit window" do
+        it "isWithinEditWindow allows edits within the window" do
+            let today = fromGregorian 2025 6 15
+            isWithinEditWindow today (fromGregorian 2025 6 15) 7 `shouldBe` True
+            isWithinEditWindow today (fromGregorian 2025 6 8) 7 `shouldBe` True
+            isWithinEditWindow today (fromGregorian 2025 6 14) 7 `shouldBe` True
+
+        it "isWithinEditWindow blocks edits outside the window" do
+            let today = fromGregorian 2025 6 15
+            isWithinEditWindow today (fromGregorian 2025 6 7) 7 `shouldBe` False
+            isWithinEditWindow today (fromGregorian 2025 5 1) 7 `shouldBe` False
+
+        it "isWithinEditWindow handles zero-day window (today only)" do
+            let today = fromGregorian 2025 6 15
+            isWithinEditWindow today (fromGregorian 2025 6 15) 0 `shouldBe` True
+            isWithinEditWindow today (fromGregorian 2025 6 14) 0 `shouldBe` False
 
     describe "Timesheet approval" do
         it "resetApprovalOnEdit clears approval when wasApproved is True" do

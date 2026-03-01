@@ -439,12 +439,21 @@ Business requirements are canonical in `specs/`.
   - Verification: `typecheck`, `test` (64 examples, 0 failures), `lint` (pre-existing only), `format` all passed.
 
 ### 5.3 Staff edit window constraints
-- **Status:** [ ]
+- **Status:** [x]
 - **Goal:** Enforce staff edit windows with manager/admin bypass.
 - **Spec sources:** `specs/05-timesheets-and-leave.md`
 - **Deliverables:**
   - Window-check function and controller integration.
   - Tests for staff restrictions and manager bypass.
+- **Completion notes:**
+  - Added `staff_timesheet_edit_window_days` column to `venue_config` in `Application/Schema.sql` (default: 7 days).
+  - Added pure helper `isWithinEditWindow` in `Application/Helper/Controller.hs` comparing `worked_on` date against today with configurable window.
+  - Added `ensureEditWindowOrManager` controller guard that denies staff access (403) to entries outside the edit window while letting manager/admin bypass.
+  - Integrated guard into `EditTimesheetEntryAction`, `UpdateTimesheetEntryAction`, and `DeleteTimesheetEntryAction` in `Web/Controller/Timesheets.hs`.
+  - Updated `Web/View/Timesheets/Index.hs` to accept `today` and `editWindowDays`, hiding Edit/Delete buttons for staff when entries are outside the window.
+  - Added 3 unit tests in `Test/SchemaSpec.hs` for `isWithinEditWindow` covering within-window, outside-window, and zero-day boundary cases.
+  - Updated column name roundtrip test to include `staff_timesheet_edit_window_days`.
+  - Verification: `regen-types`, `typecheck`, `test` (67 examples, 0 failures), `lint` (pre-existing only), `format` all passed.
 
 ### 5.4 Leave request lifecycle + roster recalculation trigger
 - **Status:** [ ]

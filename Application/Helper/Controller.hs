@@ -1,5 +1,7 @@
 module Application.Helper.Controller where
 
+import Data.Time.Calendar (diffDays)
+import Data.Time.Clock (UTCTime (..), getCurrentTime)
 import Data.Time.Format (defaultTimeLocale, parseTimeM)
 import Data.Time.LocalTime (TimeOfDay (..))
 import Generated.Types
@@ -109,3 +111,18 @@ shiftDurationMinutes start end =
     let startMins = todHour start * 60 + todMin start
         endMins = todHour end * 60 + todMin end
     in endMins - startMins
+
+-- | True when the worked-on date is within the staff edit window (inclusive).
+-- The window is measured in days from today backwards.
+isWithinEditWindow :: Day -> Day -> Int -> Bool
+isWithinEditWindow today workedOn windowDays =
+    diffDays today workedOn <= fromIntegral windowDays
+
+-- | Guard that denies staff access to entries outside the edit window.
+-- Manager/admin roles bypass the restriction entirely.
+ensureEditWindowOrManager :: (?context :: ControllerContext, ?modelContext :: ModelContext) => Day -> IO ()
+ensureEditWindowOrManager workedOn =
+    unless (hasRole ManagerRole) do
+        config <- fetchVenueConfig
+        today <- utctDay <$> getCurrentTime
+        accessDeniedUnless (isWithinEditWindow today workedOn config.staffTimesheetEditWindowDays)

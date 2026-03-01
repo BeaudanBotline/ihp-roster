@@ -1,10 +1,13 @@
 module Web.View.Timesheets.Index where
 
+import Application.Helper.Controller (isWithinEditWindow)
 import Web.View.Prelude
 
 data IndexView = IndexView
-    { entries      :: [TimesheetEntry]
-    , staffMembers :: [Staff]
+    { entries        :: [TimesheetEntry]
+    , staffMembers   :: [Staff]
+    , today          :: Day
+    , editWindowDays :: Int
     }
 
 instance View IndexView where
@@ -16,7 +19,7 @@ instance View IndexView where
 
         {if null entries
             then renderEmptyState
-            else renderEntriesTable entries staffMembers
+            else renderEntriesTable entries staffMembers today editWindowDays
         }
     |]
 
@@ -29,8 +32,8 @@ renderEmptyState = [hsx|
     </div>
 |]
 
-renderEntriesTable :: [TimesheetEntry] -> [Staff] -> Html
-renderEntriesTable entries staffMembers = [hsx|
+renderEntriesTable :: (?context :: ControllerContext) => [TimesheetEntry] -> [Staff] -> Day -> Int -> Html
+renderEntriesTable entries staffMembers today editWindowDays = [hsx|
     <div class="table-responsive">
         <table class="table table-striped align-middle">
             <thead>
@@ -46,14 +49,14 @@ renderEntriesTable entries staffMembers = [hsx|
                 </tr>
             </thead>
             <tbody>
-                {forEach entries (renderEntryRow staffMembers)}
+                {forEach entries (renderEntryRow staffMembers today editWindowDays)}
             </tbody>
         </table>
     </div>
 |]
 
-renderEntryRow :: (?context :: ControllerContext) => [Staff] -> TimesheetEntry -> Html
-renderEntryRow staffMembers entry = [hsx|
+renderEntryRow :: (?context :: ControllerContext) => [Staff] -> Day -> Int -> TimesheetEntry -> Html
+renderEntryRow staffMembers today editWindowDays entry = [hsx|
     <tr>
         <td>{entry.workedOn}</td>
         <td>{staffName}</td>
@@ -63,8 +66,7 @@ renderEntryRow staffMembers entry = [hsx|
         <td>{renderDuration entry}</td>
         <td>{renderApprovalBadge entry}{renderApprovalAction entry}</td>
         <td class="text-end">
-            <a href={EditTimesheetEntryAction entry.id} class="btn btn-sm btn-outline-secondary me-1">Edit</a>
-            <a href={DeleteTimesheetEntryAction entry.id} class="btn btn-sm btn-outline-danger js-delete js-delete-no-confirm">Delete</a>
+            {renderEditActions entry canEdit}
         </td>
     </tr>
 |]
@@ -72,6 +74,15 @@ renderEntryRow staffMembers entry = [hsx|
         staffName = case find (\s -> unpackId s.id == entry.staffId) staffMembers of
             Just staff -> staff.firstName <> " " <> staff.lastName
             Nothing    -> "Unknown" :: Text
+        canEdit = currentUserIsManager || isWithinEditWindow today entry.workedOn editWindowDays
+
+renderEditActions :: TimesheetEntry -> Bool -> Html
+renderEditActions entry canEdit
+    | canEdit = [hsx|
+        <a href={EditTimesheetEntryAction entry.id} class="btn btn-sm btn-outline-secondary me-1">Edit</a>
+        <a href={DeleteTimesheetEntryAction entry.id} class="btn btn-sm btn-outline-danger js-delete js-delete-no-confirm">Delete</a>
+    |]
+    | otherwise = mempty
 
 renderApprovalAction :: (?context :: ControllerContext) => TimesheetEntry -> Html
 renderApprovalAction entry

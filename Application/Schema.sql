@@ -70,6 +70,7 @@ CREATE TABLE venue_config (
     timezone TEXT NOT NULL,
     week_offset_epoch DATE NOT NULL,
     late_to_early_min_start_gap_minutes INT DEFAULT 0 NOT NULL,
+    staff_timesheet_edit_window_days INT DEFAULT 7 NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     UNIQUE(is_singleton)
