@@ -420,7 +420,7 @@ Business requirements are canonical in `specs/`.
   - Verification: `typecheck`, `test` (60 examples, 0 failures), `format` all passed.
 
 ### 5.2 Timesheet approval workflow
-- **Status:** [ ]
+- **Status:** [x]
 - **Goal:** Implement manager/admin approval and reset-on-staff-edit behavior.
 - **Spec sources:** `specs/03-access-control-and-auth.md`, `specs/05-timesheets-and-leave.md`
 - **Deliverables:**
@@ -429,6 +429,14 @@ Business requirements are canonical in `specs/`.
   - Authorization tests.
 - **Acceptance checks:**
   - Staff edit of approved entry sets unapproved automatically.
+- **Completion notes:**
+  - Added `ApproveTimesheetEntryAction` and `UnapproveTimesheetEntryAction` to `Web/Types.hs`.
+  - Implemented both actions in `Web/Controller/Timesheets.hs` with `ensureManagerRole` guards. Approve sets `isApproved = True`, `approvedAt = now`, `approvedByUserId = currentUser.id`. Unapprove clears all three fields.
+  - Added `resetApprovalOnEdit` helper and integrated into `UpdateTimesheetEntryAction` — when a previously-approved entry is edited, approval is automatically reset and the user sees a "(approval reset)" flash message.
+  - Updated `Web/View/Timesheets/Index.hs` to render Approve/Unapprove action buttons in the Status column, visible only to manager+ roles via `currentUserIsManager`.
+  - Added 2 unauthenticated redirect tests in `Test/Controller/TimesheetsSpec.hs` for approve/unapprove actions.
+  - Added 2 unit tests in `Test/SchemaSpec.hs` for `resetApprovalOnEdit` covering both the approved→reset and unapproved→noop cases.
+  - Verification: `typecheck`, `test` (64 examples, 0 failures), `lint` (pre-existing only), `format` all passed.
 
 ### 5.3 Staff edit window constraints
 - **Status:** [ ]

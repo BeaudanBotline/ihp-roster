@@ -52,7 +52,7 @@ renderEntriesTable entries staffMembers = [hsx|
     </div>
 |]
 
-renderEntryRow :: [Staff] -> TimesheetEntry -> Html
+renderEntryRow :: (?context :: ControllerContext) => [Staff] -> TimesheetEntry -> Html
 renderEntryRow staffMembers entry = [hsx|
     <tr>
         <td>{entry.workedOn}</td>
@@ -61,7 +61,7 @@ renderEntryRow staffMembers entry = [hsx|
         <td>{storageTimeToDisplayLabel (timeOfDayToStorageValue entry.endTime)}</td>
         <td>{renderBreakMinutes entry.breakMinutes}</td>
         <td>{renderDuration entry}</td>
-        <td>{renderApprovalBadge entry}</td>
+        <td>{renderApprovalBadge entry}{renderApprovalAction entry}</td>
         <td class="text-end">
             <a href={EditTimesheetEntryAction entry.id} class="btn btn-sm btn-outline-secondary me-1">Edit</a>
             <a href={DeleteTimesheetEntryAction entry.id} class="btn btn-sm btn-outline-danger js-delete js-delete-no-confirm">Delete</a>
@@ -72,6 +72,16 @@ renderEntryRow staffMembers entry = [hsx|
         staffName = case find (\s -> unpackId s.id == entry.staffId) staffMembers of
             Just staff -> staff.firstName <> " " <> staff.lastName
             Nothing    -> "Unknown" :: Text
+
+renderApprovalAction :: (?context :: ControllerContext) => TimesheetEntry -> Html
+renderApprovalAction entry
+    | not currentUserIsManager = mempty
+    | entry.isApproved = [hsx|
+        <a href={UnapproveTimesheetEntryAction entry.id} class="btn btn-sm btn-outline-warning ms-1">Unapprove</a>
+    |]
+    | otherwise = [hsx|
+        <a href={ApproveTimesheetEntryAction entry.id} class="btn btn-sm btn-outline-success ms-1">Approve</a>
+    |]
 
 renderBreakMinutes :: Int -> Html
 renderBreakMinutes 0    = [hsx|—|]

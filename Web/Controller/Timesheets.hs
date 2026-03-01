@@ -44,19 +44,48 @@ instance Controller TimesheetsController where
     action UpdateTimesheetEntryAction { timesheetEntryId } = do
         staffMembers <- fetchStaffForForm
         timesheetEntry <- fetch timesheetEntryId
+        let wasApproved = timesheetEntry.isApproved
         timesheetEntry
             |> buildTimesheetEntry
             |> ifValid \case
                 Left timesheetEntry -> render EditView { .. }
                 Right timesheetEntry -> do
-                    timesheetEntry <- timesheetEntry |> updateRecord
-                    setSuccessMessage "Timesheet entry updated"
+                    timesheetEntry <- timesheetEntry
+                        |> resetApprovalOnEdit wasApproved
+                        |> updateRecord
+                    when wasApproved do
+                        setSuccessMessage "Timesheet entry updated (approval reset)"
+                    unless wasApproved do
+                        setSuccessMessage "Timesheet entry updated"
                     redirectTo TimesheetsAction
 
     action DeleteTimesheetEntryAction { timesheetEntryId } = do
         timesheetEntry <- fetch timesheetEntryId
         deleteRecord timesheetEntry
         setSuccessMessage "Timesheet entry deleted"
+        redirectTo TimesheetsAction
+
+    action ApproveTimesheetEntryAction { timesheetEntryId } = do
+        ensureManagerRole
+        timesheetEntry <- fetch timesheetEntryId
+        now <- getCurrentTime
+        timesheetEntry
+            |> set #isApproved True
+            |> set #approvedAt (Just now)
+            |> set #approvedByUserId (Just (unpackId currentUser.id))
+            |> updateRecord
+        setSuccessMessage "Timesheet entry approved"
+        redirectTo TimesheetsAction
+
+    action UnapproveTimesheetEntryAction { timesheetEntryId } = do
+        ensureManagerRole
+        timesheetEntry <- fetch timesheetEntryId
+        timesheetEntry
+            |> set #isApproved False
+            |> set #approvedAt Nothing
+            |> set #approvedByUserId Nothing
+            |> updateRecord
+        setSuccessMessage "Timesheet entry unapproved"
         redirectTo TimesheetsAction
 
 fetchTimesheetData :: (?modelContext :: ModelContext, ?context :: ControllerContext) => IO ([TimesheetEntry], [Staff])
@@ -86,6 +115,14 @@ fetchCurrentUserStaff :: (?modelContext :: ModelContext, ?context :: ControllerC
 fetchCurrentUserStaff = query @Staff
     |> filterWhere (#userId, Just (unpackId currentUser.id))
     |> fetchOneOrNothing
+
+resetApprovalOnEdit :: Bool -> TimesheetEntry -> TimesheetEntry
+resetApprovalOnEdit wasApproved entry
+    | wasApproved = entry
+        |> set #isApproved False
+        |> set #approvedAt Nothing
+        |> set #approvedByUserId Nothing
+    | otherwise = entry
 
 buildTimesheetEntry :: (?context :: ControllerContext) => TimesheetEntry -> TimesheetEntry
 buildTimesheetEntry entry =

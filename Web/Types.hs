@@ -37,6 +37,8 @@ data TimesheetsController
     | EditTimesheetEntryAction { timesheetEntryId :: !(Id TimesheetEntry) }
     | UpdateTimesheetEntryAction { timesheetEntryId :: !(Id TimesheetEntry) }
     | DeleteTimesheetEntryAction { timesheetEntryId :: !(Id TimesheetEntry) }
+    | ApproveTimesheetEntryAction { timesheetEntryId :: !(Id TimesheetEntry) }
+    | UnapproveTimesheetEntryAction { timesheetEntryId :: !(Id TimesheetEntry) }
     deriving (Eq, Show, Data)
 
 data AdminController

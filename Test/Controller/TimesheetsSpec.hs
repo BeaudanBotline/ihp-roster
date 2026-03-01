@@ -29,3 +29,13 @@ tests = beforeAll (mockContextNoDatabase WebApplication config) do
         it "redirects unauthenticated users from create timesheet entry" $ withContext do
             response <- callAction CreateTimesheetEntryAction
             response `responseStatusShouldBe` status302
+
+        it "redirects unauthenticated users from approve action" $ withContext do
+            let entryId = Id "00000000-0000-0000-0000-000000000000"
+            response <- callAction ApproveTimesheetEntryAction { timesheetEntryId = entryId }
+            response `responseStatusShouldBe` status302
+
+        it "redirects unauthenticated users from unapprove action" $ withContext do
+            let entryId = Id "00000000-0000-0000-0000-000000000000"
+            response <- callAction UnapproveTimesheetEntryAction { timesheetEntryId = entryId }
+            response `responseStatusShouldBe` status302

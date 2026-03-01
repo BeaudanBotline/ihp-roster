@@ -7,9 +7,11 @@ import qualified Data.Text as Text
 import Data.Time.LocalTime (TimeOfDay (..))
 import Generated.Types
 import IHP.ControllerPrelude (newRecord)
+import IHP.HaskellSupport (set)
 import IHP.NameSupport (columnNameToFieldName, fieldNameToColumnName)
 import IHP.Prelude
 import Test.Hspec
+import Web.Controller.Timesheets (resetApprovalOnEdit)
 
 tests :: Spec
 tests = describe "Schema" do
@@ -217,3 +219,18 @@ tests = describe "Schema" do
             shiftDurationMinutes (TimeOfDay 9 0 0) (TimeOfDay 17 0 0) `shouldBe` 480
             shiftDurationMinutes (TimeOfDay 6 0 0) (TimeOfDay 6 15 0) `shouldBe` 15
             shiftDurationMinutes (TimeOfDay 9 0 0) (TimeOfDay 9 0 0) `shouldBe` 0
+
+    describe "Timesheet approval" do
+        it "resetApprovalOnEdit clears approval when wasApproved is True" do
+            let entry = newRecord @TimesheetEntry
+                    |> set #isApproved True
+                result = resetApprovalOnEdit True entry
+            result.isApproved `shouldBe` False
+            result.approvedAt `shouldBe` Nothing
+            result.approvedByUserId `shouldBe` Nothing
+
+        it "resetApprovalOnEdit preserves state when wasApproved is False" do
+            let entry = newRecord @TimesheetEntry
+                result = resetApprovalOnEdit False entry
+            result.isApproved `shouldBe` False
+            result.approvedAt `shouldBe` Nothing
