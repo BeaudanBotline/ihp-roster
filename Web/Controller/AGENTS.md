@@ -68,3 +68,8 @@ Every controller requires changes in **four files** (missing any will cause comp
 - Use `render ViewName { .. }` with RecordWildCards to pass data to views
 - Use `buildPost` pattern for form validation (see `IHP/Guide/validation.markdown`)
 - Access current user with `currentUser` (requires auth setup)
+
+## Navigation Controller Pattern
+- Keep `RosterWeeksAction` as the canonical "this week" redirect endpoint.
+- Week navigation should remain URL-driven via `ShowRosterWeekAction { weekOffset }`.
+- For planned modules (e.g. timesheets/admin), scaffold lightweight placeholder controllers/views/routes early so header links are always valid.

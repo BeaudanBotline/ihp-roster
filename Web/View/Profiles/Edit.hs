@@ -9,8 +9,8 @@ instance View EditView where
         <div class="app-page-auth">
             <div class="app-auth-card app-auth-card-wide">
                 <div class="app-auth-body">
-                    <h4 class="card-title mb-3 text-center">Complete Your Profile</h4>
-                    <p class="app-muted text-center">Add your name to continue.</p>
+                    <h4 class="card-title mb-3 text-center">Profile</h4>
+                    <p class="app-muted text-center">Update your profile details.</p>
                     {renderForm staff}
                 </div>
             </div>
@@ -44,7 +44,7 @@ renderForm staff = [hsx|
             />
         </div>
         <div class="d-grid mt-4">
-            <button type="submit" class="btn btn-primary">Save and Continue</button>
+            <button type="submit" class="btn btn-primary">Save</button>
         </div>
     </form>
 |]

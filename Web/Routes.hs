@@ -9,5 +9,7 @@ instance AutoRoute SessionsController
 instance AutoRoute UsersController
 instance AutoRoute DashboardController
 instance AutoRoute ProfilesController
+instance AutoRoute TimesheetsController
+instance AutoRoute AdminController
 instance AutoRoute StaffController
 instance AutoRoute RosterWeeksController

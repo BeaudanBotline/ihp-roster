@@ -22,6 +22,18 @@
 - The layout shell is defined in `Web/View/Layout.hs` — edit `defaultLayout` to change page structure
 - Use `assetPath` for all static asset references (enables cache-busting in production)
 
+## App Navigation Conventions
+- Global authenticated navigation lives in `Web/View/Layout.hs` and is rendered on every authenticated page
+- Header button order is: `roster`, `profile`, `timesheets`, `admin`, `logout`
+- `admin` is role-gated (admin-only visibility); `timesheets` and `admin` may route to placeholder pages until fully implemented
+- Auth pages (sign in/sign up/welcome) should not show the authenticated header
+
+## Roster Week Navigation Conventions
+- `weekOffset` in the URL is the source of truth for the viewed roster week
+- Use `ShowRosterWeekAction { weekOffset = ... }` for explicit week navigation
+- `RosterWeeksAction` is the canonical "this week" reset entrypoint and redirects to the current week offset
+- Do not persist "last viewed week" in DB unless explicitly requested in a future change
+
 ## Key Conventions
 - Every new controller needs: type in `Web/Types.hs`, AutoRoute in `Web/Routes.hs`, import+mount in `Web/FrontController.hs`, implementation in `Web/Controller/`
 - Use `Web.Controller.Prelude` in controllers, `Web.View.Prelude` in views — these re-export everything needed

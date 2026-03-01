@@ -77,3 +77,14 @@ renderForm post = formFor post [hsx|
 - Avoid inline `style="..."` in HSX for layout/sizing; add a reusable class in `static/app.css` instead.
 - Avoid hardcoded light-mode classes (`bg-light`, `text-muted`) in new views; use semantic classes/tokens.
 - For new component colors, add/consume CSS variables first, then apply them in selectors (including Bootstrap overrides).
+
+## Global Header Pattern
+- Authenticated navigation is centralized in `Web/View/Layout.hs` (`renderAppHeader`) so every signed-in page gets the same header.
+- Keep nav button labels/order consistent: `roster`, `profile`, `timesheets`, `admin`, `logout`.
+- Keep `admin` link visibility role-gated (admin only) via `currentUserIsAdmin`.
+- Do not duplicate primary nav in page-level views unless there is a specific workflow reason.
+
+## Roster Week Controls
+- Keep week browsing URL-driven via `weekOffset` action params.
+- Use compact controls in the roster page header: `<`, `this week`, `>`.
+- `this week` should link to `RosterWeeksAction` (server-side reset to current offset), not a client-side calculation.

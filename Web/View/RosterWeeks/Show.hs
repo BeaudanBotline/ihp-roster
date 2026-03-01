@@ -36,8 +36,9 @@ instance View ShowView where
                 <p class="app-muted mb-0">{tshow weekStartDate} to {tshow weekEndDate}</p>
             </div>
             <div class="d-flex gap-2 align-items-center">
-                <a href={ShowRosterWeekAction (weekOffset - 1)} class="btn btn-outline-secondary">&larr; Prev Week</a>
-                <a href={ShowRosterWeekAction (weekOffset + 1)} class="btn btn-outline-secondary">Next Week &rarr;</a>
+                <a href={ShowRosterWeekAction (weekOffset - 1)} class="btn btn-outline-secondary">&lt;</a>
+                <a href={RosterWeeksAction} class="btn btn-outline-secondary">this week</a>
+                <a href={ShowRosterWeekAction (weekOffset + 1)} class="btn btn-outline-secondary">&gt;</a>
             </div>
         </div>
 

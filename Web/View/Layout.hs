@@ -22,6 +22,7 @@ defaultLayout inner = [hsx|
     </head>
     <body class="theme-dark">
         <div class="app-shell">
+            {renderAppHeader}
             <main class="app-content container py-4">
                 {renderFlashMessages}
                 {inner}
@@ -29,6 +30,35 @@ defaultLayout inner = [hsx|
         </div>
     </body>
 </html>
+|]
+
+renderAppHeader :: (?context :: ControllerContext) => Html
+renderAppHeader =
+    case currentUserOrNothing of
+        Just _ -> [hsx|
+            <header class="app-header border-bottom">
+                <nav class="navbar navbar-expand-md container py-2">
+                    <a class="navbar-brand fw-semibold" href={RosterWeeksAction}>Roster App</a>
+                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#app-nav" aria-controls="app-nav" aria-expanded="false" aria-label="Toggle navigation">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+                    <div class="collapse navbar-collapse" id="app-nav">
+                        <div class="navbar-nav ms-auto d-flex gap-1 align-items-md-center">
+                            <a class="btn btn-outline-secondary btn-sm" href={RosterWeeksAction}>roster</a>
+                            <a class="btn btn-outline-secondary btn-sm" href={EditProfileAction}>profile</a>
+                            <a class="btn btn-outline-secondary btn-sm" href={TimesheetsAction}>timesheets</a>
+                            {when currentUserIsAdmin renderAdminNavLink}
+                            <a class="btn btn-outline-danger btn-sm js-delete js-delete-no-confirm" href={DeleteSessionAction}>logout</a>
+                        </div>
+                    </div>
+                </nav>
+            </header>
+        |]
+        Nothing -> mempty
+
+renderAdminNavLink :: Html
+renderAdminNavLink = [hsx|
+    <a class="btn btn-outline-secondary btn-sm" href={AdminAction}>admin</a>
 |]
 
 -- The 'assetPath' function used below appends a `?v=SOME_VERSION` to the static assets in production

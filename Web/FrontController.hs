@@ -6,12 +6,14 @@ import Web.Controller.Prelude
 import Web.View.Layout (defaultLayout)
 
 -- Controller Imports
+import Web.Controller.Admin
 import Web.Controller.Dashboard
 import Web.Controller.Profiles
 import Web.Controller.RosterWeeks
 import Web.Controller.Sessions
 import Web.Controller.Staff
 import Web.Controller.Static
+import Web.Controller.Timesheets
 import Web.Controller.Users
 
 instance FrontController WebApplication where
@@ -21,6 +23,8 @@ instance FrontController WebApplication where
         , parseRoute @UsersController
         , parseRoute @DashboardController
         , parseRoute @ProfilesController
+        , parseRoute @TimesheetsController
+        , parseRoute @AdminController
         , parseRoute @StaffController
         , parseRoute @RosterWeeksController
         -- Generator Marker

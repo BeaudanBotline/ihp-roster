@@ -30,6 +30,14 @@ data ProfilesController
     | UpdateProfileAction
     deriving (Eq, Show, Data)
 
+data TimesheetsController
+    = TimesheetsAction
+    deriving (Eq, Show, Data)
+
+data AdminController
+    = AdminAction
+    deriving (Eq, Show, Data)
+
 data StaffController
     = StaffAction
     | NewStaffAction

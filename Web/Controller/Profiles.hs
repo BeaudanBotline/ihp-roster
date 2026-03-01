@@ -25,7 +25,7 @@ instance Controller ProfilesController where
                         |> set #isProfileCompleted isProfileCompleted
                         |> updateRecord
                     setSuccessMessage "Profile updated"
-                    redirectTo DashboardAction
+                    redirectTo EditProfileAction
 
 fetchCurrentUserStaffOrNew :: (?modelContext :: ModelContext, ?context :: ControllerContext) => IO Staff
 fetchCurrentUserStaffOrNew = do

@@ -375,6 +375,22 @@ Business requirements are canonical in `specs/`.
   - Added `Test/ConflictSpec.hs` coverage for a multi-rule slot (`DuplicateAssignment`, `LateToEarlyConflict`, `IdealShiftThresholdExceeded`) and asserted that the selected primary conflict is `DuplicateAssignment`.
   - Verification run: `direnv exec . typecheck` and `direnv exec . test` passed.
 
+### 4.4 Global navigation header and placeholder controllers
+- **Status:** [x]
+- **Goal:** Add a persistent authenticated navigation header and scaffold placeholder controllers for planned modules so all header links are valid.
+- **Deliverables:**
+  - Global app header in `Web/View/Layout.hs` (`renderAppHeader`) with nav order: roster, profile, timesheets, admin, logout.
+  - Admin link role-gated via `currentUserIsAdmin`.
+  - Placeholder `TimesheetsController`/`AdminController` with stub index views.
+  - Profile page text updated from onboarding language to general "Profile" wording; redirect after save stays on profile.
+  - Roster week nav compacted to `<`, `this week`, `>` controls.
+  - Tests for new controllers (`AdminSpec`, `TimesheetsSpec`).
+  - AGENTS.md documentation for navigation and roster-week conventions.
+- **Completion notes:**
+  - Files added: `Web/Controller/Admin.hs`, `Web/Controller/Timesheets.hs`, `Web/View/Admin/Index.hs`, `Web/View/Timesheets/Index.hs`, `Test/Controller/AdminSpec.hs`, `Test/Controller/TimesheetsSpec.hs`.
+  - Files modified: `Web/Types.hs`, `Web/Routes.hs`, `Web/FrontController.hs`, `Web/View/Layout.hs`, `Web/View/Profiles/Edit.hs`, `Web/View/RosterWeeks/Show.hs`, `Web/Controller/Profiles.hs`, `static/app.css`, `AGENTS.md`, `Web/Controller/AGENTS.md`, `Web/View/AGENTS.md`, `Test/Main.hs`.
+  - Verification: `typecheck`, `test` (52 examples, 0 failures), `format` all passed.
+
 ---
 
 ## Phase 5 — Timesheets and Leave

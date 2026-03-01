@@ -44,6 +44,20 @@ a:not(.btn):hover {
     max-width: 1200px;
 }
 
+.app-header {
+    background-color: rgba(20, 26, 36, 0.9);
+    border-color: var(--app-border) !important;
+    backdrop-filter: blur(6px);
+}
+
+.navbar-brand {
+    color: var(--app-text);
+}
+
+.navbar-brand:hover {
+    color: var(--app-link-hover);
+}
+
 .app-page-auth {
     min-height: calc(100vh - 5rem);
     display: flex;
