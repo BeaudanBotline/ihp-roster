@@ -23,6 +23,10 @@
     --roster-warning: #4a3a1c;
 }
 
+html {
+    scrollbar-gutter: stable;
+}
+
 body.theme-dark {
     background: radial-gradient(circle at top, #172033 0%, var(--app-bg) 46%);
     color: var(--app-text);
