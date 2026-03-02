@@ -23,13 +23,6 @@ data ShowView = ShowView
 
 instance View ShowView where
     html ShowView { .. } = [hsx|
-        <nav>
-            <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href={DashboardAction}>Dashboard</a></li>
-                <li class="breadcrumb-item active">Roster Week {weekOffset}</li>
-            </ol>
-        </nav>
-
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
                 <h1 class="mb-0">Roster Week {weekOffset}</h1>

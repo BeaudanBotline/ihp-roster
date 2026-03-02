@@ -11,7 +11,7 @@ instance View IndexView where
     html IndexView { .. } = [hsx|
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href={DashboardAction}>Dashboard</a></li>
+                <li class="breadcrumb-item"><a href={RosterWeeksAction}>Roster</a></li>
                 <li class="breadcrumb-item active">Staff</li>
             </ol>
         </nav>

@@ -5,7 +5,6 @@ import Test.Hspec
 
 import qualified Test.ConflictSpec
 import qualified Test.Controller.AdminSpec
-import qualified Test.Controller.DashboardSpec
 import qualified Test.Controller.LeaveRequestsSpec
 import qualified Test.Controller.ProfilesSpec
 import qualified Test.Controller.RosterWeeksSpec
@@ -24,7 +23,6 @@ main = hspec do
     Test.Controller.SessionsSpec.tests
     Test.Controller.UsersSpec.tests
     Test.Controller.AdminSpec.tests
-    Test.Controller.DashboardSpec.tests
     Test.Controller.ProfilesSpec.tests
     Test.Controller.LeaveRequestsSpec.tests
     Test.Controller.StaffSpec.tests

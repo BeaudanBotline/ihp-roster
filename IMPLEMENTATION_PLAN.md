@@ -150,25 +150,63 @@ Business requirements are canonical in `specs/`.
 
 ## Phase 2 — Staff and Trial Staff Management
 
-### 2.1 Staff CRUD (manager/admin)
-- **Status:** [x]
-- **Goal:** Provide staff management interfaces and persistence required by roster/timesheets.
+### 2.1 Staff management migration into roster workflow
+- **Status:** [-]
+- **Goal:** Move staff management from a standalone CRUD section into the roster workflow while preserving manager/admin edit capability.
 - **Spec sources:** `specs/02-domain-model.md`, `specs/03-access-control-and-auth.md`, `specs/07-ui-bootstrap-spec.md`
 - **Deliverables:**
-  - Staff list/create/edit screens.
-  - Active/inactive support.
-  - Validation tests.
+  - Remove dashboard-driven staff-management entrypoints.
+  - Remove the standalone staff management page from the intended workflow.
+  - Re-surface staff editing via the roster-side staff panel modal.
+  - Preserve active/inactive support and validation behavior in the modal workflow.
 - **Acceptance checks:**
-  - Managers/admins can maintain staff records.
+  - Managers/admins can edit staff from the roster page without relying on a dedicated staff index page.
 - **Completion notes:**
-  - Added `StaffController` type to `Web/Types.hs` with full CRUD actions (index, new, create, show, edit, update, delete).
-  - Added `AutoRoute StaffController` to `Web/Routes.hs` and mounted in `Web/FrontController.hs`.
-  - Created `Web/Controller/Staff.hs` with `ensureIsUser`, `ensureProfileCompleted`, and `ensureManagerRole` guards in `beforeAction`; validation on firstName/lastName via `buildStaff`.
-  - Created Bootstrap 5 views: `Web/View/Staff/Index.hs` (table with active/inactive badge), `New.hs`, `Edit.hs` (forms with status dropdown), `Show.hs` (detail with breadcrumbs).
-  - Active/inactive toggle via select dropdown mapped to Bool param (`"on"` → True, `""` → False).
-  - Added "Manage Staff" link to `Web/View/Dashboard/Index.hs` visible only for manager+ roles.
-  - Added `Test/Controller/StaffSpec.hs` with 3 tests for unauthenticated redirect on list, new, and create actions; registered in `Test/Main.hs`.
-  - Verification: `typecheck`, `test` (20 examples, 0 failures, 1 pending), `lint` (pre-existing warnings only), `format` all passed.
+  - Current codebase includes a standalone `StaffController`/`StaffAction` CRUD workflow and earlier dashboard-driven discoverability.
+  - Target workflow removes the dashboard concept and removes staff management as a dedicated primary page.
+  - Existing staff edit logic can be reused behind a roster-launched modal, but navigation, controller usage, and documentation need to be simplified around the roster page as the management surface.
+
+### 2.1a Remove dashboard surface and routing
+- **Status:** [x]
+- **Goal:** Delete the dashboard concept from code and route all home-page behavior through roster weeks.
+- **Dependencies:** none
+- **Deliverables:**
+  - Remove `DashboardController` types/routes/mounts/views/tests.
+  - Replace dashboard breadcrumbs/links with roster-first navigation.
+  - Remove any residual dashboard references from docs and layout usage.
+- **Acceptance checks:**
+  - No runtime route or view references remain to `DashboardAction`.
+  - Post-login navigation still lands on roster weeks.
+- **Completion notes:**
+  - Removed `DashboardController` from `Web/Types.hs`, `Web/Routes.hs`, and `Web/FrontController.hs`, and deleted the obsolete dashboard controller/view files.
+  - Removed `Test/Controller/DashboardSpec.hs` and its `Test/Main.hs` registration, since the dashboard route no longer exists.
+  - Updated roster/staff breadcrumbs to use `RosterWeeksAction` instead of `DashboardAction`, and removed the roster-page dashboard breadcrumb entirely.
+  - Added a regression check in `Test/Controller/SessionsSpec.hs` to pin successful login redirects to `RosterWeeksAction`.
+  - Verification run: `direnv exec . typecheck`, `direnv exec . test`, `direnv exec . format`, and `direnv exec . typecheck` passed. `direnv exec . lint` reported only pre-existing hints in `Web/Controller/Timesheets.hs` and `Web/View/Timesheets/*.hs`.
+
+### 2.1b Retire standalone staff page from active workflow
+- **Status:** [ ]
+- **Goal:** Remove the dedicated staff-management page from the intended user flow while preserving reusable edit logic.
+- **Dependencies:** 2.1a
+- **Deliverables:**
+  - Remove discoverability/navigation for standalone staff CRUD.
+  - Audit whether `StaffController` is deleted entirely or retained only as internal reusable modal support.
+  - Remove docs/tests that treat `StaffAction` as a primary management surface.
+- **Acceptance checks:**
+  - Managers/admins are no longer directed to a dedicated "manage staff" page.
+  - Remaining staff-edit capabilities are clearly attached to the roster workflow only.
+
+### 2.1c Roster-launched staff edit modal
+- **Status:** [ ]
+- **Goal:** Reuse staff edit functionality inside a manager/admin modal launched from the roster page.
+- **Dependencies:** 2.1b, 3.4b
+- **Deliverables:**
+  - Read/write modal launched from roster-side staff list.
+  - Fields equivalent to the current staff edit flow, including active/inactive toggle.
+  - Validation and save behavior for manager/admin.
+- **Acceptance checks:**
+  - Manager/admin can edit staff without leaving the roster page.
+  - Existing active/inactive and core identity fields save correctly.
 
 ### 2.2 Trial staff placeholders
 - **Status:** [x]
@@ -196,61 +234,136 @@ Business requirements are canonical in `specs/`.
 
 ## Phase 3 — Roster Core
 
-### 3.1 Week/day/slot CRUD and navigation
-- **Status:** [x]
-- **Goal:** Build core roster structures around week/day offsets and slot assignment.
+### 3.1 Universal week navigation and manager auto-create
+- **Status:** [-]
+- **Goal:** Make roster week navigation universal while auto-creating missing weeks for manager/admin on view.
 - **Spec sources:** `specs/02-domain-model.md`, `specs/04-roster-and-conflict-rules.md`
 - **Deliverables:**
-  - Controllers/views for week creation and slot editing.
   - Offset-aware navigation and display date derivation.
+  - Manager/Admin auto-create on view for missing weeks.
+  - Staff browsing across all week offsets with unpublished-week placeholder messaging.
 - **Acceptance checks:**
-  - Users with permission can create/edit draft roster weeks.
+  - Manager/Admin can navigate to any week and immediately edit it without an explicit create action.
+  - Staff can navigate to any week and see either live content or a not-published-yet message.
 - **Completion notes:**
-  - Added `RosterWeeksController` and wired to routing.
-  - Implemented `RosterWeeksAction` dynamically routing to current week offset from epoch.
-  - Created offset-aware `ShowRosterWeekAction` with pagination links and generated `RosterDay` rows.
-  - Protected creation with `ensureManagerRole`.
-  - Created baseline tests in `Test/Controller/RosterWeeksSpec.hs`.
+  - Current code uses an explicit "create draft roster" workflow when a week does not exist.
+  - Target workflow removes explicit creation as a user-facing concept.
+  - Implementation should shift missing-week handling from a create CTA to automatic week/day creation when a manager/admin views that offset.
+  - Staff users should no longer be blocked from navigating to empty/unpublished offsets; instead they receive a non-editable not-published-yet state.
 
-### 3.2 Publish workflow and live visibility rules
-- **Status:** [x]
-- **Goal:** Implement draft/live lifecycle with manager/admin publish rights.
+### 3.1a Auto-create roster weeks for manager/admin on view
+- **Status:** [ ]
+- **Goal:** Convert missing-week access from explicit creation to automatic draft week creation for manager/admin viewers.
+- **Dependencies:** none
+- **Deliverables:**
+  - `ShowRosterWeekAction` path creates missing `roster_weeks`/`roster_days` for manager/admin when viewed.
+  - Remove create-draft CTA and explicit create action from the user workflow.
+  - Keep creation side effects out of staff views.
+- **Acceptance checks:**
+  - Visiting any week as manager/admin yields an editable roster surface immediately.
+  - No "create draft roster" UI remains.
+
+### 3.1b Staff unpublished-week placeholder state
+- **Status:** [ ]
+- **Goal:** Let staff browse all weeks while showing an explicit unpublished message for non-live weeks.
+- **Dependencies:** 3.1a
+- **Deliverables:**
+  - Staff can navigate past/future offsets without access errors.
+  - Non-live weeks render a "not published yet" message instead of editable roster content.
+- **Acceptance checks:**
+  - Staff can move between week offsets freely.
+  - Staff never see draft content.
+
+### 3.2 Roster settings and live visibility controls
+- **Status:** [-]
+- **Goal:** Move live/draft control into roster settings while retaining staff live-only visibility.
 - **Spec sources:** `specs/03-access-control-and-auth.md`, `specs/04-roster-and-conflict-rules.md`
 - **Deliverables:**
-  - Publish action in roster workflow.
+  - Roster settings control for live/draft state.
   - Staff-only live visibility enforcement.
+  - Unpublished-week message state for staff.
 - **Acceptance checks:**
   - Staff sees only live weeks.
-  - Manager/admin can publish.
+  - Manager/Admin can toggle live/draft from the roster settings bar.
 - **Completion notes:**
-  - Updated `Web/Controller/RosterWeeks.hs` to enforce staff-only visibility rules for `ShowRosterWeekAction` by filtering out draft weeks for staff via `hasRole ManagerRole`.
-  - Tested authorization and draft visibility with pending DB mock context. `PublishRosterWeekAction` handles the transition to `isLive = True` with manager role checks and is rendered in `Web/View/RosterWeeks/Show.hs`.
-  - Added pending mock-db tests for manager drafting/publishing, and staff live restriction in `Test/Controller/RosterWeeksSpec.hs`.
-  - Verification run: `typecheck`, `test` and `format` passed.
+  - Current code exposes publish controls as a dedicated roster action.
+  - Target workflow keeps the `is_live` concept but moves it into the new collapsible settings bar on the roster page.
+  - Staff behavior remains live-only, but the user-facing state changes from hidden content to an explicit unpublished-week message.
 
-### 3.3 Copy-week action
-- **Status:** [x]
-- **Goal:** Duplicate a source week into a target offset as draft.
+### 3.2a Add persistent per-user roster view settings
+- **Status:** [ ]
+- **Goal:** Persist manager/admin roster display preferences on the server side.
+- **Dependencies:** none
+- **Deliverables:**
+  - DB-backed per-user settings store for roster page preferences.
+  - Initial setting: `show staff list` defaulting to `true` for manager/admin.
+- **Acceptance checks:**
+  - Setting survives refresh, logout/login, and device/browser changes.
+
+### 3.2b Add collapsible roster settings bar
+- **Status:** [ ]
+- **Goal:** Introduce the manager/admin roster settings surface at the top of the roster page.
+- **Dependencies:** 3.2a
+- **Deliverables:**
+  - Collapsible settings bar above roster content.
+  - `show staff list` toggle.
+  - live/draft checkbox visible only to manager/admin.
+  - Persist contained settings values; do not persist open/closed state.
+- **Acceptance checks:**
+  - Settings are only visible to manager/admin.
+  - Toggling values updates persisted state.
+  - Staff does not see these controls.
+
+### 3.3 Import overwrite workflow
+- **Status:** [-]
+- **Goal:** Convert copy-week into destructive import-overwrite semantics.
 - **Spec sources:** `specs/04-roster-and-conflict-rules.md`
 - **Deliverables:**
-  - Copy endpoint/action and guardrails.
-  - Tests ensuring copied week is always `is_live = false`.
+  - Import action with explicit confirmation.
+  - Overwrite semantics that make the target identical to the source.
+  - Tests covering overwrite behavior for empty and populated targets.
 - **Acceptance checks:**
-  - Structure and assignments copy correctly.
+  - Import makes the target week identical to the source week.
+  - Import always confirms before destructive overwrite.
 - **Completion notes:**
-  - Added `CopyRosterWeekAction` to `Web/Types.hs` taking `sourceWeekOffset` and `targetWeekOffset`.
-  - Implemented copy logic in `Web/Controller/RosterWeeks.hs` protecting with `ensureManagerRole`. It correctly asserts target week doesn't exist, fetches source week, creates the target week as draft (`isLive = False`), creates corresponding 7 `RosterDay`s and duplicates all `RosterSlot`s from the source days onto the target days.
-  - Updated `Web/View/RosterWeeks/Show.hs` to include a "Copy Previous Week" button when a roster week does not exist.
-  - Added test coverage in `Test/Controller/RosterWeeksSpec.hs` checking unauthenticated access is redirected and documented DB-backed test requirements.
-  - Verified via `typecheck` and `test` which passed successfully.
+  - Current code treats copy as a create-only operation and blocks when the target already exists.
+  - Target workflow replaces this with import/overwrite semantics regardless of whether the target week is currently empty or populated.
+  - The import path should preserve source week identity fully at the roster-data level and require confirmation every time.
 
-### 3.4 Roster grid interactivity and slot assignment
-- **Status:** [x]
-- **Goal:** Provide an interactive sheet-style roster UI (matching the printed roster reference) using HTMX and IHP AutoRefresh.
+### 3.3a Replace copy semantics with overwrite import
+- **Status:** [ ]
+- **Goal:** Make import replace the target roster week contents completely, whether empty or populated.
+- **Dependencies:** 3.1a
+- **Deliverables:**
+  - Import action that deletes/replaces target roster content.
+  - Source roster copied exactly into target week.
+  - Future-safe handling so week-level metadata can also be synchronized if introduced later.
+- **Acceptance checks:**
+  - After import, target week is identical to source at the roster-data level.
+
+### 3.3b Add destructive overwrite confirmation
+- **Status:** [ ]
+- **Goal:** Require explicit confirmation before every import overwrite.
+- **Dependencies:** 3.3a
+- **Deliverables:**
+  - Confirmation prompt in the roster UI before import execution.
+  - Tests or documented verification for overwrite prompt behavior.
+- **Acceptance checks:**
+  - Import is never one-click destructive.
+
+### 3.4 Roster page as manager/admin operations hub
+- **Status:** [-]
+- **Goal:** Extend the roster page into the full manager/admin operational surface with settings and a staff side panel.
 - **Spec sources:** `specs/07-ui-bootstrap-spec.md`, `specs/08-ihp-implementation-spec.md`
 - **Deliverables:**
   - DB Migration: Remove `shift_type_id` from `roster_slots`, add `row_index`, and make `start_time` nullable.
   - Sheet-style layout with Y-axis (Days) and grouped X-axis blocks (Early, Mid, Late), each with `Time | Staff | Code` subcolumns.
+  - Manager/Admin collapsible settings bar with persistent per-user settings:
+    - `show staff list`
+    - live/draft checkbox
+  - Desktop `70/30` roster/staff layout.
+  - Mobile stacked-below staff list layout.
+  - Staff list showing active linked staff only, sorted by first name, with weekly assigned shifts, ideal shifts, user role, and edit modal launcher.
   - Day controls to add/remove slot rows (`[+]` / `[-]`) using `row_index` grouping.
   - Inline editing: Staff, Start Time, and Code/Note inputs using HTMX `hx-post` for auto-save.
   - IHP AutoRefresh integration to reflect conflict badges and UI changes in real-time.
@@ -258,6 +371,9 @@ Business requirements are canonical in `specs/`.
   - Manager/Admin can add rows to a day (creating 3 empty slots).
   - Manager/Admin can delete a row (removing 3 slots).
   - Changes to staff/time/notes auto-save without page refresh.
+  - Manager/Admin can toggle the staff list without changing the roster width.
+  - Desktop staff panel matches roster height and scrolls internally when needed.
+  - Mobile staff panel renders below the roster with no internal scroll bar.
   - Conflict badges update reactively via AutoRefresh.
   - Grid structure visually matches the sheet reference: grouped day rows + Early/Mid/Late block subcolumns.
 - **Completion notes:**
@@ -292,6 +408,45 @@ Business requirements are canonical in `specs/`.
     - `direnv exec . format`
     - `direnv exec . typecheck`
     - `direnv exec . test`
+
+### 3.4a Add manager/admin roster-side staff panel layout
+- **Status:** [ ]
+- **Goal:** Add the responsive roster/staff split layout controlled by `show staff list`.
+- **Dependencies:** 3.2b
+- **Deliverables:**
+  - Desktop `70/30` split with staff panel on the right.
+  - Hidden-state layout where roster keeps the same width and centers.
+  - Mobile stacked-below layout with no internal panel scroll.
+- **Acceptance checks:**
+  - Desktop panel matches the visible roster height and scrolls internally.
+  - Mobile panel moves below the roster and grows naturally.
+
+### 3.4b Populate roster-side staff list content
+- **Status:** [ ]
+- **Goal:** Render the manager/admin side panel with the agreed operational data.
+- **Dependencies:** 3.4a
+- **Deliverables:**
+  - Active linked staff only.
+  - Sorted by first name.
+  - Per-row fields:
+    - name
+    - assigned shifts in the currently viewed week
+    - ideal shifts
+    - user role
+    - edit button
+- **Acceptance checks:**
+  - Counts reflect the currently viewed week.
+  - Trial staff do not appear.
+
+### 3.4c Integrate roster-side staff editing entrypoint
+- **Status:** [ ]
+- **Goal:** Wire staff-list edit buttons to the modal workflow.
+- **Dependencies:** 2.1c, 3.4b
+- **Deliverables:**
+  - Edit buttons launch the roster-side staff modal.
+  - Save success updates both staff panel and any roster-dependent staff data.
+- **Acceptance checks:**
+  - Manager/admin can edit a staff member directly from the roster page.
 
 ### 3.5 Reusable quarter-hour modal time picker
 - **Status:** [x]

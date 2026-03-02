@@ -2,6 +2,7 @@ module Test.Controller.SessionsSpec where
 
 import Config
 import Generated.Types
+import qualified IHP.AuthSupport.Controller.Sessions as Sessions
 import IHP.ControllerPrelude
 import IHP.FrameworkConfig
 import IHP.HaskellSupport
@@ -27,3 +28,6 @@ tests = beforeAll (mockContextNoDatabase WebApplication config) do
             response `responseStatusShouldBe` status200
             response `responseBodyShouldContain` "Sign In"
             response `responseBodyShouldContain` "Create one"
+
+        it "redirects successful logins to the roster week flow" $ withContext do
+            Sessions.afterLoginRedirectPath @User `shouldBe` pathTo RosterWeeksAction

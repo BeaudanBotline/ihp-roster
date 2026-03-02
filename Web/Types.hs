@@ -21,10 +21,6 @@ data UsersController
     | CreateUserAction
     deriving (Eq, Show, Data)
 
-data DashboardController
-    = DashboardAction
-    deriving (Eq, Show, Data)
-
 data ProfilesController
     = EditProfileAction
     | UpdateProfileAction
