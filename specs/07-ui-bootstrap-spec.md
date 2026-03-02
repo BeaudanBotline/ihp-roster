@@ -10,12 +10,6 @@
 
 ## Roster grid
 
-- **Primary Page:** The roster week page is the app's main operational surface; there is no separate dashboard landing workflow.
-- **Roster Settings Bar:** Manager/Admin sees a collapsible settings bar above the roster content.
-  - Initial settings include:
-    - `Show staff list`
-    - live/draft checkbox
-  - Settings values persist per user.
 - **Matrix Layout:** A high-density roster sheet inspired by a printed weekly schedule. Y-axis is days, X-axis is fixed chronological blocks: "Early", "Mid", and "Late".
 - **Header Structure:** The table header uses grouped columns:
   - `Day`
@@ -47,23 +41,7 @@
 - **Conflict Rendering:** Conflict states are visualized by changing the background color of the Staff Assignment dropdown:
   - **Dark Red:** Critical conflicts (e.g., Duplicate assignment, Leave conflict, Late-to-Early).
   - **Light Pink/Red:** Advisory conflicts (e.g., Availability preference mismatch, Ideal-shift threshold).
-- **Unpublished Staff View:** Staff browsing an unpublished week should see a message that it is not published yet instead of editable roster content.
-
-## Roster-side staff panel
-
-- **Visibility:** Visible only to Manager/Admin, controlled by the `Show staff list` setting, default `on`.
-- **Desktop Layout:** On large screens, roster and staff panel render in a `70/30` split with the panel on the right.
-- **Desktop Height Rule:** The staff panel matches the visible rendered height of the roster area and scrolls internally when its content exceeds that height.
-- **Desktop Hidden State:** When the staff panel is hidden, the roster keeps the same visual width and centers within the page.
-- **Mobile Layout:** On smaller screens, the staff panel moves below the roster and expands to natural page height with no internal scrollbar.
-- **Content:** Show active linked staff only, sorted by first name.
-- **Row Content:** Each row shows:
-  - Name
-  - Assigned shifts in the currently viewed week
-  - Ideal shifts
-  - User role
-  - `Edit` button
-- **Edit Interaction:** `Edit` opens a read/write modal for Manager/Admin using the same staff fields previously exposed on the dedicated staff management screen.
+- Draft/live status indicator and publish controls for Manager/Admin remain at the top of the grid.
 
 ## Timesheets
 

@@ -12,11 +12,9 @@ Use project scripts via direnv:
 
 ## Access and onboarding
 
-- Tenant bootstrap and owner/admin assignment flow.
+- First user auto-admin assignment.
 - Profile-completion gate behavior.
 - Role-based action restrictions.
-- Tenant isolation on reads and writes.
-- Export permission restrictions.
 
 ## Rostering
 
@@ -32,8 +30,6 @@ Use project scripts via direnv:
 - Approval reset on staff edit of approved entry.
 - Leave date validation and status transitions.
 - Conflict recalculation after leave approval.
-- Correction history or audit event creation for approval and record changes.
-- Prohibition of silent destructive edits once records are in business use.
 
 ## Pay engine
 
@@ -50,7 +46,4 @@ Feature is accepted when:
 2. Pay outputs are deterministic and traceable via SQL breakdown fields.
 3. Conflict flags appear consistently with configured priority.
 4. Validation failures are explicit and actionable.
-5. Tenant data cannot be accessed across tenant boundaries.
-6. Security-sensitive actions are auditable.
-7. Export workflows are scoped, attributable and test-covered.
-8. Typecheck/tests pass and schema/generated types are synchronized.
+5. Typecheck/tests pass and schema/generated types are synchronized.

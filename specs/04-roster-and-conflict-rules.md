@@ -2,18 +2,15 @@
 
 ## Roster lifecycle
 
-1. Managers/Admins can browse any roster week offset.
-2. Viewing a missing week as Manager/Admin auto-creates that week in draft mode (`is_live = false`).
-3. Managers/Admins edit assignments directly on the roster week page.
-4. Managers/Admins control live/draft state from roster settings.
-5. Staff can browse all week offsets, but only published/live roster content is shown.
-6. When a staff user views an unpublished week, the page shows that the week is not published yet.
+1. Week created in draft mode (`is_live = false`).
+2. Managers/Admins edit assignments.
+3. Managers/Admins can publish (`is_live = true`).
+4. Staff sees only published weeks.
 
 ## Copy week
 
-- Copy/import operation makes the target `week_offset` identical to the source week.
-- Import overwrites any existing target roster content after an explicit confirmation.
-- Imported weeks preserve the source week's structure and assignments exactly.
+- Copy operation duplicates source week structure and assignments into target `week_offset`.
+- Copied week is always created as draft (`is_live = false`).
 
 ## Assignment filtering
 
@@ -30,11 +27,6 @@ Roster assignment UI must support filter toggles:
   - Repeating rows per day.
   - Three chronological blocks (`Early`, `Mid`, `Late`) with `start_time`, `staff`, and short `note` code.
 - `note` is intended for short operational flags (e.g. `M`, `DEL`, `SUP`, `D`, `*AS`) and should stay concise.
-- The roster page also provides a Manager/Admin-only staff side panel:
-  - default visible
-  - populated with active linked staff only
-  - sorted by first name
-  - each row shows name, assigned shifts in the currently viewed week, ideal shifts, user role, and an edit action
 
 ## Conflict flagging
 
