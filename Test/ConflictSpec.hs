@@ -50,6 +50,7 @@ tests = describe "Conflict Engine" do
 
     let mockLeaveRequest = LeaveRequest
             { id = def
+            , venueId = def
             , staffId = def
             , startDate = fromGregorian 2025 1 5
             , endDate = fromGregorian 2025 1 7
@@ -62,6 +63,7 @@ tests = describe "Conflict Engine" do
 
     let mockAvailability = StaffAvailability
             { id = def
+            , venueId = def
             , staffId = def
             , weekdayIndex = Just 1 -- Monday
             , specificDate = Nothing
@@ -88,6 +90,15 @@ tests = describe "Conflict Engine" do
         let conflicts = evaluateConflicts ctx
         length conflicts `shouldBe` 1
         map conflictType conflicts `shouldBe` [LeaveConflict]
+
+    it "does not treat available-again date as unavailable" do
+        let ctx = mkContext \base ->
+                base
+                    { rosterDayDate = fromGregorian 2025 1 7
+                    , leaveRequests = [mockLeaveRequest]
+                    }
+        let conflicts = evaluateConflicts ctx
+        map conflictType conflicts `shouldBe` []
 
     it "detects availability refusals for matching day" do
         let ctx = mkContext \base ->

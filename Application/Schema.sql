@@ -1,4 +1,12 @@
 -- Your database schema. Use the Schema Designer at http://localhost:8001/ to add some tables.
+CREATE TABLE venues (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
+    name TEXT NOT NULL,
+    status TEXT DEFAULT 'active' NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    CHECK (status IN ('active', 'inactive'))
+);
 CREATE TABLE users (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
     email TEXT NOT NULL,
@@ -10,8 +18,22 @@ CREATE TABLE users (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
 );
+CREATE TABLE venue_memberships (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
+    venue_id UUID NOT NULL,
+    user_id UUID NOT NULL,
+    venue_role TEXT DEFAULT 'worker' NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    UNIQUE(venue_id, user_id),
+    CHECK (venue_role IN ('worker', 'manager', 'venue_admin', 'venue_owner')),
+    FOREIGN KEY (venue_id) REFERENCES venues (id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+);
 CREATE TABLE staff (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
+    venue_id UUID NOT NULL,
     user_id UUID,
     first_name TEXT NOT NULL,
     last_name TEXT NOT NULL,
@@ -19,39 +41,48 @@ CREATE TABLE staff (
     is_active BOOLEAN DEFAULT TRUE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    FOREIGN KEY (venue_id) REFERENCES venues (id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL
 );
 CREATE TABLE pay_levels (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
+    venue_id UUID NOT NULL,
     name TEXT NOT NULL,
     is_active BOOLEAN DEFAULT TRUE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    FOREIGN KEY (venue_id) REFERENCES venues (id) ON DELETE CASCADE
 );
 CREATE TABLE shift_types (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
+    venue_id UUID NOT NULL,
     name TEXT NOT NULL,
     default_pay_level_id UUID NOT NULL,
     is_active BOOLEAN DEFAULT TRUE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    FOREIGN KEY (venue_id) REFERENCES venues (id) ON DELETE CASCADE,
     FOREIGN KEY (default_pay_level_id) REFERENCES pay_levels (id) ON DELETE RESTRICT
 );
 CREATE TABLE slot_names (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
+    venue_id UUID NOT NULL,
     name TEXT NOT NULL,
     is_active BOOLEAN DEFAULT TRUE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    FOREIGN KEY (venue_id) REFERENCES venues (id) ON DELETE CASCADE
 );
 CREATE TABLE day_names (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
+    venue_id UUID NOT NULL,
     weekday_index INT NOT NULL,
     name TEXT NOT NULL,
     is_active BOOLEAN DEFAULT TRUE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
-    UNIQUE(weekday_index)
+    UNIQUE(venue_id, weekday_index),
+    FOREIGN KEY (venue_id) REFERENCES venues (id) ON DELETE CASCADE
 );
 CREATE TABLE pay_level_day_rules (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
@@ -66,22 +97,25 @@ CREATE TABLE pay_level_day_rules (
 );
 CREATE TABLE venue_config (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
-    is_singleton BOOLEAN DEFAULT TRUE NOT NULL,
+    venue_id UUID NOT NULL,
     timezone TEXT NOT NULL,
     week_offset_epoch DATE NOT NULL,
     late_to_early_min_start_gap_minutes INT DEFAULT 0 NOT NULL,
     staff_timesheet_edit_window_days INT DEFAULT 7 NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
-    UNIQUE(is_singleton)
+    UNIQUE(venue_id),
+    FOREIGN KEY (venue_id) REFERENCES venues (id) ON DELETE CASCADE
 );
 CREATE TABLE roster_weeks (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
+    venue_id UUID NOT NULL,
     week_offset INT NOT NULL,
     is_live BOOLEAN DEFAULT FALSE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
-    UNIQUE(week_offset)
+    UNIQUE(venue_id, week_offset),
+    FOREIGN KEY (venue_id) REFERENCES venues (id) ON DELETE CASCADE
 );
 CREATE TABLE roster_days (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
@@ -109,6 +143,7 @@ CREATE TABLE roster_slots (
 );
 CREATE TABLE staff_availability (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
+    venue_id UUID NOT NULL,
     staff_id UUID NOT NULL,
     weekday_index INT,
     specific_date DATE,
@@ -116,10 +151,12 @@ CREATE TABLE staff_availability (
     note TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    FOREIGN KEY (venue_id) REFERENCES venues (id) ON DELETE CASCADE,
     FOREIGN KEY (staff_id) REFERENCES staff (id) ON DELETE CASCADE
 );
 CREATE TABLE leave_requests (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
+    venue_id UUID NOT NULL,
     staff_id UUID NOT NULL,
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
@@ -127,23 +164,39 @@ CREATE TABLE leave_requests (
     notes TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    FOREIGN KEY (venue_id) REFERENCES venues (id) ON DELETE CASCADE,
     FOREIGN KEY (staff_id) REFERENCES staff (id) ON DELETE CASCADE
 );
 CREATE TABLE timesheet_entries (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
+    venue_id UUID NOT NULL,
     staff_id UUID NOT NULL,
     worked_on DATE NOT NULL,
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
+    had_break BOOLEAN DEFAULT FALSE NOT NULL,
+    break_start_time TIME,
+    break_end_time TIME,
     break_minutes INT DEFAULT 0 NOT NULL,
     is_approved BOOLEAN DEFAULT FALSE NOT NULL,
     approved_at TIMESTAMP WITH TIME ZONE,
     approved_by_user_id UUID,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    FOREIGN KEY (venue_id) REFERENCES venues (id) ON DELETE CASCADE,
     FOREIGN KEY (staff_id) REFERENCES staff (id) ON DELETE CASCADE,
     FOREIGN KEY (approved_by_user_id) REFERENCES users (id) ON DELETE SET NULL
 );
+
+-- Composite indexes for common venue-scoped access paths
+CREATE INDEX idx_venue_memberships_venue_user ON venue_memberships (venue_id, user_id);
+CREATE INDEX idx_staff_venue ON staff (venue_id);
+CREATE INDEX idx_roster_weeks_venue_offset ON roster_weeks (venue_id, week_offset);
+CREATE INDEX idx_timesheet_entries_venue_staff ON timesheet_entries (venue_id, staff_id);
+CREATE INDEX idx_timesheet_entries_venue_worked_on ON timesheet_entries (venue_id, worked_on);
+CREATE INDEX idx_leave_requests_venue_staff ON leave_requests (venue_id, staff_id);
+CREATE INDEX idx_leave_requests_venue_start_date ON leave_requests (venue_id, start_date);
+CREATE INDEX idx_staff_availability_venue ON staff_availability (venue_id);
 
 CREATE OR REPLACE FUNCTION resolve_effective_pay_level(p_staff_id UUID, p_shift_type_id UUID, p_day_of_week INT)
 RETURNS UUID
@@ -193,8 +246,23 @@ AS $$
             e.end_time,
             e.break_minutes,
             (EXTRACT(EPOCH FROM e.start_time) / 60)::INT AS start_minute_of_day,
-            (EXTRACT(EPOCH FROM e.end_time) / 60)::INT AS end_minute_of_day,
-            GREATEST((EXTRACT(EPOCH FROM (e.end_time - e.start_time)) / 60)::INT - e.break_minutes, 0) AS paid_minutes,
+            (
+                CASE
+                    WHEN (EXTRACT(EPOCH FROM e.end_time) / 60)::INT <= (EXTRACT(EPOCH FROM e.start_time) / 60)::INT
+                        THEN (EXTRACT(EPOCH FROM e.end_time) / 60)::INT + 1440
+                    ELSE (EXTRACT(EPOCH FROM e.end_time) / 60)::INT
+                END
+            ) AS end_minute_of_day,
+            GREATEST(
+                (
+                    CASE
+                        WHEN (EXTRACT(EPOCH FROM e.end_time) / 60)::INT <= (EXTRACT(EPOCH FROM e.start_time) / 60)::INT
+                            THEN (EXTRACT(EPOCH FROM e.end_time) / 60)::INT + 1440
+                        ELSE (EXTRACT(EPOCH FROM e.end_time) / 60)::INT
+                    END
+                ) - (EXTRACT(EPOCH FROM e.start_time) / 60)::INT - e.break_minutes,
+                0
+            ) AS paid_minutes,
             resolve_effective_pay_level(
                 e.staff_id,
                 (SELECT shift_type_id FROM first_shift_type),

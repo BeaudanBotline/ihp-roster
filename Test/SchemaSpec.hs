@@ -1,7 +1,10 @@
 module Test.SchemaSpec where
 
 import Application.Helper.Controller
-import Application.Helper.View (isTrialStaff, quarterHourTimeOptions,
+import Application.Helper.View (appendQueryParams, formatDateDisplay,
+                                isTrialStaff, linkedActiveStaffForRosterPanel,
+                                quarterHourTimeOptions,
+                                quarterHourTimeOptionsInRange,
                                 storageTimeToDisplayLabel)
 import qualified Data.Text as Text
 import qualified Data.Text.IO as TextIO
@@ -33,14 +36,37 @@ tests = describe "Schema" do
         let _ = (Nothing :: Maybe PayLevelDayRule)
         True `shouldBe` True
 
-    it "exposes singleton controls on venue config" do
-        let _readSingletonFields venueConfig =
-                ( get #timezone venueConfig
+    it "generates venue and venue membership models" do
+        let _ = (Nothing :: Maybe Venue)
+        let _ = (Nothing :: Maybe VenueMembership)
+        True `shouldBe` True
+
+    it "exposes venue-scoped config fields on venue config" do
+        let _readConfigFields venueConfig =
+                ( get #venueId venueConfig
+                , get #timezone venueConfig
                 , get #weekOffsetEpoch venueConfig
                 , get #lateToEarlyMinStartGapMinutes venueConfig
-                , get #isSingleton venueConfig
                 )
         True `shouldBe` True
+
+    it "venue-owned tables expose venue_id field" do
+        let _staffVenueId = get #venueId (newRecord @Staff)
+        let _rosterWeekVenueId = get #venueId (newRecord @RosterWeek)
+        let _timesheetVenueId = get #venueId (newRecord @TimesheetEntry)
+        let _leaveVenueId = get #venueId (newRecord @LeaveRequest)
+        let _availabilityVenueId = get #venueId (newRecord @StaffAvailability)
+        let _payLevelVenueId = get #venueId (newRecord @PayLevel)
+        let _shiftTypeVenueId = get #venueId (newRecord @ShiftType)
+        let _slotNameVenueId = get #venueId (newRecord @SlotName)
+        let _dayNameVenueId = get #venueId (newRecord @DayName)
+        let _configVenueId = get #venueId (newRecord @VenueConfig)
+        True `shouldBe` True
+
+    it "venue membership exposes role and active fields" do
+        let membership = newRecord @VenueMembership
+        get #venueRole membership `shouldBe` "worker"
+        get #isActive membership `shouldBe` True
 
     it "exposes normalized user roles and leave statuses via shared helpers" do
         allUserRoleValues `shouldBe` ["staff", "manager", "admin"]
@@ -60,21 +86,21 @@ tests = describe "Schema" do
         map leaveRequestStatusToText [LeavePending, LeaveApproved, LeaveDenied] `shouldBe` allLeaveRequestStatusValues
 
     describe "Leave request helpers" do
-        it "validates leave date ranges as inclusive and ordered" do
+        it "validates leave date ranges as unavailable-from to available-again" do
             let startDate = fromGregorian 2025 3 10
             let sameDay = fromGregorian 2025 3 10
             let laterDate = fromGregorian 2025 3 12
             let earlierDate = fromGregorian 2025 3 9
 
-            isLeaveDateRangeValid startDate sameDay `shouldBe` True
+            isLeaveDateRangeValid startDate sameDay `shouldBe` False
             isLeaveDateRangeValid startDate laterDate `shouldBe` True
             isLeaveDateRangeValid startDate earlierDate `shouldBe` False
 
         it "computes affected week offsets for a leave range" do
             let epoch = fromGregorian 2025 1 6
-            affectedWeekOffsetsForDateRange epoch (fromGregorian 2025 1 6) (fromGregorian 2025 1 12) `shouldBe` [0]
-            affectedWeekOffsetsForDateRange epoch (fromGregorian 2025 1 12) (fromGregorian 2025 1 13) `shouldBe` [0, 1]
-            affectedWeekOffsetsForDateRange epoch (fromGregorian 2025 1 20) (fromGregorian 2025 1 20) `shouldBe` [2]
+            affectedWeekOffsetsForDateRange epoch (fromGregorian 2025 1 6) (fromGregorian 2025 1 13) `shouldBe` [0]
+            affectedWeekOffsetsForDateRange epoch (fromGregorian 2025 1 12) (fromGregorian 2025 1 14) `shouldBe` [0, 1]
+            affectedWeekOffsetsForDateRange epoch (fromGregorian 2025 1 20) (fromGregorian 2025 1 21) `shouldBe` [2]
             affectedWeekOffsetsForDateRange epoch (fromGregorian 2025 1 21) (fromGregorian 2025 1 20) `shouldBe` []
 
     it "assigns bootstrap registration role from existing user count" do
@@ -160,12 +186,39 @@ tests = describe "Schema" do
                     |> set #userId (Just def)
             isTrialStaff linkedStaff `shouldBe` False
 
+        it "filters roster panel staff to active linked staff sorted by first name" do
+            let inactiveLinkedStaff = newRecord @Staff
+                    |> set #firstName "Avery"
+                    |> set #lastName "Inactive"
+                    |> set #userId (Just def)
+                    |> set #isActive False
+            let trialStaff = newRecord @Staff
+                    |> set #firstName "Blair"
+                    |> set #lastName "Trial"
+            let linkedStaffZed = newRecord @Staff
+                    |> set #firstName "Zed"
+                    |> set #lastName "Linked"
+                    |> set #userId (Just def)
+            let linkedStaffAlex = newRecord @Staff
+                    |> set #firstName "Alex"
+                    |> set #lastName "Linked"
+                    |> set #userId (Just def)
+
+            map (.firstName) (linkedActiveStaffForRosterPanel [inactiveLinkedStaff, trialStaff, linkedStaffZed, linkedStaffAlex])
+                `shouldBe` ["Alex", "Zed"]
+
     describe "Quarter-hour time picker helpers" do
         it "generates canonical options from 06:00 to 23:45 in 15-minute increments" do
             fmap fst quarterHourTimeOptions `shouldSatisfy` (not . null)
             (fmap fst (head quarterHourTimeOptions)) `shouldBe` Just "06:00"
             (fmap fst (last quarterHourTimeOptions)) `shouldBe` Just "23:45"
             length quarterHourTimeOptions `shouldBe` 72
+
+        it "supports wrapped overnight ranges ending at 04:45 without an orphan 05:00 row" do
+            let overnightOptions = quarterHourTimeOptionsInRange (TimeOfDay 6 0 0) (TimeOfDay 4 45 0)
+            fmap fst (head overnightOptions) `shouldBe` Just "06:00"
+            fmap fst (last overnightOptions) `shouldBe` Just "04:45"
+            fmap fst overnightOptions `shouldNotContain` ["05:00"]
 
         it "renders stored HH:MM values as 12-hour AM/PM labels" do
             storageTimeToDisplayLabel "06:00" `shouldBe` "6:00 AM"
@@ -181,6 +234,19 @@ tests = describe "Schema" do
                 value `shouldSatisfy` (\v -> Text.length v == 5 && Text.index v 2 == ':')
                 label `shouldSatisfy` (\l -> "AM" `Text.isSuffixOf` l || "PM" `Text.isSuffixOf` l)
 
+    describe "Date formatting helpers" do
+        it "renders display dates as dd/mm/yyyy" do
+            formatDateDisplay (fromGregorian 2026 3 2) `shouldBe` "02/03/2026"
+
+    describe "Query param helpers" do
+        it "appends params to paths without an existing query string" do
+            appendQueryParams "/NewTimesheetEntry" [("weekOffset", "60"), ("workedOn", "2026-03-02")]
+                `shouldBe` "/NewTimesheetEntry?weekOffset=60&workedOn=2026-03-02"
+
+        it "appends params to paths that already have query params" do
+            appendQueryParams "/EditTimesheetEntry?timesheetEntryId=b72efdcc-5a11-4697-a0b1-b85f8d112c1f" [("weekOffset", "60")]
+                `shouldBe` "/EditTimesheetEntry?timesheetEntryId=b72efdcc-5a11-4697-a0b1-b85f8d112c1f&weekOffset=60"
+
     it "all schema column names round-trip through IHP NameSupport" do
         -- Every column name must survive columnNameToFieldName and
         -- fieldNameToColumnName without throwing a parse error.
@@ -192,15 +258,15 @@ tests = describe "Schema" do
                 , "created_at", "updated_at", "user_id", "first_name"
                 , "last_name", "is_active", "name", "default_pay_level_id"
                 , "weekday_index", "pay_level_id", "day_name_id", "multiplier"
-                , "is_singleton", "timezone", "week_offset_epoch"
+                , "venue_id", "venue_role", "timezone", "week_offset_epoch"
                 , "late_to_early_min_start_gap_minutes"
                 , "staff_timesheet_edit_window_days", "week_offset"
                 , "is_live", "roster_week_id", "day_offset", "roster_day_id"
                 , "staff_id", "slot_name_id", "row_index", "start_time"
                 , "duration_minutes", "specific_date", "is_available", "note"
                 , "start_date", "end_date", "status", "notes", "worked_on"
-                , "end_time", "break_minutes", "is_approved", "approved_at"
-                , "approved_by_user_id"
+                , "end_time", "had_break", "break_start_time", "break_end_time"
+                , "break_minutes", "is_approved", "approved_at", "approved_by_user_id"
                 ]
         forM_ columnNames $ \col -> do
             let fieldName = columnNameToFieldName col
@@ -279,6 +345,7 @@ tests = describe "Schema" do
         it "shiftDurationMinutes computes correct durations" do
             shiftDurationMinutes (TimeOfDay 9 0 0) (TimeOfDay 17 0 0) `shouldBe` 480
             shiftDurationMinutes (TimeOfDay 6 0 0) (TimeOfDay 6 15 0) `shouldBe` 15
+            shiftDurationMinutes (TimeOfDay 22 0 0) (TimeOfDay 2 0 0) `shouldBe` 240
             shiftDurationMinutes (TimeOfDay 9 0 0) (TimeOfDay 9 0 0) `shouldBe` 0
 
     describe "Timesheet edit window" do
