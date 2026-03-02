@@ -12,7 +12,7 @@
 Expected controller areas (exact naming can vary):
 
 - Auth/Profile controller(s)
-- Roster controller(s)
+- Roster controller(s) as the primary operational entrypoint
 - Timesheet controller(s)
 - Leave controller(s)
 - Admin/Config controller(s)
@@ -30,6 +30,7 @@ Each new controller requires:
 - HSX views under `Web/View/*`.
 - Layout integration through `Web/View/Layout.hs`.
 - Bootstrap classes first; custom CSS in `static/app.css`.
+- There is no separate dashboard workflow; the roster week view is the main post-login operational surface.
 - Roster grid rendering should support a dense sheet-style table:
   - Day/date column with day-level row grouping.
   - Header with grouped blocks (`Early`, `Mid`, `Late`) and per-block subcolumns (`time/staff/note`).
@@ -43,6 +44,9 @@ Each new controller requires:
     - selectable range is `06:00` to `23:45` in 15-minute increments
     - UI interactions dispatch `change` on the hidden input so existing HTMX autosave remains unchanged
     - component is shared for future timesheet forms
+- The roster page must support a Manager/Admin-only right-side staff panel on large screens and a stacked-below layout on smaller screens.
+- The roster page must expose a collapsible settings bar for Manager/Admin settings such as `show staff list` and live/draft state.
+- Staff users navigating to unpublished weeks should receive a clear "not published yet" state instead of editable roster controls.
 
 ## Helpers and services
 

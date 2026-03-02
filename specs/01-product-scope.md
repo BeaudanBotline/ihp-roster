@@ -13,7 +13,7 @@ Build a venue-level rostering and timesheet system for hospitality teams, with d
 
 1. Authentication and profile onboarding.
 2. Role-based access (Staff, Manager, Admin).
-3. Roster planning and publication.
+3. Roster planning, publication, and manager roster-side staff management.
 4. Conflict detection on roster assignments.
 5. Timesheet entry and approval flow.
 6. Leave request and approval flow.
@@ -35,3 +35,9 @@ All roster scheduling logic is based on offset integers:
 - `day_offset` (0..6)
 
 Native dates can be derived for display/reporting, but offsets are canonical for planning data.
+
+## Main operational surface
+
+- The roster week page is the primary operational page of the app.
+- There is no separate dashboard workflow.
+- Manager/Admin roster work happens directly from the roster page, including week editing and staff-side management affordances.

@@ -4,7 +4,9 @@
 
 - **Staff**
   - View own profile.
-  - View published roster only.
+  - Browse all roster weeks.
+  - View published roster content only.
+  - When a viewed week is not published, see a message that it is not published yet.
   - Submit/edit allowed timesheet entries.
   - Submit leave requests.
 - **Manager**
@@ -12,7 +14,7 @@
   - Manage roster planning.
   - Publish roster.
   - Approve/unapprove timesheets.
-  - Manage staff records (except restricted admin-only account operations).
+  - Manage active linked staff from the roster workflow (except restricted admin-only account operations).
 - **Admin**
   - All manager permissions.
   - System-wide configuration management.
@@ -36,3 +38,4 @@ Required fields are defined in onboarding spec and enforced server-side.
 - Trial staff are non-login placeholders for quick roster assignment.
 - They never access app flows directly.
 - No v1 conversion path from trial record to full login user.
+- Trial staff do not appear in the manager/admin roster-side staff list.
