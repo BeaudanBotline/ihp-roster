@@ -1,6 +1,7 @@
 module Web.Controller.LeaveRequests where
 
 import Data.Coerce (coerce)
+import Data.Time.Calendar (addDays)
 import Web.Controller.Prelude
 import Web.View.LeaveRequests.Index
 import Web.View.LeaveRequests.New
@@ -23,9 +24,10 @@ instance Controller LeaveRequestsController where
                 redirectTo LeaveRequestsAction
             Just _ -> do
                 today <- utctDay <$> getCurrentTime
-                let leaveRequest = newRecord @LeaveRequest
-                        |> set #startDate today
-                        |> set #endDate today
+                let leaveRequest =
+                        newRecord @LeaveRequest
+                            |> set #startDate today
+                            |> set #endDate (addDays 1 today)
                 render NewView { .. }
 
     action CreateLeaveRequestAction = do
@@ -35,10 +37,11 @@ instance Controller LeaveRequestsController where
                 setErrorMessage "No staff record found. Contact an administrator."
                 redirectTo LeaveRequestsAction
             Just staff -> do
-                let leaveRequest = newRecord @LeaveRequest
-                        |> set #staffId (coerce (get #id staff))
-                        |> set #status (leaveRequestStatusToText LeavePending)
-                        |> buildLeaveRequest
+                let leaveRequest =
+                        newRecord @LeaveRequest
+                            |> set #staffId (coerce (get #id staff))
+                            |> set #status (leaveRequestStatusToText LeavePending)
+                            |> buildLeaveRequest
 
                 leaveRequest
                     |> ifValid \case
@@ -53,9 +56,10 @@ instance Controller LeaveRequestsController where
         leaveRequest <- fetch leaveRequestId
         withTransaction do
             let wasApproved = parseLeaveRequestStatus leaveRequest.status == Just LeaveApproved
-            updatedLeaveRequest <- leaveRequest
-                |> set #status (leaveRequestStatusToText LeaveApproved)
-                |> updateRecord
+            updatedLeaveRequest <-
+                leaveRequest
+                    |> set #status (leaveRequestStatusToText LeaveApproved)
+                    |> updateRecord
             unless wasApproved do
                 triggerRosterConflictRecomputeForLeave updatedLeaveRequest
         setSuccessMessage "Leave request approved"
@@ -66,12 +70,23 @@ instance Controller LeaveRequestsController where
         leaveRequest <- fetch leaveRequestId
         withTransaction do
             let wasApproved = parseLeaveRequestStatus leaveRequest.status == Just LeaveApproved
-            updatedLeaveRequest <- leaveRequest
-                |> set #status (leaveRequestStatusToText LeaveDenied)
-                |> updateRecord
+            updatedLeaveRequest <-
+                leaveRequest
+                    |> set #status (leaveRequestStatusToText LeaveDenied)
+                    |> updateRecord
             when wasApproved do
                 triggerRosterConflictRecomputeForLeave updatedLeaveRequest
         setSuccessMessage "Leave request denied"
+        redirectTo LeaveRequestsAction
+
+    action DeleteLeaveRequestAction { leaveRequestId } = do
+        leaveRequest <- fetch leaveRequestId
+        ensureLeaveDeleteAllowed leaveRequest
+        withTransaction do
+            when (parseLeaveRequestStatus leaveRequest.status == Just LeaveApproved) do
+                triggerRosterConflictRecomputeForLeave leaveRequest
+            deleteRecord leaveRequest
+        setSuccessMessage "Leave request deleted"
         redirectTo LeaveRequestsAction
 
 fetchCurrentUserStaff :: (?modelContext :: ModelContext, ?context :: ControllerContext) => IO (Maybe Staff)
@@ -81,20 +96,24 @@ fetchCurrentUserStaff =
         |> fetchOneOrNothing
 
 fetchVisibleLeaveRequests :: (?modelContext :: ModelContext, ?context :: ControllerContext) => IO [LeaveRequest]
-fetchVisibleLeaveRequests =
+fetchVisibleLeaveRequests = do
+    maybeStaff <- fetchCurrentUserStaff
+    case maybeStaff of
+        Nothing -> pure []
+        Just staff ->
+            query @LeaveRequest
+                |> filterWhere (#staffId, coerce (get #id staff))
+                |> orderByDesc #startDate
+                |> fetch
+
+ensureLeaveDeleteAllowed :: (?context :: ControllerContext, ?modelContext :: ModelContext) => LeaveRequest -> IO ()
+ensureLeaveDeleteAllowed leaveRequest =
     if hasRole ManagerRole
-        then query @LeaveRequest
-            |> orderByDesc #startDate
-            |> fetch
+        then pure ()
         else do
             maybeStaff <- fetchCurrentUserStaff
-            case maybeStaff of
-                Nothing -> pure []
-                Just staff ->
-                    query @LeaveRequest
-                        |> filterWhere (#staffId, coerce (get #id staff))
-                        |> orderByDesc #startDate
-                        |> fetch
+            let canDeleteOwn = maybe False (\staff -> coerce (get #id staff) == leaveRequest.staffId) maybeStaff
+            accessDeniedUnless canDeleteOwn
 
 buildLeaveRequest :: (?context :: ControllerContext) => LeaveRequest -> LeaveRequest
 buildLeaveRequest leaveRequest =
@@ -105,4 +124,4 @@ buildLeaveRequest leaveRequest =
         validateEndDate startDate endDate =
             if isLeaveDateRangeValid startDate endDate
                 then Success
-                else Failure "End date must be the same as or after start date"
+                else Failure "Available again must be at least one day after unavailable from"

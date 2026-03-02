@@ -38,8 +38,8 @@ renderLeaveRequestsTable leaveRequests staffMembers = [hsx|
         <table class="table table-striped align-middle">
             <thead>
                 <tr>
-                    <th>Start</th>
-                    <th>End</th>
+                    <th>Unavailable From</th>
+                    <th>Available Again</th>
                     <th>Staff</th>
                     <th>Status</th>
                     <th>Notes</th>
@@ -61,7 +61,7 @@ renderLeaveRequestRow staffMembers leaveRequest = [hsx|
         <td>{resolveStaffName leaveRequest.staffId staffMembers}</td>
         <td>{renderStatusBadge leaveRequest.status}</td>
         <td>{fromMaybe "-" leaveRequest.notes}</td>
-        <td class="text-end">{renderReviewActions leaveRequest}</td>
+        <td class="text-end">{renderActions staffMembers leaveRequest}</td>
     </tr>
 |]
 
@@ -78,17 +78,50 @@ renderStatusBadge status =
         Just LeaveDenied -> [hsx|<span class="badge bg-danger">Denied</span>|]
         _ -> [hsx|<span class="badge bg-warning text-dark">Pending</span>|]
 
+renderActions :: (?context :: ControllerContext) => [Staff] -> LeaveRequest -> Html
+renderActions staffMembers leaveRequest = [hsx|
+    {renderReviewActions leaveRequest}
+    {renderDeleteAction staffMembers leaveRequest}
+|]
+
 renderReviewActions :: (?context :: ControllerContext) => LeaveRequest -> Html
 renderReviewActions leaveRequest
     | not currentUserIsManager = mempty
-    | otherwise = case parseLeaveRequestStatus leaveRequest.status of
-        Just LeaveApproved -> [hsx|
-            <a href={DenyLeaveRequestAction leaveRequest.id} class="btn btn-sm btn-outline-danger js-delete js-delete-no-confirm">Deny</a>
+    | otherwise =
+        case parseLeaveRequestStatus leaveRequest.status of
+            Just LeaveApproved -> [hsx|
+                <form method="POST" action={DenyLeaveRequestAction leaveRequest.id} class="d-inline">
+                    <button type="submit" class="btn btn-sm btn-outline-danger me-1">Deny</button>
+                </form>
+            |]
+            Just LeaveDenied -> [hsx|
+                <form method="POST" action={ApproveLeaveRequestAction leaveRequest.id} class="d-inline">
+                    <button type="submit" class="btn btn-sm btn-outline-success me-1">Approve</button>
+                </form>
+            |]
+            _ -> [hsx|
+                <form method="POST" action={ApproveLeaveRequestAction leaveRequest.id} class="d-inline">
+                    <button type="submit" class="btn btn-sm btn-outline-success me-1">Approve</button>
+                </form>
+                <form method="POST" action={DenyLeaveRequestAction leaveRequest.id} class="d-inline">
+                    <button type="submit" class="btn btn-sm btn-outline-danger me-1">Deny</button>
+                </form>
+            |]
+
+renderDeleteAction :: (?context :: ControllerContext) => [Staff] -> LeaveRequest -> Html
+renderDeleteAction staffMembers leaveRequest =
+    if canDelete
+        then [hsx|
+            <a href={DeleteLeaveRequestAction leaveRequest.id} class="btn btn-sm btn-outline-danger js-delete js-delete-no-confirm">Delete</a>
         |]
-        Just LeaveDenied -> [hsx|
-            <a href={ApproveLeaveRequestAction leaveRequest.id} class="btn btn-sm btn-outline-success js-delete js-delete-no-confirm">Approve</a>
-        |]
-        _ -> [hsx|
-            <a href={ApproveLeaveRequestAction leaveRequest.id} class="btn btn-sm btn-outline-success me-1 js-delete js-delete-no-confirm">Approve</a>
-            <a href={DenyLeaveRequestAction leaveRequest.id} class="btn btn-sm btn-outline-danger js-delete js-delete-no-confirm">Deny</a>
-        |]
+        else mempty
+    where
+        canDelete = currentUserIsManager || isCurrentUsersLeaveRequest staffMembers leaveRequest
+
+isCurrentUsersLeaveRequest :: (?context :: ControllerContext) => [Staff] -> LeaveRequest -> Bool
+isCurrentUsersLeaveRequest staffMembers leaveRequest =
+    case currentUserOrNothing of
+        Nothing -> False
+        Just user ->
+            let currentStaff = find (\staff -> staff.userId == Just (coerce (get #id user))) staffMembers
+             in maybe False (\staff -> coerce (get #id staff) == leaveRequest.staffId) currentStaff

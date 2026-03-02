@@ -37,3 +37,8 @@ tests = beforeAll (mockContextNoDatabase WebApplication config) do
             let requestId = "00000000-0000-0000-0000-000000000000" :: Id LeaveRequest
             response <- callAction DenyLeaveRequestAction { leaveRequestId = requestId }
             response `responseStatusShouldBe` status302
+
+        it "redirects unauthenticated users from delete leave action" $ withContext do
+            let requestId = "00000000-0000-0000-0000-000000000000" :: Id LeaveRequest
+            response <- callAction DeleteLeaveRequestAction { leaveRequestId = requestId }
+            response `responseStatusShouldBe` status302

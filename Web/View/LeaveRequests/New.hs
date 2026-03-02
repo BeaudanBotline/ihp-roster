@@ -16,7 +16,7 @@ renderLeaveRequestForm :: LeaveRequest -> Html
 renderLeaveRequestForm leaveRequest = [hsx|
     <form method="POST" action={CreateLeaveRequestAction} class="mt-3 app-form-width">
         <div class="mb-3">
-            <label for="startDate" class="form-label">Start Date</label>
+            <label for="startDate" class="form-label">Unavailable From</label>
             <input
                 id="startDate"
                 name="startDate"
@@ -29,7 +29,7 @@ renderLeaveRequestForm leaveRequest = [hsx|
         </div>
 
         <div class="mb-3">
-            <label for="endDate" class="form-label">End Date</label>
+            <label for="endDate" class="form-label">Available Again</label>
             <input
                 id="endDate"
                 name="endDate"
@@ -38,7 +38,7 @@ renderLeaveRequestForm leaveRequest = [hsx|
                 value={tshow leaveRequest.endDate}
                 required="required"
             />
-            <div class="form-text">End date must be the same as or after start date.</div>
+            <div class="form-text">Available again must be at least one day after unavailable from.</div>
             {renderLeaveFieldError leaveRequest "endDate"}
         </div>
 
