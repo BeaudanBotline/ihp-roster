@@ -496,12 +496,23 @@ Business requirements are canonical in `specs/`.
 ## Phase 6 — Pay Engine
 
 ### 6.1 SQL function scaffolding for canonical pay math
-- **Status:** [ ]
+- **Status:** [x]
 - **Goal:** Introduce SQL function interfaces for timesheet pay calculation and pay-level resolution.
 - **Spec sources:** `specs/06-pay-engine.md`
 - **Deliverables:**
   - SQL functions in schema/migration path.
   - Function-level tests or integration tests validating outputs.
+- **Completion notes:**
+  - Added canonical pay SQL scaffolding to `Application/Schema.sql`:
+    - `resolve_effective_pay_level(p_staff_id, p_shift_type_id, p_day_of_week) -> uuid`
+    - `calculate_timesheet_pay(p_entry_id) -> jsonb`
+    - `calculate_timesheet_pay_range(p_staff_id, p_from_date, p_to_date) -> jsonb` (array payload for parser compatibility)
+  - Implemented deterministic v1 JSON output contract in `calculate_timesheet_pay` with `segments` and `totals` payloads, plus a stable not-found fallback payload.
+  - Added schema-level tests in `Test/SchemaSpec.hs` asserting:
+    - all three SQL function signatures are present,
+    - pay JSON contract keys (`segments`, `totals`, `paidMinutes`, `totalAmount`) are present,
+    - range function delegates to `calculate_timesheet_pay` for canonical per-entry payloads.
+  - Verification run: `regen-types`, `typecheck`, `test`, and `format` passed; `lint` reports existing project warnings.
 
 ### 6.2 Pay segmentation and weekday windows
 - **Status:** [ ]

@@ -4,6 +4,7 @@ import Application.Helper.Controller
 import Application.Helper.View (isTrialStaff, quarterHourTimeOptions,
                                 storageTimeToDisplayLabel)
 import qualified Data.Text as Text
+import qualified Data.Text.IO as TextIO
 import Data.Time.Calendar (fromGregorian)
 import Data.Time.LocalTime (TimeOfDay (..))
 import Generated.Types
@@ -205,6 +206,25 @@ tests = describe "Schema" do
             let fieldName = columnNameToFieldName col
             let backToCol = fieldNameToColumnName fieldName
             backToCol `shouldBe` col
+
+    describe "Pay SQL functions" do
+        it "defines canonical pay function signatures in schema" do
+            schemaSqlText <- TextIO.readFile "Application/Schema.sql"
+            schemaSqlText `shouldSatisfy` Text.isInfixOf "CREATE OR REPLACE FUNCTION resolve_effective_pay_level(p_staff_id UUID, p_shift_type_id UUID, p_day_of_week INT)"
+            schemaSqlText `shouldSatisfy` Text.isInfixOf "CREATE OR REPLACE FUNCTION calculate_timesheet_pay(p_entry_id UUID)"
+            schemaSqlText `shouldSatisfy` Text.isInfixOf "CREATE OR REPLACE FUNCTION calculate_timesheet_pay_range(p_staff_id UUID, p_from_date DATE, p_to_date DATE)"
+            schemaSqlText `shouldSatisfy` Text.isInfixOf "RETURNS JSONB"
+
+        it "documents expected JSON output fields for calculate_timesheet_pay" do
+            schemaSqlText <- TextIO.readFile "Application/Schema.sql"
+            schemaSqlText `shouldSatisfy` Text.isInfixOf "'segments', jsonb_build_array"
+            schemaSqlText `shouldSatisfy` Text.isInfixOf "'totals', jsonb_build_object"
+            schemaSqlText `shouldSatisfy` Text.isInfixOf "'paidMinutes', r.paid_minutes"
+            schemaSqlText `shouldSatisfy` Text.isInfixOf "'totalAmount', 0"
+
+        it "uses calculate_timesheet_pay as the canonical range payload source" do
+            schemaSqlText <- TextIO.readFile "Application/Schema.sql"
+            schemaSqlText `shouldSatisfy` Text.isInfixOf "calculate_timesheet_pay(te.id)"
 
     describe "Timesheet validation helpers" do
         it "parseTimeParam parses valid HH:MM values" do
