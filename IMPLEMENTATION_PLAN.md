@@ -515,12 +515,23 @@ Business requirements are canonical in `specs/`.
   - Verification run: `regen-types`, `typecheck`, `test`, and `format` passed; `lint` reports existing project warnings.
 
 ### 6.2 Pay segmentation and weekday windows
-- **Status:** [ ]
+- **Status:** [x]
 - **Goal:** Implement ordinary/evening/after-midnight segment calculations.
 - **Spec sources:** `specs/06-pay-engine.md`
 - **Deliverables:**
   - Deterministic segment breakdown logic.
   - Boundary tests at 07:00, 19:00, 00:00.
+- **Completion notes:**
+  - Replaced `calculate_timesheet_pay` whole-shift placeholder segmentation in `Application/Schema.sql` with deterministic weekday windows:
+    - `after_midnight` (`00:00-07:00`)
+    - `ordinary` (`07:00-19:00`)
+    - `evening` (`19:00-00:00`)
+  - Added break-adjusted paid-window segmentation by deriving `start_minute_of_day`, `paid_end_minute_of_day`, and overlap minutes per window (`GREATEST/LEAST`), then aggregating non-zero segments in stable window order.
+  - Updated pay JSON payload construction to emit computed `segments` from the new segmentation CTE while preserving existing totals contract fields.
+  - Extended `Test/SchemaSpec.hs` pay-function checks to assert:
+    - explicit boundary constants for `00:00`, `07:00`, and `19:00`,
+    - overlap-based segment minute calculation path,
+    - non-zero-only segment emission filter.
 
 ### 6.3 Weekend multiplier with penalty stacking
 - **Status:** [ ]

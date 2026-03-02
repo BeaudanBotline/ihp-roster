@@ -217,14 +217,28 @@ tests = describe "Schema" do
 
         it "documents expected JSON output fields for calculate_timesheet_pay" do
             schemaSqlText <- TextIO.readFile "Application/Schema.sql"
-            schemaSqlText `shouldSatisfy` Text.isInfixOf "'segments', jsonb_build_array"
+            schemaSqlText `shouldSatisfy` Text.isInfixOf "'segments', sj.segments"
             schemaSqlText `shouldSatisfy` Text.isInfixOf "'totals', jsonb_build_object"
-            schemaSqlText `shouldSatisfy` Text.isInfixOf "'paidMinutes', r.paid_minutes"
+            schemaSqlText `shouldSatisfy` Text.isInfixOf "'paidMinutes', pw.paid_minutes"
             schemaSqlText `shouldSatisfy` Text.isInfixOf "'totalAmount', 0"
 
         it "uses calculate_timesheet_pay as the canonical range payload source" do
             schemaSqlText <- TextIO.readFile "Application/Schema.sql"
             schemaSqlText `shouldSatisfy` Text.isInfixOf "calculate_timesheet_pay(te.id)"
+
+        it "defines weekday segmentation windows and boundaries" do
+            schemaSqlText <- TextIO.readFile "Application/Schema.sql"
+            schemaSqlText `shouldSatisfy` Text.isInfixOf "('after_midnight'::TEXT, 0, 420, 1)"
+            schemaSqlText `shouldSatisfy` Text.isInfixOf "('ordinary'::TEXT, 420, 1140, 2)"
+            schemaSqlText `shouldSatisfy` Text.isInfixOf "('evening'::TEXT, 1140, 1440, 3)"
+            schemaSqlText `shouldSatisfy` Text.isInfixOf "LEAST(r.start_minute_of_day + r.paid_minutes, 1440)"
+
+        it "builds segment minute overlaps from the break-adjusted paid window" do
+            schemaSqlText <- TextIO.readFile "Application/Schema.sql"
+            schemaSqlText `shouldSatisfy` Text.isInfixOf "GREATEST("
+            schemaSqlText `shouldSatisfy` Text.isInfixOf "LEAST(pw.paid_end_minute_of_day, sw.window_end_minute)"
+            schemaSqlText `shouldSatisfy` Text.isInfixOf "- GREATEST(pw.start_minute_of_day, sw.window_start_minute)"
+            schemaSqlText `shouldSatisfy` Text.isInfixOf "FILTER (WHERE sr.segment_minutes > 0)"
 
     describe "Timesheet validation helpers" do
         it "parseTimeParam parses valid HH:MM values" do

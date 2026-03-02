@@ -192,6 +192,8 @@ AS $$
             e.start_time,
             e.end_time,
             e.break_minutes,
+            (EXTRACT(EPOCH FROM e.start_time) / 60)::INT AS start_minute_of_day,
+            (EXTRACT(EPOCH FROM e.end_time) / 60)::INT AS end_minute_of_day,
             GREATEST((EXTRACT(EPOCH FROM (e.end_time - e.start_time)) / 60)::INT - e.break_minutes, 0) AS paid_minutes,
             resolve_effective_pay_level(
                 e.staff_id,
@@ -200,36 +202,81 @@ AS $$
             ) AS pay_level_id
         FROM entry_data e
     ),
+    paid_window AS (
+        SELECT
+            r.*,
+            LEAST(r.start_minute_of_day + r.paid_minutes, 1440) AS paid_end_minute_of_day
+        FROM resolved r
+    ),
+    segment_windows AS (
+        SELECT *
+        FROM (
+            VALUES
+                ('after_midnight'::TEXT, 0, 420, 1),
+                ('ordinary'::TEXT, 420, 1140, 2),
+                ('evening'::TEXT, 1140, 1440, 3)
+        ) AS windows(segment_name, window_start_minute, window_end_minute, sort_index)
+    ),
+    segment_rows AS (
+        SELECT
+            pw.id,
+            pw.staff_id,
+            pw.worked_on,
+            pw.break_minutes,
+            pw.paid_minutes,
+            pw.pay_level_id,
+            sw.segment_name,
+            GREATEST(
+                LEAST(pw.paid_end_minute_of_day, sw.window_end_minute)
+                - GREATEST(pw.start_minute_of_day, sw.window_start_minute),
+                0
+            )::INT AS segment_minutes,
+            sw.sort_index
+        FROM paid_window pw
+        CROSS JOIN segment_windows sw
+    ),
+    segment_json AS (
+        SELECT
+            sr.id,
+            COALESCE(
+                jsonb_agg(
+                    jsonb_build_object(
+                        'segment', sr.segment_name,
+                        'minutes', sr.segment_minutes,
+                        'payLevelId', sr.pay_level_id,
+                        'multiplier', COALESCE((
+                            SELECT pldr.multiplier
+                            FROM pay_level_day_rules pldr
+                            JOIN day_names dn ON dn.id = pldr.day_name_id
+                            WHERE pldr.pay_level_id = sr.pay_level_id
+                                AND dn.weekday_index = EXTRACT(DOW FROM sr.worked_on)::INT
+                            LIMIT 1
+                        ), 1.0),
+                        'baseRate', 0,
+                        'amount', 0
+                    )
+                    ORDER BY sr.sort_index ASC
+                ) FILTER (WHERE sr.segment_minutes > 0),
+                jsonb_build_array()
+            ) AS segments
+        FROM segment_rows sr
+        GROUP BY sr.id
+    ),
     payload AS (
         SELECT jsonb_build_object(
-            'entryId', r.id,
-            'staffId', r.staff_id,
-            'workedOn', r.worked_on,
-            'breakMinutes', r.break_minutes,
-            'paidMinutes', r.paid_minutes,
-            'segments', jsonb_build_array(
-                jsonb_build_object(
-                    'segment', 'whole_shift',
-                    'minutes', r.paid_minutes,
-                    'payLevelId', r.pay_level_id,
-                    'multiplier', COALESCE((
-                        SELECT pldr.multiplier
-                        FROM pay_level_day_rules pldr
-                        JOIN day_names dn ON dn.id = pldr.day_name_id
-                        WHERE pldr.pay_level_id = r.pay_level_id
-                            AND dn.weekday_index = EXTRACT(DOW FROM r.worked_on)::INT
-                        LIMIT 1
-                    ), 1.0),
-                    'baseRate', 0,
-                    'amount', 0
-                )
-            ),
+            'entryId', pw.id,
+            'staffId', pw.staff_id,
+            'workedOn', pw.worked_on,
+            'breakMinutes', pw.break_minutes,
+            'paidMinutes', pw.paid_minutes,
+            'segments', sj.segments,
             'totals', jsonb_build_object(
-                'paidMinutes', r.paid_minutes,
+                'paidMinutes', pw.paid_minutes,
                 'totalAmount', 0
             )
         ) AS pay_json
-        FROM resolved r
+        FROM paid_window pw
+        LEFT JOIN segment_json sj ON sj.id = pw.id
     )
     SELECT COALESCE(
         (SELECT pay_json FROM payload),
