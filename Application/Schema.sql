@@ -226,6 +226,18 @@ AS $$
             pw.paid_minutes,
             pw.pay_level_id,
             sw.segment_name,
+            COALESCE((
+                SELECT pldr.multiplier
+                FROM pay_level_day_rules pldr
+                JOIN day_names dn ON dn.id = pldr.day_name_id
+                WHERE pldr.pay_level_id = pw.pay_level_id
+                    AND dn.weekday_index = EXTRACT(DOW FROM pw.worked_on)::INT
+                LIMIT 1
+            ), 1.0)::NUMERIC(10,3) AS day_rule_multiplier,
+            CASE
+                WHEN EXTRACT(DOW FROM pw.worked_on)::INT IN (0, 6) THEN 1.5::NUMERIC(10,3)
+                ELSE 1.0::NUMERIC(10,3)
+            END AS weekend_multiplier,
             GREATEST(
                 LEAST(pw.paid_end_minute_of_day, sw.window_end_minute)
                 - GREATEST(pw.start_minute_of_day, sw.window_start_minute),
@@ -244,14 +256,9 @@ AS $$
                         'segment', sr.segment_name,
                         'minutes', sr.segment_minutes,
                         'payLevelId', sr.pay_level_id,
-                        'multiplier', COALESCE((
-                            SELECT pldr.multiplier
-                            FROM pay_level_day_rules pldr
-                            JOIN day_names dn ON dn.id = pldr.day_name_id
-                            WHERE pldr.pay_level_id = sr.pay_level_id
-                                AND dn.weekday_index = EXTRACT(DOW FROM sr.worked_on)::INT
-                            LIMIT 1
-                        ), 1.0),
+                        'dayRuleMultiplier', sr.day_rule_multiplier,
+                        'weekendMultiplier', sr.weekend_multiplier,
+                        'multiplier', (sr.day_rule_multiplier * sr.weekend_multiplier),
                         'baseRate', 0,
                         'amount', 0
                     )

@@ -534,12 +534,22 @@ Business requirements are canonical in `specs/`.
     - non-zero-only segment emission filter.
 
 ### 6.3 Weekend multiplier with penalty stacking
-- **Status:** [ ]
+- **Status:** [x]
 - **Goal:** Apply weekend multipliers while stacking configured penalties.
 - **Spec sources:** `specs/06-pay-engine.md`
 - **Deliverables:**
   - Weekend rule implementation and tests.
   - Clear output breakdown fields proving stacked composition.
+- **Completion notes:**
+  - Extended `calculate_timesheet_pay` in `Application/Schema.sql` so each computed segment now carries:
+    - `dayRuleMultiplier` (configured `pay_level_day_rules.multiplier` fallback `1.0`)
+    - `weekendMultiplier` (`1.5` on Saturday/Sunday, else `1.0`)
+    - `multiplier` as stacked product (`dayRuleMultiplier * weekendMultiplier`)
+  - Implemented weekend detection via `EXTRACT(DOW)` and applied stacking per-segment so weekend composition is explicit in canonical SQL output.
+  - Added schema-level assertions in `Test/SchemaSpec.hs` verifying:
+    - weekend multiplier branch for DOW `0`/`6`,
+    - presence of breakdown fields (`dayRuleMultiplier`, `weekendMultiplier`),
+    - stacked multiplier expression in the JSON payload.
 
 ### 6.4 Haskell orchestration layer for pay outputs
 - **Status:** [ ]

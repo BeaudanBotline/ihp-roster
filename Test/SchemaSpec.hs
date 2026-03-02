@@ -240,6 +240,13 @@ tests = describe "Schema" do
             schemaSqlText `shouldSatisfy` Text.isInfixOf "- GREATEST(pw.start_minute_of_day, sw.window_start_minute)"
             schemaSqlText `shouldSatisfy` Text.isInfixOf "FILTER (WHERE sr.segment_minutes > 0)"
 
+        it "stacks weekend multiplier with configured day-rule multiplier in pay segments" do
+            schemaSqlText <- TextIO.readFile "Application/Schema.sql"
+            schemaSqlText `shouldSatisfy` Text.isInfixOf "WHEN EXTRACT(DOW FROM pw.worked_on)::INT IN (0, 6) THEN 1.5::NUMERIC(10,3)"
+            schemaSqlText `shouldSatisfy` Text.isInfixOf "'dayRuleMultiplier', sr.day_rule_multiplier"
+            schemaSqlText `shouldSatisfy` Text.isInfixOf "'weekendMultiplier', sr.weekend_multiplier"
+            schemaSqlText `shouldSatisfy` Text.isInfixOf "'multiplier', (sr.day_rule_multiplier * sr.weekend_multiplier)"
+
     describe "Timesheet validation helpers" do
         it "parseTimeParam parses valid HH:MM values" do
             parseTimeParam "09:00" `shouldBe` Just (TimeOfDay 9 0 0)
