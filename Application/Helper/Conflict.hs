@@ -127,7 +127,7 @@ checkLateToEarlyConflict :: ConflictContext -> Maybe RosterConflict
 checkLateToEarlyConflict ctx
     | ctx.lateToEarlyMinStartGapMinutes <= 0 = Nothing
     | otherwise =
-        case findIndex ((== ctx.slot.id) . fst) timeline of
+        case findIndex ((== get #id ctx.slot) . fst) timeline of
             Nothing -> Nothing
             Just currentIndex ->
                 let previousGap = if currentIndex > 0 then Just (snd (timeline !! currentIndex) - snd (timeline !! (currentIndex - 1))) else Nothing
@@ -143,7 +143,7 @@ checkLateToEarlyConflict ctx
     where
         timeline =
             ctx.weekSlots
-                |> mapMaybe (\candidate -> (,) candidate.id <$> slotStartMinuteOfWeek ctx.weekRosterDays candidate)
+                |> mapMaybe (\candidate -> (,) (get #id candidate) <$> slotStartMinuteOfWeek ctx.weekRosterDays candidate)
                 |> sortBy (comparing snd)
 
 slotStartMinuteOfWeek :: [RosterDay] -> RosterSlot -> Maybe Int
@@ -155,7 +155,7 @@ slotStartMinuteOfWeek rosterDays candidate = do
     where
         findDayOffset rosterDayId =
             rosterDays
-                |> find (\day -> unpackId day.id == rosterDayId)
+                |> find (\day -> unpackId (get #id day) == rosterDayId)
                 |> fmap (.dayOffset)
 
 checkIdealShiftThreshold :: ConflictContext -> Maybe RosterConflict

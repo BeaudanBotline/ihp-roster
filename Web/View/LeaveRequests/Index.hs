@@ -67,7 +67,7 @@ renderLeaveRequestRow staffMembers leaveRequest = [hsx|
 
 resolveStaffName :: UUID -> [Staff] -> Text
 resolveStaffName staffUuid staffMembers =
-    case find (\staff -> coerce staff.id == staffUuid) staffMembers of
+    case find (\staff -> coerce (get #id staff) == staffUuid) staffMembers of
         Just staff -> staff.firstName <> " " <> staff.lastName
         Nothing    -> "Unknown" :: Text
 

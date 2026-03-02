@@ -36,7 +36,7 @@ instance Controller LeaveRequestsController where
                 redirectTo LeaveRequestsAction
             Just staff -> do
                 let leaveRequest = newRecord @LeaveRequest
-                        |> set #staffId (coerce staff.id)
+                        |> set #staffId (coerce (get #id staff))
                         |> set #status (leaveRequestStatusToText LeavePending)
                         |> buildLeaveRequest
 
@@ -77,7 +77,7 @@ instance Controller LeaveRequestsController where
 fetchCurrentUserStaff :: (?modelContext :: ModelContext, ?context :: ControllerContext) => IO (Maybe Staff)
 fetchCurrentUserStaff =
     query @Staff
-        |> filterWhere (#userId, Just (coerce currentUser.id))
+        |> filterWhere (#userId, Just (coerce (get #id currentUser)))
         |> fetchOneOrNothing
 
 fetchVisibleLeaveRequests :: (?modelContext :: ModelContext, ?context :: ControllerContext) => IO [LeaveRequest]
@@ -92,7 +92,7 @@ fetchVisibleLeaveRequests =
                 Nothing -> pure []
                 Just staff ->
                     query @LeaveRequest
-                        |> filterWhere (#staffId, coerce staff.id)
+                        |> filterWhere (#staffId, coerce (get #id staff))
                         |> orderByDesc #startDate
                         |> fetch
 

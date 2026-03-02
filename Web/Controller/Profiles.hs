@@ -30,18 +30,18 @@ instance Controller ProfilesController where
 fetchCurrentUserStaffOrNew :: (?modelContext :: ModelContext, ?context :: ControllerContext) => IO Staff
 fetchCurrentUserStaffOrNew = do
     maybeStaff <- query @Staff
-        |> filterWhere (#userId, Just (unpackId currentUser.id))
+        |> filterWhere (#userId, Just (unpackId (get #id currentUser)))
         |> fetchOneOrNothing
     pure case maybeStaff of
         Just staff -> staff
         Nothing ->
             newRecord @Staff
-                |> set #userId (Just (unpackId currentUser.id))
+                |> set #userId (Just (unpackId (get #id currentUser)))
 
 upsertCurrentUserStaff :: (?modelContext :: ModelContext, ?context :: ControllerContext) => Staff -> IO Staff
 upsertCurrentUserStaff staff = do
     existingStaff <- query @Staff
-        |> filterWhere (#userId, Just (unpackId currentUser.id))
+        |> filterWhere (#userId, Just (unpackId (get #id currentUser)))
         |> fetchOneOrNothing
 
     case existingStaff of
@@ -52,5 +52,5 @@ upsertCurrentUserStaff staff = do
                 |> updateRecord
         Nothing ->
             staff
-                |> set #userId (Just (unpackId currentUser.id))
+                |> set #userId (Just (unpackId (get #id currentUser)))
                 |> createRecord

@@ -153,7 +153,7 @@ renderStaffField entry staffMembers =
 
 renderTimesheetStaffOption :: UUID -> Staff -> Html
 renderTimesheetStaffOption selectedStaffId staff =
-    let isSelected = unpackId staff.id == selectedStaffId
+    let isSelected = unpackId (get #id staff) == selectedStaffId
     in [hsx|
         <option value={inputValue staff.id} selected={isSelected}>
             {staff.firstName} {staff.lastName}

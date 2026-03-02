@@ -61,7 +61,7 @@ leaveRequestStatusToText LeaveDenied   = "denied"
 
 requiredProfileFieldsCompleted :: Text -> Text -> Bool
 requiredProfileFieldsCompleted firstName lastName =
-    all (not . isEmpty) [firstName, lastName]
+    not (any isEmpty [firstName, lastName])
 
 isOperationallyActive :: User -> Bool
 isOperationallyActive user = user.isProfileCompleted

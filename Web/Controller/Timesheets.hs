@@ -79,7 +79,7 @@ instance Controller TimesheetsController where
         timesheetEntry
             |> set #isApproved True
             |> set #approvedAt (Just now)
-            |> set #approvedByUserId (Just (unpackId currentUser.id))
+            |> set #approvedByUserId (Just (unpackId (get #id currentUser)))
             |> updateRecord
         setSuccessMessage "Timesheet entry approved"
         redirectTo TimesheetsAction
@@ -105,7 +105,7 @@ fetchTimesheetData = do
             case maybeStaff of
                 Nothing -> pure []
                 Just staff -> query @TimesheetEntry
-                    |> filterWhere (#staffId, unpackId staff.id)
+                    |> filterWhere (#staffId, unpackId (get #id staff))
                     |> orderByDesc #workedOn
                     |> fetch
     pure (entries, staffMembers)
@@ -114,13 +114,11 @@ fetchStaffForForm :: (?modelContext :: ModelContext, ?context :: ControllerConte
 fetchStaffForForm =
     if hasRole ManagerRole
         then query @Staff |> filterWhere (#isActive, True) |> orderByAsc #lastName |> fetch
-        else do
-            maybeStaff <- fetchCurrentUserStaff
-            pure $ maybeToList maybeStaff
+        else maybeToList <$> fetchCurrentUserStaff
 
 fetchCurrentUserStaff :: (?modelContext :: ModelContext, ?context :: ControllerContext) => IO (Maybe Staff)
 fetchCurrentUserStaff = query @Staff
-    |> filterWhere (#userId, Just (unpackId currentUser.id))
+    |> filterWhere (#userId, Just (unpackId (get #id currentUser)))
     |> fetchOneOrNothing
 
 resetApprovalOnEdit :: Bool -> TimesheetEntry -> TimesheetEntry

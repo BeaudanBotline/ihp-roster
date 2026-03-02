@@ -74,7 +74,7 @@ renderEntryRow staffMembers today editWindowDays entry = [hsx|
     </tr>
 |]
     where
-        staffName = case find (\s -> unpackId s.id == entry.staffId) staffMembers of
+        staffName = case find (\s -> unpackId (get #id s) == entry.staffId) staffMembers of
             Just staff -> staff.firstName <> " " <> staff.lastName
             Nothing    -> "Unknown" :: Text
         canEdit = currentUserIsManager || isWithinEditWindow today entry.workedOn editWindowDays

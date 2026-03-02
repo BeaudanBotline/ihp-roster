@@ -53,7 +53,7 @@ instance Controller RosterWeeksController where
             Just rosterWeek -> do
                 -- We found it, render the week view
                 rosterDays <- query @RosterDay
-                    |> filterWhere (#rosterWeekId, coerce rosterWeek.id)
+                    |> filterWhere (#rosterWeekId, coerce (get #id rosterWeek))
                     |> orderBy #dayOffset
                     |> fetch
 
@@ -119,7 +119,7 @@ instance Controller RosterWeeksController where
                 -- Create 7 roster days for the week
                 forM_ [0 .. 6] \dayOffset -> do
                     newRecord @RosterDay
-                        |> set #rosterWeekId (coerce rosterWeek.id)
+                        |> set #rosterWeekId (coerce (get #id rosterWeek))
                         |> set #dayOffset dayOffset
                         |> createRecord
 
@@ -148,12 +148,12 @@ instance Controller RosterWeeksController where
                             |> set #isLive False
                             |> createRecord
 
-                        sourceDays <- query @RosterDay |> filterWhere (#rosterWeekId, coerce sourceWeek.id) |> fetch
+                        sourceDays <- query @RosterDay |> filterWhere (#rosterWeekId, coerce (get #id sourceWeek)) |> fetch
 
                         -- Create 7 roster days for the week
                         forM_ [0 .. 6] \dayOffset -> do
                             targetDay <- newRecord @RosterDay
-                                |> set #rosterWeekId (coerce targetWeek.id)
+                                |> set #rosterWeekId (coerce (get #id targetWeek))
                                 |> set #dayOffset dayOffset
                                 |> createRecord
 
@@ -161,10 +161,10 @@ instance Controller RosterWeeksController where
                             let maybeSourceDay = find (\d -> d.dayOffset == dayOffset) sourceDays
                             case maybeSourceDay of
                                 Just sourceDay -> do
-                                    sourceSlots <- query @RosterSlot |> filterWhere (#rosterDayId, coerce sourceDay.id) |> fetch
+                                    sourceSlots <- query @RosterSlot |> filterWhere (#rosterDayId, coerce (get #id sourceDay)) |> fetch
                                     forM_ sourceSlots \slot -> do
                                         newRecord @RosterSlot
-                                            |> set #rosterDayId (coerce targetDay.id)
+                                            |> set #rosterDayId (coerce (get #id targetDay))
                                             |> set #staffId slot.staffId
                                             |> set #slotNameId slot.slotNameId
                                             |> set #rowIndex slot.rowIndex
@@ -203,7 +203,7 @@ instance Controller RosterWeeksController where
         forM_ orderedSlotNames \slotName -> do
             newRecord @RosterSlot
                 |> set #rosterDayId (coerce rosterDayId)
-                |> set #slotNameId (coerce slotName.id)
+                |> set #slotNameId (coerce (get #id slotName))
                 |> set #rowIndex nextRowIndex
                 |> createRecord
 
@@ -263,7 +263,7 @@ slotNameOrder slotName =
         _       -> 3
 
 parseOptionalStaffId :: Maybe Text -> Maybe UUID.UUID
-parseOptionalStaffId value = maybe Nothing UUID.fromText (normalizeOptionalText value)
+parseOptionalStaffId value = UUID.fromText =<< normalizeOptionalText value
 
 parseOptionalTime :: Maybe Text -> Maybe TimeOfDay
 parseOptionalTime value =
@@ -292,7 +292,7 @@ buildSlotConflicts lateToEarlyMinStartGapMinutes weekStartDate rosterDays allSlo
                 |> filterWhereIn (#staffId, assignedStaffIds)
                 |> fetch
 
-            let dayById = map (\day -> (coerce day.id, day)) rosterDays
+            let dayById = map (\day -> (coerce (get #id day), day)) rosterDays
             let conflictsBySlot = mapMaybe (conflictsForSlot dayById leaveRequests availabilities) allSlots
             pure conflictsBySlot
     where
@@ -301,7 +301,7 @@ buildSlotConflicts lateToEarlyMinStartGapMinutes weekStartDate rosterDays allSlo
             day <- lookup slot.rosterDayId dayById
             let weekSlotsForStaff = filter (\candidate -> candidate.staffId == Just staffUuid) allSlots
             let daySlotsForStaff = filter (\candidate -> candidate.rosterDayId == slot.rosterDayId && candidate.staffId == Just staffUuid) allSlots
-            let staffIdealShifts = (.idealShiftsPerWeek) =<< find (\staff -> coerce staff.id == staffUuid) staffMembers
+            let staffIdealShifts = (.idealShiftsPerWeek) =<< find (\staff -> coerce (get #id staff) == staffUuid) staffMembers
             let leaveRequestsForStaff = filter (\leaveRequest -> leaveRequest.staffId == staffUuid) leaveRequests
             let availabilitiesForStaff = filter (\availability -> availability.staffId == staffUuid) availabilities
             let rosterDayDate = Calendar.addDays (toInteger day.dayOffset) weekStartDate
@@ -318,7 +318,7 @@ buildSlotConflicts lateToEarlyMinStartGapMinutes weekStartDate rosterDays allSlo
                     }
             if null conflicts
                 then Nothing
-                else Just (slot.id, conflicts)
+                else Just (get #id slot, conflicts)
 
 respondWithRosterContent :: (?context :: ControllerContext, ?modelContext :: ModelContext) => Int -> IO ()
 respondWithRosterContent weekOffset = do
@@ -379,7 +379,7 @@ fetchRosterRenderData weekOffset = do
         Nothing -> pure Nothing
         Just rosterWeek -> do
             rosterDays <- query @RosterDay
-                |> filterWhere (#rosterWeekId, coerce rosterWeek.id)
+                |> filterWhere (#rosterWeekId, coerce (get #id rosterWeek))
                 |> orderBy #dayOffset
                 |> fetch
 
@@ -401,7 +401,7 @@ fetchRosterRenderData weekOffset = do
             pure (Just RosterRenderData { rosterWeek, rosterDays, weekStartDate, staffMembers, orderedSlotNames, allSlots, slotConflicts })
 
 renderRequestedRow rosterDays weekStartDate orderedSlotNames staffMembers allSlots slotConflicts (rosterDayUuid, targetRowIndex) = do
-    rosterDay <- find (\day -> coerce day.id == rosterDayUuid) rosterDays
+    rosterDay <- find (\day -> coerce (get #id day) == rosterDayUuid) rosterDays
     let daySlots = filter (\slot -> slot.rosterDayId == rosterDayUuid) allSlots
     let dayRows = rowsForDay daySlots
     let rowCount = length dayRows

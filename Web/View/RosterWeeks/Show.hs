@@ -110,11 +110,11 @@ renderRosterDay slotNames staffMembers weekStartDate allSlots slotConflicts rost
     {renderDayRows slotNames staffMembers (Calendar.addDays (toInteger (get #dayOffset rosterDay)) weekStartDate) rosterDay daySlots slotConflicts}
 |]
     where
-        daySlots = filter (\s -> s.rosterDayId == coerce rosterDay.id) allSlots
+        daySlots = filter (\s -> s.rosterDayId == coerce (get #id rosterDay)) allSlots
 
 rowsForDay :: [RosterSlot] -> [(Int, [RosterSlot])]
 rowsForDay slots =
-    case (slots |> map (.rowIndex) |> nub |> sort) of
+    case slots |> map (.rowIndex) |> nub |> sort of
         [] -> [(-1, [])]
         indices -> map (\rowIndex -> (rowIndex, filter (\slot -> slot.rowIndex == rowIndex) slots)) indices
 
@@ -194,12 +194,12 @@ renderDeleteRowButton rosterDayId rowIndex =
 
 renderBlockCells :: (?context :: ControllerContext) => [Staff] -> Id RosterDay -> Int -> [RosterSlot] -> [(Id RosterSlot, [RosterConflict])] -> (Int, SlotName) -> Html
 renderBlockCells staffMembers rosterDayId rowIndex rowSlots slotConflicts (blockIndex, slotName) =
-    case find (\slot -> slot.slotNameId == coerce slotName.id) rowSlots of
+    case find (\slot -> slot.slotNameId == coerce (get #id slotName)) rowSlots of
         Just slot ->
             let currentStartTime = optionalTimeOfDayToStorageValue slot.startTime
                 currentStartTimeLabel = if Text.null currentStartTime then "Select time" else storageTimeToDisplayLabel currentStartTime
                 currentNote = fromMaybe "" slot.note
-                currentPrimaryConflict = primaryConflict (lookupConflicts slot.id slotConflicts)
+                currentPrimaryConflict = primaryConflict (lookupConflicts (get #id slot) slotConflicts)
              in [hsx|
                 <td class={classes [("slot-time-cell", True), ("roster-block-start", blockIndex > 0)]}>
                     <form class="m-0 d-flex align-items-center gap-1 slot-cell-form" data-time-picker-field="true">
@@ -264,7 +264,7 @@ renderBlockCells staffMembers rosterDayId rowIndex rowSlots slotConflicts (block
 
 renderStaffOption :: Maybe UUID -> Staff -> Html
 renderStaffOption selectedStaffId staff = [hsx|
-    <option value={tshow staff.id} selected={Just (coerce staff.id) == selectedStaffId}>
+    <option value={tshow (get #id staff)} selected={Just (coerce (get #id staff)) == selectedStaffId}>
         {staff.lastName}, {staff.firstName}
     </option>
 |]
