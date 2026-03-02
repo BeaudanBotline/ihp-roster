@@ -1,22 +1,87 @@
 # IHP Implementation Specification
 
+## Ordered implementation plan
+
+The implementation order below is intentional. It prioritises decisions that become expensive to unwind once customer data exists.
+
+The first milestone to implement now is the SaaS pivot foundation:
+
+1. tenant schema and membership model
+2. current tenant resolution and tenant-scoped auth helpers
+3. removal of bootstrap-admin and public-signup assumptions
+4. tenant-scoping of all core business queries
+
+Do not treat this as optional future hardening. It is the new prerequisite for continued feature work.
+
+### Phase 1: foundations before broader feature expansion
+
+1. Introduce tenant entities and tenant-scoped authorisation across the application.
+2. Replace bootstrap-admin behavior with controlled tenant owner/admin bootstrap.
+3. Add audit/event infrastructure for:
+   - role changes,
+   - timesheet approval and correction,
+   - leave approval and status changes,
+   - export generation and download,
+   - security-sensitive access.
+4. Define correction-safe handling for payroll-adjacent records:
+   - additive corrections,
+   - versioning, or
+   - immutable event sourcing with derived current state.
+5. Add export job infrastructure and file lifecycle metadata even before deep integrations.
+
+### Phase 2: security and governance baseline before first clients
+
+1. Harden sessions, auth and privileged action controls.
+2. Add security headers and dependency review standards.
+3. Introduce privacy-governance artifacts into product and ops flows:
+   - privacy policy,
+   - collection notices,
+   - subprocessor register,
+   - retention schedule,
+   - breach response plan.
+4. Build internal admin tooling for data access, correction and audit review.
+
+### Phase 3: commercial readiness and controlled disclosure features
+
+1. Add employer-mediated export workflows.
+2. Add signed, expiring export download handling with audit logs.
+3. Add support tooling with explicit access workflow and logging.
+4. Defer direct accountant roles and advanced integrations until tenancy, audit and export governance are stable.
+
+### Delivery posture
+
+For the first 1 to 5 venues, optimise implementation for:
+
+- manual customer onboarding,
+- founder-managed support,
+- limited but clear tenant administration,
+- low operational complexity,
+- no need for self-serve tenant acquisition flows.
+
 ## Required integration points
 
 ## Schema
 
 - Define entities in `Application/Schema.sql` using IHP conventions.
 - Regenerate generated types after schema changes.
+- Add first-class tenant ownership fields to tenant-owned records.
+- Plan dedicated tables for audit events, export jobs and record correction/version history.
+- Do not add sensitive future data directly to `users` or `staff` without a dedicated spec.
 
 ## Controllers
 
 Expected controller areas (exact naming can vary):
 
 - Auth/Profile controller(s)
+- Tenant bootstrap / membership controller(s)
 - Roster controller(s) as the primary operational entrypoint
 - Timesheet controller(s)
 - Leave controller(s)
 - Admin/Config controller(s)
 - Reporting controller(s)
+- Export controller(s)
+- Audit / compliance admin controller(s) as needed
+- Support / internal operations controller(s) as needed for managed-service workflows
 
 Each new controller requires:
 
@@ -53,6 +118,9 @@ Each new controller requires:
 - Shared business helpers in `Application/Helper/*` where appropriate.
 - Keep permission checks explicit in controller actions.
 - Keep pay math canonical in SQL functions and call from controllers/helpers.
+- Centralise tenant lookup and tenant authorisation guards instead of scattering ad hoc tenant checks.
+- Centralise audit-event emission for security-sensitive actions.
+- Centralise export generation and signed file lifecycle handling.
 
 ## Realtime considerations
 
@@ -64,3 +132,6 @@ Each new controller requires:
 ## Data consistency
 
 - Publishing roster and approving leave/timesheets must happen in safe transaction boundaries when side-effect recalculations are required.
+- Audit/event writes should participate in the same transaction as the business action where feasible.
+- Export snapshots must be generated from a defined data scope and schema version.
+- Record corrections must preserve historical traceability rather than overwriting history silently.

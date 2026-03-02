@@ -14,11 +14,131 @@ Business requirements are canonical in `specs/`.
 
 ---
 
+## Current Direction
+
+The current implementation direction is:
+
+- local, founder-managed rollout
+- small number of venues
+- standardised multi-tenant SaaS
+- no public self-serve tenant creation in the near term
+
+This means the next implementation priority is not broader feature breadth. It is the SaaS pivot work required to avoid locking the product into single-tenant/internal-tool assumptions.
+
+Related canonical specs:
+
+- `specs/08-ihp-implementation-spec.md`
+- `specs/10-au-saas-security-privacy-compliance/03-roadmap-and-priorities.md`
+- `specs/10-au-saas-security-privacy-compliance/06-engineering-backlog.md`
+
+---
+
 ## Status Legend
 
 - `[ ]` Not started
 - `[-]` In progress
 - `[x]` Done
+
+---
+
+## Phase A — SaaS Pivot Foundations
+
+### A.1 Tenant schema and membership model
+- **Status:** [ ]
+- **Goal:** Introduce tenant ownership before any further product expansion.
+- **Spec sources:** `specs/01-product-scope.md`, `specs/02-domain-model.md`, `specs/10-au-saas-security-privacy-compliance/06-engineering-backlog.md`
+- **Deliverables:**
+  - Add `tenants` and `tenant_memberships` to `Application/Schema.sql`.
+  - Add `tenant_id` to tenant-owned business records.
+  - Add required FKs and composite indexes for common tenant-scoped queries.
+  - Refresh generated types.
+- **Acceptance checks:**
+  - Tenant-owned core records compile with tenant linkage.
+  - Common access paths have explicit tenant indexes.
+  - Schema and generated types remain synchronized.
+- **Implementation notes:**
+  - This is the highest-priority architectural change because it is expensive to retrofit after real customer data exists.
+  - Prefer explicit tenant ownership in the schema over controller-only conventions.
+
+### A.2 Current tenant resolution and tenant-scoped auth helpers
+- **Status:** [ ]
+- **Goal:** Ensure every authenticated request operates inside an explicit tenant context.
+- **Spec sources:** `specs/03-access-control-and-auth.md`, `specs/08-ihp-implementation-spec.md`, `specs/10-au-saas-security-privacy-compliance/06-engineering-backlog.md`
+- **Deliverables:**
+  - Add current-tenant and current-membership helpers in shared controller code.
+  - Resolve tenant context after login.
+  - Add tenant-scoped role checks.
+- **Acceptance checks:**
+  - Authenticated controller actions can resolve tenant context without ad hoc query logic.
+  - Role checks no longer rely on global user-role assumptions alone.
+  - Cross-tenant access is denied by server-side guards.
+- **Implementation notes:**
+  - For the first few venues, a simple single-tenant-per-user assumption is acceptable if documented cleanly.
+
+### A.3 Remove bootstrap-admin and public-signup assumptions
+- **Status:** [ ]
+- **Goal:** Replace internal-tool bootstrap logic with managed-service tenant bootstrap.
+- **Spec sources:** `specs/03-access-control-and-auth.md`, `specs/10-au-saas-security-privacy-compliance/03-roadmap-and-priorities.md`, `specs/10-au-saas-security-privacy-compliance/06-engineering-backlog.md`
+- **Deliverables:**
+  - Remove or disable public self-registration as the default commercial path.
+  - Remove first-user-admin bootstrap logic from registration.
+  - Introduce founder-managed tenant bootstrap and owner/admin invitation flow.
+- **Acceptance checks:**
+  - No fresh deployment grants privileged tenant access through public signup.
+  - Initial tenant owner/admin creation is explicit and controlled.
+  - Documentation and tests reflect the new bootstrap flow.
+- **Implementation notes:**
+  - This supersedes the earlier first-user-bootstrap-admin product decision.
+
+### A.4 Tenant-scope all core business queries
+- **Status:** [ ]
+- **Goal:** Remove global-data assumptions from controllers and helpers.
+- **Spec sources:** `specs/02-domain-model.md`, `specs/08-ihp-implementation-spec.md`, `specs/10-au-saas-security-privacy-compliance/06-engineering-backlog.md`
+- **Deliverables:**
+  - Add tenant filters to roster, timesheet, leave, profile and staff queries.
+  - Refactor singleton config assumptions where tenant ownership is required.
+  - Add helper functions for common tenant-scoped query patterns.
+- **Acceptance checks:**
+  - No authenticated business flow can read or write another tenant’s data.
+  - Tenant-scoped tests exist for roster, leave and timesheet flows.
+- **Implementation notes:**
+  - This step should land immediately after tenant context is available so the codebase does not end up half-scoped.
+
+### A.5 Audit-event infrastructure for sensitive actions
+- **Status:** [ ]
+- **Goal:** Add durable auditability before exports and broader commercial use.
+- **Spec sources:** `specs/02-domain-model.md`, `specs/08-ihp-implementation-spec.md`, `specs/10-au-saas-security-privacy-compliance/06-engineering-backlog.md`
+- **Deliverables:**
+  - Add `audit_events` schema.
+  - Add shared audit write helper/service.
+  - Emit events for approvals, role changes, exports and support-sensitive actions.
+- **Acceptance checks:**
+  - Sensitive actions create attributable audit records with tenant and actor information.
+  - Audit writes participate in the same transaction as business actions where feasible.
+
+### A.6 Correction-safe timesheets and leave history
+- **Status:** [ ]
+- **Goal:** Replace destructive employment-record behavior with provenance-preserving flows.
+- **Spec sources:** `specs/05-timesheets-and-leave.md`, `specs/10-au-saas-security-privacy-compliance/01-regulatory-baseline.md`, `specs/10-au-saas-security-privacy-compliance/06-engineering-backlog.md`
+- **Deliverables:**
+  - Choose and implement a correction-safe model for timesheets.
+  - Add leave status history or equivalent provenance model.
+  - Update UI and tests for corrected/superseded record behavior.
+- **Acceptance checks:**
+  - Payroll-adjacent changes are not silently destructive.
+  - Approval and correction history remain attributable and test-covered.
+
+### A.7 Export job foundations
+- **Status:** [ ]
+- **Goal:** Treat exports as controlled disclosures before exposing them to customers.
+- **Spec sources:** `specs/10-au-saas-security-privacy-compliance/04-accountant-exports.md`, `specs/10-au-saas-security-privacy-compliance/06-engineering-backlog.md`
+- **Deliverables:**
+  - Add `export_jobs` schema.
+  - Add export service abstraction and scoped export metadata.
+  - Add audit coverage for export generation and download.
+- **Acceptance checks:**
+  - Exports are attributable to tenant, actor and scope.
+  - Export lifecycle is explicit rather than ad hoc controller output.
 
 ---
 
@@ -99,6 +219,7 @@ Business requirements are canonical in `specs/`.
   - Added `bootstrapRegistrationRole` helper in `Application/Helper/Controller.hs` to centralize bootstrap role policy.
   - Added regression coverage in `Test/SchemaSpec.hs` for bootstrap role assignment boundaries (`0 -> admin`, `>=1 -> staff`).
   - Verification run: `direnv exec . typecheck`, `direnv exec . test --match "Schema"`, `direnv exec . test`, `direnv exec . lint`, and `direnv exec . format` passed.
+  - **Superseded by current direction:** This slice reflected the earlier internal-tool model and should now be removed/replaced by Phase A.3 managed tenant bootstrap.
 
 ### 1.2 Mandatory profile completion gate
 - **Status:** [x]
