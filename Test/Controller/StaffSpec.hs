@@ -18,15 +18,13 @@ import Web.Types
 tests :: Spec
 tests = beforeAll (mockContextNoDatabase WebApplication config) do
     describe "StaffController" do
-        it "redirects unauthenticated users from staff list" $ withContext do
-            response <- callAction StaffAction
+        let sampleStaffId = Id "6f9638dc-f13c-4ed3-b4f1-a2f860532cab"
+
+        it "redirects unauthenticated users from edit staff form" $ withContext do
+            response <- callAction (EditStaffAction sampleStaffId)
             response `responseStatusShouldBe` status302
 
-        it "redirects unauthenticated users from new staff form" $ withContext do
-            response <- callAction NewStaffAction
-            response `responseStatusShouldBe` status302
-
-        it "redirects unauthenticated users from create staff" $ withContext do
-            response <- callActionWithParams CreateStaffAction
+        it "redirects unauthenticated users from update staff" $ withContext do
+            response <- callActionWithParams (UpdateStaffAction sampleStaffId)
                 [("firstName", "Test"), ("lastName", "User")]
             response `responseStatusShouldBe` status302

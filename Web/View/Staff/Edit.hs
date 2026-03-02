@@ -9,8 +9,7 @@ instance View EditView where
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
                 <li class="breadcrumb-item"><a href={RosterWeeksAction}>Roster</a></li>
-                <li class="breadcrumb-item"><a href={StaffAction}>Staff</a></li>
-                <li class="breadcrumb-item active">Edit</li>
+                <li class="breadcrumb-item active">Edit Staff</li>
             </ol>
         </nav>
 
@@ -65,6 +64,6 @@ renderForm staff action = [hsx|
             </select>
         </div>
         <button type="submit" class="btn btn-primary">Save</button>
-        <a href={StaffAction} class="btn btn-outline-secondary ms-2">Cancel</a>
+        <a href={RosterWeeksAction} class="btn btn-outline-secondary ms-2">Cancel</a>
     </form>
 |]

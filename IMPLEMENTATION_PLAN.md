@@ -185,7 +185,7 @@ Business requirements are canonical in `specs/`.
   - Verification run: `direnv exec . typecheck`, `direnv exec . test`, `direnv exec . format`, and `direnv exec . typecheck` passed. `direnv exec . lint` reported only pre-existing hints in `Web/Controller/Timesheets.hs` and `Web/View/Timesheets/*.hs`.
 
 ### 2.1b Retire standalone staff page from active workflow
-- **Status:** [ ]
+- **Status:** [x]
 - **Goal:** Remove the dedicated staff-management page from the intended user flow while preserving reusable edit logic.
 - **Dependencies:** 2.1a
 - **Deliverables:**
@@ -195,6 +195,12 @@ Business requirements are canonical in `specs/`.
 - **Acceptance checks:**
   - Managers/admins are no longer directed to a dedicated "manage staff" page.
   - Remaining staff-edit capabilities are clearly attached to the roster workflow only.
+- **Completion notes:**
+  - Reduced `StaffController` to `EditStaffAction` and `UpdateStaffAction` only in `Web/Types.hs` and `Web/Controller/Staff.hs`, keeping staff editing available as reusable support instead of a standalone CRUD section.
+  - Deleted the dedicated standalone staff index/new/show views (`Web/View/Staff/Index.hs`, `New.hs`, `Show.hs`) and removed controller code for list/create/show/delete actions.
+  - Updated the remaining edit view to breadcrumb/cancel back to `RosterWeeksAction`, keeping the surviving staff workflow anchored to the roster page.
+  - Reworked `Test/Controller/StaffSpec.hs` so coverage is on the retained edit/update entrypoints rather than the removed `StaffAction` list page.
+  - Verification run: `direnv exec . typecheck`, `direnv exec . test`, `direnv exec . format`, and `direnv exec . typecheck` passed. `direnv exec . lint` still reports only pre-existing hints in the Timesheets files.
 
 ### 2.1c Roster-launched staff edit modal
 - **Status:** [ ]
