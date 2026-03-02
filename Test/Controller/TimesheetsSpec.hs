@@ -22,6 +22,10 @@ tests = beforeAll (mockContextNoDatabase WebApplication config) do
             response <- callAction TimesheetsAction
             response `responseStatusShouldBe` status302
 
+        it "redirects unauthenticated users from weekly timesheets page" $ withContext do
+            response <- callAction ShowTimesheetWeekAction { weekOffset = 0 }
+            response `responseStatusShouldBe` status302
+
         it "redirects unauthenticated users from new timesheet entry" $ withContext do
             response <- callAction NewTimesheetEntryAction
             response `responseStatusShouldBe` status302

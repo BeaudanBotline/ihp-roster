@@ -24,7 +24,7 @@
 
 ## App Navigation Conventions
 - Global authenticated navigation lives in `Web/View/Layout.hs` and is rendered on every authenticated page
-- Header button order is: `roster`, `profile`, `timesheets`, `admin`, `logout`
+- Header button order is: `roster`, `profile`, `timesheets`, `leave`, `admin`, `logout`
 - `admin` is role-gated (admin-only visibility); `timesheets` and `admin` may route to placeholder pages until fully implemented
 - Auth pages (sign in/sign up/welcome) should not show the authenticated header
 

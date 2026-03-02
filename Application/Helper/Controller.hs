@@ -1,6 +1,6 @@
 module Application.Helper.Controller where
 
-import Data.Time.Calendar (Day, diffDays)
+import Data.Time.Calendar (Day, addDays, diffDays)
 import Data.Time.Clock (UTCTime (..), getCurrentTime)
 import Data.Time.Format (defaultTimeLocale, parseTimeM)
 import Data.Time.LocalTime (TimeOfDay (..))
@@ -108,9 +108,17 @@ isQuarterHourMinutes mins = mins >= 0 && mins `mod` 15 == 0
 -- | Compute shift duration in minutes (end - start).
 shiftDurationMinutes :: TimeOfDay -> TimeOfDay -> Int
 shiftDurationMinutes start end =
-    let startMins = todHour start * 60 + todMin start
-        endMins = todHour end * 60 + todMin end
-    in endMins - startMins
+    normalizeShiftMinuteOfDay end - normalizeShiftMinuteOfDay start
+
+timeOfDayToMinutes :: TimeOfDay -> Int
+timeOfDayToMinutes tod = todHour tod * 60 + todMin tod
+
+-- | Normalize shift-related times onto a linear timeline where 00:00-05:45
+-- are treated as next-day continuation of the same working window.
+normalizeShiftMinuteOfDay :: TimeOfDay -> Int
+normalizeShiftMinuteOfDay tod =
+    let minuteOfDay = timeOfDayToMinutes tod
+    in if minuteOfDay < 360 then minuteOfDay + 1440 else minuteOfDay
 
 -- | True when the worked-on date is within the staff edit window (inclusive).
 -- The window is measured in days from today backwards.
@@ -127,9 +135,10 @@ ensureEditWindowOrManager workedOn =
         today <- utctDay <$> getCurrentTime
         accessDeniedUnless (isWithinEditWindow today workedOn config.staffTimesheetEditWindowDays)
 
--- | True when leave date range is valid (inclusive).
+-- | True when leave date range is valid.
+-- Start date is first unavailable date, end date is first available date.
 isLeaveDateRangeValid :: Day -> Day -> Bool
-isLeaveDateRangeValid startDate endDate = endDate >= startDate
+isLeaveDateRangeValid startDate endDate = endDate > startDate
 
 -- | Returns all week offsets overlapped by an inclusive date range.
 affectedWeekOffsetsForDateRange :: Day -> Day -> Day -> [Int]
@@ -139,7 +148,8 @@ affectedWeekOffsetsForDateRange epoch startDate endDate
     where
         toWeekOffset day = fromInteger (diffDays day epoch `div` 7)
         startOffset = toWeekOffset startDate
-        endOffset = toWeekOffset endDate
+        leaveLastDate = addDays (-1) endDate
+        endOffset = toWeekOffset leaveLastDate
 
 -- | Touch affected roster weeks so roster pages auto-refresh and recompute conflicts.
 triggerRosterConflictRecomputeForLeave :: (?modelContext :: ModelContext) => LeaveRequest -> IO ()

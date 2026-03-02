@@ -135,6 +135,9 @@ CREATE TABLE timesheet_entries (
     worked_on DATE NOT NULL,
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
+    had_break BOOLEAN DEFAULT FALSE NOT NULL,
+    break_start_time TIME,
+    break_end_time TIME,
     break_minutes INT DEFAULT 0 NOT NULL,
     is_approved BOOLEAN DEFAULT FALSE NOT NULL,
     approved_at TIMESTAMP WITH TIME ZONE,
@@ -193,8 +196,23 @@ AS $$
             e.end_time,
             e.break_minutes,
             (EXTRACT(EPOCH FROM e.start_time) / 60)::INT AS start_minute_of_day,
-            (EXTRACT(EPOCH FROM e.end_time) / 60)::INT AS end_minute_of_day,
-            GREATEST((EXTRACT(EPOCH FROM (e.end_time - e.start_time)) / 60)::INT - e.break_minutes, 0) AS paid_minutes,
+            (
+                CASE
+                    WHEN (EXTRACT(EPOCH FROM e.end_time) / 60)::INT <= (EXTRACT(EPOCH FROM e.start_time) / 60)::INT
+                        THEN (EXTRACT(EPOCH FROM e.end_time) / 60)::INT + 1440
+                    ELSE (EXTRACT(EPOCH FROM e.end_time) / 60)::INT
+                END
+            ) AS end_minute_of_day,
+            GREATEST(
+                (
+                    CASE
+                        WHEN (EXTRACT(EPOCH FROM e.end_time) / 60)::INT <= (EXTRACT(EPOCH FROM e.start_time) / 60)::INT
+                            THEN (EXTRACT(EPOCH FROM e.end_time) / 60)::INT + 1440
+                        ELSE (EXTRACT(EPOCH FROM e.end_time) / 60)::INT
+                    END
+                ) - (EXTRACT(EPOCH FROM e.start_time) / 60)::INT - e.break_minutes,
+                0
+            ) AS paid_minutes,
             resolve_effective_pay_level(
                 e.staff_id,
                 (SELECT shift_type_id FROM first_shift_type),

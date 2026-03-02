@@ -21,11 +21,14 @@ instance Controller ProfilesController where
                 Right staff -> do
                     staff <- upsertCurrentUserStaff staff
                     let isProfileCompleted = requiredProfileFieldsCompleted staff.firstName staff.lastName
+                    let wasProfileCompleted = currentUser.isProfileCompleted
                     currentUser
                         |> set #isProfileCompleted isProfileCompleted
                         |> updateRecord
                     setSuccessMessage "Profile updated"
-                    redirectTo EditProfileAction
+                    if not wasProfileCompleted && isProfileCompleted
+                        then redirectTo RosterWeeksAction
+                        else redirectTo EditProfileAction
 
 fetchCurrentUserStaffOrNew :: (?modelContext :: ModelContext, ?context :: ControllerContext) => IO Staff
 fetchCurrentUserStaffOrNew = do

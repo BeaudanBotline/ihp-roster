@@ -1,5 +1,8 @@
 $(document).on('ready turbolinks:load', function () {
     // This is called on the first page load *and* also when the page is changed by turbolinks
+    if (window.htmx && typeof window.htmx.process === 'function') {
+        window.htmx.process(document.body);
+    }
 });
 
 // Defer auto-refresh updates for rows that are actively being edited.
@@ -194,6 +197,72 @@ $(document).on('ready turbolinks:load', function () {
         return modalEl.querySelector(`.js-time-picker-option[data-time-value="${value}"]`);
     }
 
+    function minuteOfDayFromValue(value) {
+        if (!value || !/^\d{2}:\d{2}$/.test(value)) return null;
+        const parts = value.split(':');
+        const hour = Number(parts[0]);
+        const minute = Number(parts[1]);
+        if (!Number.isInteger(hour) || !Number.isInteger(minute)) return null;
+        if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+        return hour * 60 + minute;
+    }
+
+    function displayLabelFromValue(value) {
+        const minuteOfDay = minuteOfDayFromValue(value);
+        if (minuteOfDay === null) return value;
+
+        const hour24 = Math.floor(minuteOfDay / 60);
+        const minute = minuteOfDay % 60;
+        const meridiem = hour24 >= 12 ? 'PM' : 'AM';
+        const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
+        const minuteLabel = String(minute).padStart(2, '0');
+        return `${hour12}:${minuteLabel} ${meridiem}`;
+    }
+
+    function resolveRange(fieldEl, modalEl) {
+        const defaultStart = (modalEl && modalEl.dataset.defaultStartTime) || '06:00';
+        const defaultEnd = (modalEl && modalEl.dataset.defaultEndTime) || '23:45';
+        const startValue = (fieldEl && fieldEl.dataset.timePickerStart) || defaultStart;
+        const endValue = (fieldEl && fieldEl.dataset.timePickerEnd) || defaultEnd;
+
+        const startMinute = minuteOfDayFromValue(startValue);
+        const endMinuteRaw = minuteOfDayFromValue(endValue);
+        if (startMinute === null || endMinuteRaw === null) return null;
+
+        const endMinute = endMinuteRaw < startMinute ? endMinuteRaw + 24 * 60 : endMinuteRaw;
+        return { startMinute, endMinute };
+    }
+
+    function buildTimeOptions(range) {
+        if (!range) return [];
+
+        const options = [];
+        for (let minute = range.startMinute; minute <= range.endMinute; minute += 15) {
+            const minuteOfDay = minute % (24 * 60);
+            const hour = Math.floor(minuteOfDay / 60);
+            const minutePart = minuteOfDay % 60;
+            const value = `${String(hour).padStart(2, '0')}:${String(minutePart).padStart(2, '0')}`;
+            options.push({ value, label: displayLabelFromValue(value) });
+        }
+        return options;
+    }
+
+    function renderOptions(modalEl, range) {
+        if (!modalEl) return;
+        const gridEl = modalEl.querySelector('.js-time-picker-grid');
+        if (!gridEl) return;
+
+        const options = buildTimeOptions(range);
+        gridEl.innerHTML = options
+            .map(function (option) {
+                return (
+                    `<button type="button" class="btn btn-outline-secondary time-picker-option js-time-picker-option" data-time-value="${option.value}">` +
+                    `${option.label}</button>`
+                );
+            })
+            .join('');
+    }
+
     function updateFieldLabel(fieldEl, value, explicitLabel) {
         const labelEl = getFieldLabel(fieldEl);
         if (!labelEl) return;
@@ -247,6 +316,7 @@ $(document).on('ready turbolinks:load', function () {
         if (!modalEl || !bootstrapModal) return;
 
         activeField = fieldEl;
+        renderOptions(modalEl, resolveRange(fieldEl, modalEl));
         highlightSelectedOption(modalEl, inputEl.value || '');
         bootstrapModal.show();
     });
@@ -294,8 +364,40 @@ $(document).on('ready turbolinks:load', function () {
             if (!inputEl) return;
             const modalEl = getModalElement();
             const selectedOption = findOptionByValue(modalEl, inputEl.value || '');
-            const selectedLabel = selectedOption ? selectedOption.textContent.trim() : inputEl.value;
+            const selectedLabel = selectedOption ? selectedOption.textContent.trim() : displayLabelFromValue(inputEl.value);
             updateFieldLabel(fieldEl, inputEl.value || '', selectedLabel);
+        });
+    });
+
+})();
+
+// Toggle break-time controls based on the "Had break" checkbox.
+(function enableBreakTimeToggle() {
+    if (typeof window === 'undefined') return;
+
+    function syncBreakToggle(checkboxEl) {
+        const targetSelector = checkboxEl.dataset.breakTarget;
+        if (!targetSelector) return;
+
+        const targetEl = document.querySelector(targetSelector);
+        if (!targetEl) return;
+
+        const isEnabled = checkboxEl.checked;
+        targetEl.hidden = !isEnabled;
+        targetEl.querySelectorAll('.js-time-picker-input, .js-time-picker-trigger').forEach(function (element) {
+            element.disabled = !isEnabled;
+        });
+    }
+
+    document.addEventListener('change', function (event) {
+        const checkboxEl = event.target.closest('[data-break-toggle="true"]');
+        if (!checkboxEl) return;
+        syncBreakToggle(checkboxEl);
+    });
+
+    document.addEventListener('turbolinks:load', function () {
+        document.querySelectorAll('[data-break-toggle="true"]').forEach(function (checkboxEl) {
+            syncBreakToggle(checkboxEl);
         });
     });
 })();

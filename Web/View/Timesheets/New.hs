@@ -5,11 +5,12 @@ import Web.View.Prelude
 data NewView = NewView
     { timesheetEntry :: TimesheetEntry
     , staffMembers   :: [Staff]
+    , weekOffset     :: Int
     }
 
 instance View NewView where
-    html NewView { .. } = [hsx|
-        <h1>New Timesheet Entry</h1>
-        {renderTimesheetForm timesheetEntry staffMembers CreateTimesheetEntryAction}
-        {renderQuarterHourTimePickerModal}
-    |]
+    html NewView { .. } =
+        renderTimesheetEntryModal
+            "New Timesheet Entry"
+            weekOffset
+            (renderTimesheetForm timesheetEntry staffMembers weekOffset CreateTimesheetEntryAction)

@@ -33,7 +33,7 @@ instance View ShowView where
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
                 <h1 class="mb-0">Roster Week {weekOffset}</h1>
-                <p class="app-muted mb-0">{tshow weekStartDate} to {tshow weekEndDate}</p>
+                <p class="app-muted mb-0">{formatDateDisplay weekStartDate} to {formatDateDisplay weekEndDate}</p>
             </div>
             <div class="d-flex gap-2 align-items-center">
                 <a href={ShowRosterWeekAction (weekOffset - 1)} class="btn btn-outline-secondary">&lt;</a>
@@ -43,7 +43,6 @@ instance View ShowView where
         </div>
 
         {renderRosterContentFragment rosterWeek rosterDays weekOffset staffMembers slotNames weekStartDate allSlots slotConflicts}
-        {renderQuarterHourTimePickerModal}
     |]
 
 renderRosterContentFragment :: (?context :: ControllerContext) => Maybe RosterWeek -> [RosterDay] -> Int -> [Staff] -> [SlotName] -> Day -> [RosterSlot] -> [(Id RosterSlot, [RosterConflict])] -> Html
@@ -155,7 +154,7 @@ renderDayLabel date rosterDay rowCount = [hsx|
         <div class="d-flex flex-column gap-2">
             <div class="roster-day-heading">
                 <div class="small app-muted">{Text.pack (formatTime defaultTimeLocale "%a" date)}</div>
-                <div>{Text.pack (formatTime defaultTimeLocale "%d/%m" date)}</div>
+                <div>{formatDateDisplay date}</div>
             </div>
             {renderAddRowButton rosterDay}
         </div>
@@ -166,7 +165,8 @@ renderAddRowButton :: (?context :: ControllerContext) => RosterDay -> Html
 renderAddRowButton rosterDay =
     if currentUserIsManager
         then [hsx|
-            <button class="btn btn-link btn-sm p-0 text-decoration-none roster-day-control"
+            <button type="button"
+                    class="btn btn-link btn-sm p-0 text-decoration-none roster-day-control"
                     hx-post={AddRosterRowAction rosterDay.id}
                     hx-target="#roster-content"
                     hx-swap="outerHTML"
@@ -181,7 +181,8 @@ renderDeleteRowButton _ rowIndex | rowIndex < 0 = [hsx|<span></span>|]
 renderDeleteRowButton rosterDayId rowIndex =
     if currentUserIsManager
         then [hsx|
-            <button class="btn btn-link btn-sm p-0 text-danger text-decoration-none roster-day-control"
+            <button type="button"
+                    class="btn btn-link btn-sm p-0 text-danger text-decoration-none roster-day-control"
                     hx-post={DeleteRosterRowAction rosterDayId rowIndex}
                     hx-confirm="Delete this entire shift row?"
                     hx-target="#roster-content"

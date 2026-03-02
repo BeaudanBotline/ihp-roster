@@ -1,8 +1,11 @@
 module Web.View.Timesheets.Index where
 
-import Application.Helper.Controller (isWithinEditWindow)
+import Application.Helper.Controller (isWithinEditWindow, shiftDurationMinutes)
 import Application.Helper.Pay (TimesheetPaySummary (..), timesheetEntryIdKey)
 import qualified Data.Map.Strict as Map
+import qualified Data.Text as Text
+import Data.Time.Calendar (Day, addDays)
+import Data.Time.Format (defaultTimeLocale, formatTime)
 import Web.View.Prelude
 
 data IndexView = IndexView
@@ -11,72 +14,87 @@ data IndexView = IndexView
     , paySummariesByEntryId :: Map.Map Text TimesheetPaySummary
     , today                 :: Day
     , editWindowDays        :: Int
+    , weekOffset            :: Int
+    , weekStartDate         :: Day
+    , weekEndDate           :: Day
     }
 
 instance View IndexView where
     html IndexView { .. } = [hsx|
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h1>Timesheets</h1>
-            <div class="d-flex gap-2">
-                <a href={LeaveRequestsAction} class="btn btn-outline-secondary">Leave Requests</a>
-                <a href={NewTimesheetEntryAction} class="btn btn-primary">New Entry</a>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="mb-0">Timesheets</h1>
+                <p class="app-muted mb-0">{formatDateDisplay weekStartDate} to {formatDateDisplay weekEndDate}</p>
+            </div>
+            <div class="d-flex gap-2 align-items-center">
+                <a href={ShowTimesheetWeekAction (weekOffset - 1)} class="btn btn-outline-secondary">&lt;</a>
+                <a href={TimesheetsAction} class="btn btn-outline-secondary">this week</a>
+                <a href={ShowTimesheetWeekAction (weekOffset + 1)} class="btn btn-outline-secondary">&gt;</a>
             </div>
         </div>
 
-        {if null entries
-            then renderEmptyState
-            else renderEntriesTable entries staffMembers paySummariesByEntryId today editWindowDays
-        }
+        <div class="d-flex flex-column gap-3">
+            {forEach [0 .. 6] (renderDaySection entries staffMembers paySummariesByEntryId today editWindowDays weekOffset weekStartDate)}
+        </div>
     |]
 
-renderEmptyState :: Html
-renderEmptyState = [hsx|
-    <div class="app-panel app-form-width">
+renderDaySection :: (?context :: ControllerContext) => [TimesheetEntry] -> [Staff] -> Map.Map Text TimesheetPaySummary -> Day -> Int -> Int -> Day -> Int -> Html
+renderDaySection entries staffMembers paySummariesByEntryId today editWindowDays weekOffset weekStartDate dayOffset = [hsx|
+    <section class="app-panel">
         <div class="app-panel-body">
-            <p class="app-muted mb-0">No timesheet entries yet.</p>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h2 class="h5 mb-0">{weekdayLabel}</h2>
+                    <p class="app-muted mb-0">{formatDateDisplay dayDate}</p>
+                </div>
+                <a href={newEntryUrl} class="btn btn-sm btn-primary">Add Timesheet</a>
+            </div>
+
+            {renderDayEntries dayEntries staffMembers paySummariesByEntryId today editWindowDays weekOffset}
+        </div>
+    </section>
+|]
+    where
+        dayDate = addDays (toInteger dayOffset) weekStartDate
+        dayEntries = filter (\entry -> entry.workedOn == dayDate) entries
+        weekdayLabel = Text.pack (formatTime defaultTimeLocale "%A" dayDate)
+        newEntryUrl =
+            appendQueryParams
+                (pathTo NewTimesheetEntryAction)
+                [ ("weekOffset", tshow weekOffset)
+                , ("workedOn", tshow dayDate)
+                ]
+
+renderDayEntries :: (?context :: ControllerContext) => [TimesheetEntry] -> [Staff] -> Map.Map Text TimesheetPaySummary -> Day -> Int -> Int -> Html
+renderDayEntries dayEntries staffMembers paySummariesByEntryId today editWindowDays weekOffset
+    | null dayEntries = [hsx|<p class="app-muted mb-0">No entries for this day.</p>|]
+    | otherwise = [hsx|
+        <div class="d-flex flex-column gap-2">
+            {forEach dayEntries (renderEntryCard staffMembers paySummariesByEntryId today editWindowDays weekOffset)}
+        </div>
+    |]
+
+renderEntryCard :: (?context :: ControllerContext) => [Staff] -> Map.Map Text TimesheetPaySummary -> Day -> Int -> Int -> TimesheetEntry -> Html
+renderEntryCard staffMembers paySummariesByEntryId today editWindowDays weekOffset entry = [hsx|
+    <div class="border rounded p-3">
+        <div class="d-flex justify-content-between align-items-start gap-3">
+            <div>
+                <div class="fw-semibold">{staffName}</div>
+                <div class="small app-muted">
+                    {storageTimeToDisplayLabel (timeOfDayToStorageValue entry.startTime)} - {storageTimeToDisplayLabel (timeOfDayToStorageValue entry.endTime)}
+                </div>
+                <div class="small app-muted">Break: {renderBreakSummary entry}</div>
+                <div class="small">Duration: {renderDuration entry}</div>
+                <div class="small">Pay: {renderPaySummary paySummary}</div>
+            </div>
+
+            <div class="text-end">
+                <div class="mb-2">{renderApprovalBadge entry}</div>
+                {renderApprovalAction entry weekOffset}
+                {renderEditActions entry canEdit weekOffset}
+            </div>
         </div>
     </div>
-|]
-
-renderEntriesTable :: (?context :: ControllerContext) => [TimesheetEntry] -> [Staff] -> Map.Map Text TimesheetPaySummary -> Day -> Int -> Html
-renderEntriesTable entries staffMembers paySummariesByEntryId today editWindowDays = [hsx|
-    <div class="table-responsive">
-        <table class="table table-striped align-middle">
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Staff</th>
-                    <th>Start</th>
-                    <th>End</th>
-                    <th>Break</th>
-                    <th>Duration</th>
-                    <th>Pay</th>
-                    <th>Status</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                {forEach entries (renderEntryRow staffMembers paySummariesByEntryId today editWindowDays)}
-            </tbody>
-        </table>
-    </div>
-|]
-
-renderEntryRow :: (?context :: ControllerContext) => [Staff] -> Map.Map Text TimesheetPaySummary -> Day -> Int -> TimesheetEntry -> Html
-renderEntryRow staffMembers paySummariesByEntryId today editWindowDays entry = [hsx|
-    <tr>
-        <td>{entry.workedOn}</td>
-        <td>{staffName}</td>
-        <td>{storageTimeToDisplayLabel (timeOfDayToStorageValue entry.startTime)}</td>
-        <td>{storageTimeToDisplayLabel (timeOfDayToStorageValue entry.endTime)}</td>
-        <td>{renderBreakMinutes entry.breakMinutes}</td>
-        <td>{renderDuration entry}</td>
-        <td>{renderPaySummary paySummary}</td>
-        <td>{renderApprovalBadge entry}{renderApprovalAction entry}</td>
-        <td class="text-end">
-            {renderEditActions entry canEdit}
-        </td>
-    </tr>
 |]
     where
         staffName = case find (\s -> unpackId (get #id s) == entry.staffId) staffMembers of
@@ -90,50 +108,60 @@ renderPaySummary maybeSummary =
     case maybeSummary of
         Nothing -> [hsx|<span class="app-muted">Unavailable</span>|]
         Just summary -> [hsx|
-            <div class="small">
-                <div>{renderMinutes summary.paidMinutes}</div>
-                <div class="app-muted">{show summary.segmentCount} segment(s)</div>
-                {if summary.weekendApplied then renderWeekendNotice else mempty}
-                {if summary.hasStackedMultiplier then renderStackedBadge else mempty}
-            </div>
+            <span>{renderMinutes summary.paidMinutes}</span>
+            <span class="app-muted"> ({show summary.segmentCount} segment(s))</span>
+            {when summary.weekendApplied renderWeekendNotice}
+            {when summary.hasStackedMultiplier renderStackedBadge}
         |]
     where
         renderMinutes totalMinutes =
             let hours = totalMinutes `div` 60
                 mins = totalMinutes `mod` 60
-            in tshow hours <> "h " <> tshow mins <> "m"
+             in tshow hours <> "h " <> tshow mins <> "m"
+        renderWeekendNotice = [hsx|<span class="app-muted"> weekend</span>|]
+        renderStackedBadge = [hsx|<span class="badge bg-info-subtle text-info-emphasis ms-1">stacked</span>|]
 
-        renderWeekendNotice = [hsx|<div class="app-muted">Weekend multiplier applied</div>|]
-
-        renderStackedBadge = [hsx|<span class="badge bg-info-subtle text-info-emphasis">Stacked</span>|]
-
-renderEditActions :: TimesheetEntry -> Bool -> Html
-renderEditActions entry canEdit
+renderEditActions :: TimesheetEntry -> Bool -> Int -> Html
+renderEditActions entry canEdit weekOffset
     | canEdit = [hsx|
-        <a href={EditTimesheetEntryAction entry.id} class="btn btn-sm btn-outline-secondary me-1">Edit</a>
-        <a href={DeleteTimesheetEntryAction entry.id} class="btn btn-sm btn-outline-danger js-delete js-delete-no-confirm">Delete</a>
+        <a href={editUrl} class="btn btn-sm btn-outline-secondary me-1">Edit</a>
+        <a href={deleteUrl} class="btn btn-sm btn-outline-danger js-delete js-delete-no-confirm">Delete</a>
     |]
     | otherwise = mempty
+    where
+        editUrl = appendQueryParams (pathTo (EditTimesheetEntryAction entry.id)) [("weekOffset", tshow weekOffset)]
+        deleteUrl = appendQueryParams (pathTo (DeleteTimesheetEntryAction entry.id)) [("weekOffset", tshow weekOffset)]
 
-renderApprovalAction :: (?context :: ControllerContext) => TimesheetEntry -> Html
-renderApprovalAction entry
+renderApprovalAction :: (?context :: ControllerContext) => TimesheetEntry -> Int -> Html
+renderApprovalAction entry weekOffset
     | not currentUserIsManager = mempty
     | entry.isApproved = [hsx|
-        <a href={UnapproveTimesheetEntryAction entry.id} class="btn btn-sm btn-outline-warning ms-1">Unapprove</a>
+        <form method="POST" action={UnapproveTimesheetEntryAction entry.id} class="d-inline me-1">
+            <input type="hidden" name="weekOffset" value={tshow weekOffset} />
+            <button type="submit" class="btn btn-sm btn-outline-warning">Unapprove</button>
+        </form>
     |]
     | otherwise = [hsx|
-        <a href={ApproveTimesheetEntryAction entry.id} class="btn btn-sm btn-outline-success ms-1">Approve</a>
+        <form method="POST" action={ApproveTimesheetEntryAction entry.id} class="d-inline me-1">
+            <input type="hidden" name="weekOffset" value={tshow weekOffset} />
+            <button type="submit" class="btn btn-sm btn-outline-success">Approve</button>
+        </form>
     |]
 
-renderBreakMinutes :: Int -> Html
-renderBreakMinutes 0    = [hsx|—|]
-renderBreakMinutes mins = [hsx|{show mins}m|]
+renderBreakSummary :: TimesheetEntry -> Text
+renderBreakSummary entry
+    | not entry.hadBreak = "None"
+    | otherwise =
+        case (entry.breakStartTime, entry.breakEndTime) of
+            (Just breakStart, Just breakEnd) ->
+                storageTimeToDisplayLabel (timeOfDayToStorageValue breakStart)
+                    <> " - "
+                    <> storageTimeToDisplayLabel (timeOfDayToStorageValue breakEnd)
+            _ -> "Invalid"
 
 renderDuration :: TimesheetEntry -> Html
 renderDuration entry =
-    let startMins = todHour entry.startTime * 60 + todMin entry.startTime
-        endMins = todHour entry.endTime * 60 + todMin entry.endTime
-        netMins = (endMins - startMins) - entry.breakMinutes
+    let netMins = shiftDurationMinutes entry.startTime entry.endTime - entry.breakMinutes
         hours = netMins `div` 60
         mins = netMins `mod` 60
     in [hsx|{show hours}h {show mins}m|]

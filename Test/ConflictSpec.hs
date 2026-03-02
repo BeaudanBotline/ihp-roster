@@ -89,6 +89,15 @@ tests = describe "Conflict Engine" do
         length conflicts `shouldBe` 1
         map conflictType conflicts `shouldBe` [LeaveConflict]
 
+    it "does not treat available-again date as unavailable" do
+        let ctx = mkContext \base ->
+                base
+                    { rosterDayDate = fromGregorian 2025 1 7
+                    , leaveRequests = [mockLeaveRequest]
+                    }
+        let conflicts = evaluateConflicts ctx
+        map conflictType conflicts `shouldBe` []
+
     it "detects availability refusals for matching day" do
         let ctx = mkContext \base ->
                 base { availabilities = [mockAvailability] }

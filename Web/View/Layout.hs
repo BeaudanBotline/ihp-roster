@@ -28,6 +28,8 @@ defaultLayout inner = [hsx|
                 {inner}
             </main>
         </div>
+        {modal}
+        {renderQuarterHourTimePickerModal}
     </body>
 </html>
 |]
@@ -47,6 +49,7 @@ renderAppHeader =
                             <a class="btn btn-outline-secondary btn-sm" href={RosterWeeksAction}>roster</a>
                             <a class="btn btn-outline-secondary btn-sm" href={EditProfileAction}>profile</a>
                             <a class="btn btn-outline-secondary btn-sm" href={TimesheetsAction}>timesheets</a>
+                            <a class="btn btn-outline-secondary btn-sm" href={LeaveRequestsAction}>leave</a>
                             {when currentUserIsAdmin renderAdminNavLink}
                             <a class="btn btn-outline-danger btn-sm js-delete js-delete-no-confirm" href={DeleteSessionAction}>logout</a>
                         </div>

@@ -94,7 +94,7 @@ checkLeaveConflict ctx =
             let status = parseLeaveRequestStatus req.status
             in status == Just LeaveApproved &&
                ctx.rosterDayDate >= req.startDate &&
-               ctx.rosterDayDate <= req.endDate
+               ctx.rosterDayDate < req.endDate
     in if isOnLeave
         then Just RosterConflict
             { conflictType = LeaveConflict
