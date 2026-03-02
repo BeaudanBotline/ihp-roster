@@ -1,13 +1,16 @@
 module Web.View.Timesheets.Index where
 
 import Application.Helper.Controller (isWithinEditWindow)
+import Application.Helper.Pay (TimesheetPaySummary (..), timesheetEntryIdKey)
+import qualified Data.Map.Strict as Map
 import Web.View.Prelude
 
 data IndexView = IndexView
-    { entries        :: [TimesheetEntry]
-    , staffMembers   :: [Staff]
-    , today          :: Day
-    , editWindowDays :: Int
+    { entries               :: [TimesheetEntry]
+    , staffMembers          :: [Staff]
+    , paySummariesByEntryId :: Map.Map Text TimesheetPaySummary
+    , today                 :: Day
+    , editWindowDays        :: Int
     }
 
 instance View IndexView where
@@ -22,7 +25,7 @@ instance View IndexView where
 
         {if null entries
             then renderEmptyState
-            else renderEntriesTable entries staffMembers today editWindowDays
+            else renderEntriesTable entries staffMembers paySummariesByEntryId today editWindowDays
         }
     |]
 
@@ -35,8 +38,8 @@ renderEmptyState = [hsx|
     </div>
 |]
 
-renderEntriesTable :: (?context :: ControllerContext) => [TimesheetEntry] -> [Staff] -> Day -> Int -> Html
-renderEntriesTable entries staffMembers today editWindowDays = [hsx|
+renderEntriesTable :: (?context :: ControllerContext) => [TimesheetEntry] -> [Staff] -> Map.Map Text TimesheetPaySummary -> Day -> Int -> Html
+renderEntriesTable entries staffMembers paySummariesByEntryId today editWindowDays = [hsx|
     <div class="table-responsive">
         <table class="table table-striped align-middle">
             <thead>
@@ -47,19 +50,20 @@ renderEntriesTable entries staffMembers today editWindowDays = [hsx|
                     <th>End</th>
                     <th>Break</th>
                     <th>Duration</th>
+                    <th>Pay</th>
                     <th>Status</th>
                     <th></th>
                 </tr>
             </thead>
             <tbody>
-                {forEach entries (renderEntryRow staffMembers today editWindowDays)}
+                {forEach entries (renderEntryRow staffMembers paySummariesByEntryId today editWindowDays)}
             </tbody>
         </table>
     </div>
 |]
 
-renderEntryRow :: (?context :: ControllerContext) => [Staff] -> Day -> Int -> TimesheetEntry -> Html
-renderEntryRow staffMembers today editWindowDays entry = [hsx|
+renderEntryRow :: (?context :: ControllerContext) => [Staff] -> Map.Map Text TimesheetPaySummary -> Day -> Int -> TimesheetEntry -> Html
+renderEntryRow staffMembers paySummariesByEntryId today editWindowDays entry = [hsx|
     <tr>
         <td>{entry.workedOn}</td>
         <td>{staffName}</td>
@@ -67,6 +71,7 @@ renderEntryRow staffMembers today editWindowDays entry = [hsx|
         <td>{storageTimeToDisplayLabel (timeOfDayToStorageValue entry.endTime)}</td>
         <td>{renderBreakMinutes entry.breakMinutes}</td>
         <td>{renderDuration entry}</td>
+        <td>{renderPaySummary paySummary}</td>
         <td>{renderApprovalBadge entry}{renderApprovalAction entry}</td>
         <td class="text-end">
             {renderEditActions entry canEdit}
@@ -77,7 +82,30 @@ renderEntryRow staffMembers today editWindowDays entry = [hsx|
         staffName = case find (\s -> unpackId (get #id s) == entry.staffId) staffMembers of
             Just staff -> staff.firstName <> " " <> staff.lastName
             Nothing    -> "Unknown" :: Text
+        paySummary = Map.lookup (timesheetEntryIdKey (get #id entry)) paySummariesByEntryId
         canEdit = currentUserIsManager || isWithinEditWindow today entry.workedOn editWindowDays
+
+renderPaySummary :: Maybe TimesheetPaySummary -> Html
+renderPaySummary maybeSummary =
+    case maybeSummary of
+        Nothing -> [hsx|<span class="app-muted">Unavailable</span>|]
+        Just summary -> [hsx|
+            <div class="small">
+                <div>{renderMinutes summary.paidMinutes}</div>
+                <div class="app-muted">{show summary.segmentCount} segment(s)</div>
+                {if summary.weekendApplied then renderWeekendNotice else mempty}
+                {if summary.hasStackedMultiplier then renderStackedBadge else mempty}
+            </div>
+        |]
+    where
+        renderMinutes totalMinutes =
+            let hours = totalMinutes `div` 60
+                mins = totalMinutes `mod` 60
+            in tshow hours <> "h " <> tshow mins <> "m"
+
+        renderWeekendNotice = [hsx|<div class="app-muted">Weekend multiplier applied</div>|]
+
+        renderStackedBadge = [hsx|<span class="badge bg-info-subtle text-info-emphasis">Stacked</span>|]
 
 renderEditActions :: TimesheetEntry -> Bool -> Html
 renderEditActions entry canEdit

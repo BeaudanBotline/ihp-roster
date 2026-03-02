@@ -14,6 +14,7 @@ import qualified Test.Controller.StaffSpec
 import qualified Test.Controller.StaticSpec
 import qualified Test.Controller.TimesheetsSpec
 import qualified Test.Controller.UsersSpec
+import qualified Test.PaySpec
 import qualified Test.RosterGridSpec
 import qualified Test.SchemaSpec
 
@@ -30,5 +31,6 @@ main = hspec do
     Test.Controller.TimesheetsSpec.tests
     Test.Controller.RosterWeeksSpec.tests
     Test.RosterGridSpec.tests
+    Test.PaySpec.tests
     Test.SchemaSpec.tests
     Test.ConflictSpec.tests

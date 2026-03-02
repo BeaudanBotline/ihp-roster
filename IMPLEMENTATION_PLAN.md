@@ -552,12 +552,27 @@ Business requirements are canonical in `specs/`.
     - stacked multiplier expression in the JSON payload.
 
 ### 6.4 Haskell orchestration layer for pay outputs
-- **Status:** [ ]
+- **Status:** [x]
 - **Goal:** Integrate SQL pay outputs into controllers/views/report payloads.
 - **Spec sources:** `specs/06-pay-engine.md`, `specs/08-ihp-implementation-spec.md`
 - **Deliverables:**
   - Query helpers invoking SQL functions.
   - View-model builders and endpoint wiring.
+- **Completion notes:**
+  - Added `Application/Helper/Pay.hs` with Haskell orchestration utilities around canonical SQL pay functions:
+    - `fetchTimesheetPay` (`calculate_timesheet_pay`)
+    - `fetchTimesheetPayRange` (`calculate_timesheet_pay_range`)
+    - JSON decoding for pay payloads and range payloads
+    - view-model summary builders (`TimesheetPaySummary`) and entry-id keyed summary maps
+  - Wired pay orchestration into `Web/Controller/Timesheets.hs` by loading pay summaries for visible entries in `TimesheetsAction`.
+  - Updated `Web/View/Timesheets/Index.hs` to render a new `Pay` column showing:
+    - paid time from canonical payload (`paidMinutes`)
+    - segment count
+    - weekend/stacked multiplier indicators from summary flags
+  - Added `Test/PaySpec.hs` (registered in `Test/Main.hs`) covering:
+    - single payload decoding
+    - range payload decoding
+    - summary flag behavior for weekend + stacked multiplier scenarios
 
 ---
 

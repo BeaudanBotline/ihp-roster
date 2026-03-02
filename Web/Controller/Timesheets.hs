@@ -1,5 +1,6 @@
 module Web.Controller.Timesheets where
 
+import Application.Helper.Pay (fetchTimesheetPaySummariesForEntries)
 import Web.Controller.Prelude
 import Web.View.Timesheets.Edit
 import Web.View.Timesheets.Index
@@ -12,6 +13,7 @@ instance Controller TimesheetsController where
 
     action TimesheetsAction = do
         (entries, staffMembers) <- fetchTimesheetData
+        paySummariesByEntryId <- fetchTimesheetPaySummariesForEntries entries
         config <- fetchVenueConfig
         now <- getCurrentTime
         let today = utctDay now
