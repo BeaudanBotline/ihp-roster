@@ -21,6 +21,7 @@ This folder contains the canonical specification set for this project:
 8. Timesheet time input requires **exact 15-minute increments**.
 9. Trial staff are placeholders only; no conversion flow.
 10. **Managers and Admins can publish** rosters.
+11. Initial commercial model is **local managed multi-venue SaaS**, not public self-serve SaaS.
 
 ## Document map
 
@@ -33,3 +34,5 @@ This folder contains the canonical specification set for this project:
 - `07-ui-bootstrap-spec.md`
 - `08-ihp-implementation-spec.md`
 - `09-testing-and-acceptance.md`
+- `10-au-saas-security-privacy-compliance/`
+- `11-first-client-document-pack/`

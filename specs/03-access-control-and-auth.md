@@ -1,26 +1,69 @@
 # Access Control and Authentication
 
-## Roles
+## Access model
 
-- **Staff**
+Access must be venue-scoped.
+
+There are two levels of access:
+
+- platform-level operator access
+- venue-level customer access
+
+The product must not rely on global in-app business roles without tenancy boundaries.
+
+## Venue roles
+
+- **Worker**
   - View own profile.
-  - View published roster only.
+  - Browse own venue roster weeks.
+  - View published roster content only.
+  - When a viewed week is not published, see a message that it is not published yet.
   - Submit/edit allowed timesheet entries.
   - Submit leave requests.
 - **Manager**
-  - All staff permissions.
+  - All worker permissions.
   - Manage roster planning.
   - Publish roster.
   - Approve/unapprove timesheets.
-  - Manage staff records (except restricted admin-only account operations).
-- **Admin**
+  - Manage active linked staff from the roster workflow within venue boundaries.
+- **Venue Admin**
   - All manager permissions.
-  - System-wide configuration management.
-  - Full role/account governance.
+  - Venue configuration management.
+  - Full venue role and account governance.
+- **Venue Owner**
+  - All venue admin permissions.
+  - Billing, primary legal contact and critical ownership actions.
+- **Accountant / Export-only** (future)
+  - Read-only or export-limited access to approved payroll-adjacent data.
+  - No roster editing.
+  - No worker role administration.
+  - No venue configuration changes.
 
-## Bootstrap admin rule
+## Platform roles
 
-- First registered login user in a fresh deployment is automatically assigned `admin`.
+- **Platform Support**
+  - Restricted operational troubleshooting.
+  - No default access to customer content without explicit controlled support workflow.
+- **Platform Security / Compliance**
+  - Security event review and compliance administration.
+  - Access tightly limited and auditable.
+
+## Bootstrap and signup rules
+
+- Do not use "first registered user becomes admin" in SaaS mode.
+- Venue creation must use a controlled bootstrap flow:
+  - verified owner/admin invitation,
+  - controlled venue creation workflow, or
+  - support-assisted bootstrap.
+- Public self-registration is not part of the near-term operating model.
+- If public self-registration is retained for any reason, it must not grant privileged venue roles automatically.
+- Default first-client workflow is founder-managed venue creation and invitation.
+
+## Authentication requirements
+
+- Authentication must support secure sessions and server-side authorisation checks on every request.
+- MFA should be introduced for privileged roles before broader commercial rollout.
+- Role changes, exports and other high-risk actions should be auditable and candidates for step-up auth.
 
 ## Mandatory profile gate
 
@@ -31,8 +74,20 @@ Before profile completion, user is authenticated but not operationally active:
 
 Required fields are defined in onboarding spec and enforced server-side.
 
-## Trial staff behavior
+## Placeholder worker behavior
 
-- Trial staff are non-login placeholders for quick roster assignment.
+- Placeholder workers are non-login records for quick roster assignment.
 - They never access app flows directly.
-- No v1 conversion path from trial record to full login user.
+- If conversion to login-enabled worker is added later, it must preserve worker identity, audit history and venue ownership.
+- Placeholder workers do not appear in privileged account-administration flows unless explicitly designed.
+
+## Sensitive permission boundaries
+
+These actions require explicit server-side permission checks and audit logging:
+
+- venue role changes
+- export generation and download
+- configuration changes affecting payroll or record visibility
+- timesheet approval and unapproval
+- employment-record correction actions
+- support access to venue data
