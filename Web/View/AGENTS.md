@@ -90,3 +90,7 @@ renderForm post = formFor post [hsx|
 - Keep week browsing URL-driven via `weekOffset` action params.
 - Use compact controls in the roster page header: `<`, `this week`, `>`.
 - `this week` should link to `RosterWeeksAction` (server-side reset to current offset), not a client-side calculation.
+
+## Roster Modal Views
+- When a form is launched from the roster page as a modal, render it with `renderModal` via a small helper and set `modalCloseUrl` to `ShowRosterWeekAction weekOffset`.
+- Pass `weekOffset` through as a hidden form field so submit/validation round-trips reopen the modal over the same roster week.

@@ -2,24 +2,22 @@ module Web.View.Staff.Edit where
 
 import Web.View.Prelude
 
-newtype EditView = EditView { staff :: Staff }
+data EditView = EditView
+    { staff      :: Staff
+    , weekOffset :: Int
+    }
 
 instance View EditView where
-    html EditView { .. } = [hsx|
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href={RosterWeeksAction}>Roster</a></li>
-                <li class="breadcrumb-item active">Edit Staff</li>
-            </ol>
-        </nav>
+    html EditView { .. } =
+        renderStaffEditModal
+            "Edit Staff Member"
+            weekOffset
+            (renderForm staff weekOffset (UpdateStaffAction staff.id))
 
-        <h1>Edit Staff Member</h1>
-        {renderForm staff (UpdateStaffAction staff.id)}
-    |]
-
-renderForm :: Staff -> StaffController -> Html
-renderForm staff action = [hsx|
-    <form method="POST" action={action} class="mt-3 app-form-width">
+renderForm :: Staff -> Int -> StaffController -> Html
+renderForm staff weekOffset action = [hsx|
+    <form method="POST" action={action} class="mt-3">
+        <input type="hidden" name="weekOffset" value={tshow weekOffset} />
         <div class="mb-3">
             <label for="firstName" class="form-label">First Name</label>
             <input
@@ -64,6 +62,6 @@ renderForm staff action = [hsx|
             </select>
         </div>
         <button type="submit" class="btn btn-primary">Save</button>
-        <a href={RosterWeeksAction} class="btn btn-outline-secondary ms-2">Cancel</a>
+        <a href={ShowRosterWeekAction weekOffset} class="btn btn-outline-secondary ms-2">Cancel</a>
     </form>
 |]

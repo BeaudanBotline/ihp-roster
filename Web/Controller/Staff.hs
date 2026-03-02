@@ -1,6 +1,7 @@
 module Web.Controller.Staff where
 
 import Web.Controller.Prelude
+import Web.Controller.RosterWeeks ()
 import Web.View.Staff.Edit
 
 instance Controller StaffController where
@@ -11,18 +12,23 @@ instance Controller StaffController where
 
     action EditStaffAction { staffId } = do
         staff <- fetch staffId
-        render EditView { .. }
+        let weekOffset = paramOrDefault @Int 0 "weekOffset"
+        setModal EditView { .. }
+        jumpToAction ShowRosterWeekAction { weekOffset }
 
     action UpdateStaffAction { staffId } = do
         staff <- fetch staffId
+        let weekOffset = paramOrDefault @Int 0 "weekOffset"
         staff
             |> buildStaff
             |> ifValid \case
-                Left staff -> render EditView { .. }
+                Left staff -> do
+                    setModal EditView { .. }
+                    jumpToAction ShowRosterWeekAction { weekOffset }
                 Right staff -> do
                     staff <- staff |> updateRecord
                     setSuccessMessage "Staff member updated"
-                    redirectTo RosterWeeksAction
+                    redirectTo ShowRosterWeekAction { weekOffset }
 
 buildStaff staff = staff
     |> fill @'["firstName", "lastName", "idealShiftsPerWeek", "isActive"]

@@ -1,8 +1,8 @@
 module Test.SchemaSpec where
 
 import Application.Helper.Controller
-import Application.Helper.View (formatDateDisplay, isTrialStaff,
-                                appendQueryParams,
+import Application.Helper.View (appendQueryParams, formatDateDisplay,
+                                isTrialStaff, linkedActiveStaffForRosterPanel,
                                 quarterHourTimeOptions,
                                 quarterHourTimeOptionsInRange,
                                 storageTimeToDisplayLabel)
@@ -162,6 +162,27 @@ tests = describe "Schema" do
                     |> set #lastName "Person"
                     |> set #userId (Just def)
             isTrialStaff linkedStaff `shouldBe` False
+
+        it "filters roster panel staff to active linked staff sorted by first name" do
+            let inactiveLinkedStaff = newRecord @Staff
+                    |> set #firstName "Avery"
+                    |> set #lastName "Inactive"
+                    |> set #userId (Just def)
+                    |> set #isActive False
+            let trialStaff = newRecord @Staff
+                    |> set #firstName "Blair"
+                    |> set #lastName "Trial"
+            let linkedStaffZed = newRecord @Staff
+                    |> set #firstName "Zed"
+                    |> set #lastName "Linked"
+                    |> set #userId (Just def)
+            let linkedStaffAlex = newRecord @Staff
+                    |> set #firstName "Alex"
+                    |> set #lastName "Linked"
+                    |> set #userId (Just def)
+
+            map (.firstName) (linkedActiveStaffForRosterPanel [inactiveLinkedStaff, trialStaff, linkedStaffZed, linkedStaffAlex])
+                `shouldBe` ["Alex", "Zed"]
 
     describe "Quarter-hour time picker helpers" do
         it "generates canonical options from 06:00 to 23:45 in 15-minute increments" do

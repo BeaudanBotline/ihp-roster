@@ -2,6 +2,7 @@ module Web.Controller.RosterWeeks where
 
 import Application.Helper.Conflict
 import Application.Helper.Controller
+import Application.Helper.View (linkedActiveStaffForRosterPanel)
 import Data.Coerce (coerce)
 import Data.List (find, nub, sortBy)
 import Data.Maybe (catMaybes, mapMaybe)
@@ -13,8 +14,9 @@ import Data.Time.Format (defaultTimeLocale, parseTimeM)
 import Data.Time.LocalTime (TimeOfDay)
 import qualified Data.UUID as UUID
 import Web.Controller.Prelude
-import Web.View.RosterWeeks.Show (ShowView (..), renderRosterContentFragment,
-                                  renderRowOob, rowsForDay)
+import Web.View.RosterWeeks.Show (RosterStaffPanelEntry (..), ShowView (..),
+                                  renderRosterContentFragment, renderRowOob,
+                                  rowsForDay)
 
 instance Controller RosterWeeksController where
     beforeAction = do
@@ -68,6 +70,8 @@ instance Controller RosterWeeksController where
                     |> orderBy #lastName
                     |> fetch
 
+                panelStaff <- fetchRosterStaffPanelEntries staffMembers allSlots
+
                 -- Prefetch slot names for column mapping
                 slotNames <- query @SlotName
                     |> filterWhere (#isActive, True)
@@ -83,6 +87,7 @@ instance Controller RosterWeeksController where
                     , weekStartDate
                     , weekEndDate
                     , staffMembers
+                    , panelStaff
                     , slotNames = orderedSlotNames
                     , allSlots
                     , slotConflicts
@@ -96,6 +101,7 @@ instance Controller RosterWeeksController where
                     , weekStartDate
                     , weekEndDate
                     , staffMembers = []
+                    , panelStaff = []
                     , slotNames = []
                     , allSlots = []
                     , slotConflicts = []
@@ -325,13 +331,14 @@ respondWithRosterContent weekOffset = do
     rosterData <- fetchRosterRenderData weekOffset
     case rosterData of
         Nothing -> respondHtml [hsx|<div id="roster-content"></div>|]
-        Just RosterRenderData { rosterWeek, rosterDays, weekStartDate, staffMembers, orderedSlotNames, allSlots, slotConflicts } ->
+        Just RosterRenderData { rosterWeek, rosterDays, weekStartDate, staffMembers, panelStaff, orderedSlotNames, allSlots, slotConflicts } ->
             respondHtml $
                 renderRosterContentFragment
                     (Just rosterWeek)
                     rosterDays
                     weekOffset
                     staffMembers
+                    panelStaff
                     orderedSlotNames
                     weekStartDate
                     allSlots
@@ -360,6 +367,7 @@ data RosterRenderData = RosterRenderData
     , rosterDays       :: [RosterDay]
     , weekStartDate    :: Calendar.Day
     , staffMembers     :: [Staff]
+    , panelStaff       :: [RosterStaffPanelEntry]
     , orderedSlotNames :: [SlotName]
     , allSlots         :: [RosterSlot]
     , slotConflicts    :: [(Id RosterSlot, [RosterConflict])]
@@ -392,13 +400,40 @@ fetchRosterRenderData weekOffset = do
                 |> orderBy #lastName
                 |> fetch
 
+            panelStaff <- fetchRosterStaffPanelEntries staffMembers allSlots
+
             slotNames <- query @SlotName
                 |> filterWhere (#isActive, True)
                 |> fetch
 
             let orderedSlotNames = sortBy (comparing (slotNameOrder . (.name))) slotNames
             slotConflicts <- buildSlotConflicts venueConfig.lateToEarlyMinStartGapMinutes weekStartDate rosterDays allSlots staffMembers
-            pure (Just RosterRenderData { rosterWeek, rosterDays, weekStartDate, staffMembers, orderedSlotNames, allSlots, slotConflicts })
+            pure (Just RosterRenderData { rosterWeek, rosterDays, weekStartDate, staffMembers, panelStaff, orderedSlotNames, allSlots, slotConflicts })
+
+fetchRosterStaffPanelEntries :: (?modelContext :: ModelContext) => [Staff] -> [RosterSlot] -> IO [RosterStaffPanelEntry]
+fetchRosterStaffPanelEntries staffMembers allSlots = do
+    let linkedStaff = linkedActiveStaffForRosterPanel staffMembers
+    let linkedUserIds = mapMaybe (.userId) linkedStaff
+
+    users <-
+        if null linkedUserIds
+            then pure []
+            else query @User
+                |> filterWhereIn (#id, map Id linkedUserIds)
+                |> fetch
+
+    pure (map (buildPanelEntry users) linkedStaff)
+    where
+        buildPanelEntry users staff =
+            let assignedShiftCount = length (filter (\slot -> slot.staffId == Just (coerce (get #id staff))) allSlots)
+                roleText = case staff.userId >>= \userId -> find (\user -> coerce (get #id user) == userId) users of
+                    Just user -> user.userRole
+                    Nothing   -> "staff"
+             in RosterStaffPanelEntry
+                    { staff
+                    , assignedShiftCount
+                    , userRole = roleText
+                    }
 
 renderRequestedRow rosterDays weekStartDate orderedSlotNames staffMembers allSlots slotConflicts (rosterDayUuid, targetRowIndex) = do
     rosterDay <- find (\day -> coerce (get #id day) == rosterDayUuid) rosterDays

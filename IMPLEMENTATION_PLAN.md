@@ -203,7 +203,7 @@ Business requirements are canonical in `specs/`.
   - Verification run: `direnv exec . typecheck`, `direnv exec . test`, `direnv exec . format`, and `direnv exec . typecheck` passed. `direnv exec . lint` still reports only pre-existing hints in the Timesheets files.
 
 ### 2.1c Roster-launched staff edit modal
-- **Status:** [ ]
+- **Status:** [x]
 - **Goal:** Reuse staff edit functionality inside a manager/admin modal launched from the roster page.
 - **Dependencies:** 2.1b, 3.4b
 - **Deliverables:**
@@ -213,6 +213,13 @@ Business requirements are canonical in `specs/`.
 - **Acceptance checks:**
   - Manager/admin can edit staff without leaving the roster page.
   - Existing active/inactive and core identity fields save correctly.
+- **Completion notes:**
+  - Switched `EditStaffAction`/`UpdateStaffAction` to the IHP modal flow in `Web/Controller/Staff.hs` using `setModal` + `jumpToAction ShowRosterWeekAction`, carrying `weekOffset` through query/form params.
+  - Converted `Web/View/Staff/Edit.hs` into a modal view and added `renderStaffEditModal` in `Application/Helper/View.hs` so cancel/close returns to the same roster week.
+  - Added a manager/admin roster-side staff panel to `Web/View/RosterWeeks/Show.hs` and `Web/Controller/RosterWeeks.hs`, showing active linked staff with assigned-shift count, ideal shifts, user role, and an `Edit` launcher that opens the modal over the roster page.
+  - Added helper/test coverage for roster-panel filtering in `Application/Helper/View.hs` and `Test/SchemaSpec.hs`, and updated `Test/Controller/StaffSpec.hs` to cover the weekOffset-backed edit/update entrypoints.
+  - Documented the roster modal pattern in `Web/Controller/AGENTS.md` and `Web/View/AGENTS.md`.
+  - Verification run: `direnv exec . typecheck` and `direnv exec . test` passed. `direnv exec . lint` still reports the pre-existing Timesheets hints plus a non-actionable false-positive `Redundant id` hint on `UpdateStaffAction staff.id` in the new modal view.
 
 ### 2.2 Trial staff placeholders
 - **Status:** [x]

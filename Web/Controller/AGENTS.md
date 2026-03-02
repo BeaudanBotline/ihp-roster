@@ -76,3 +76,11 @@ Every controller requires changes in **four files** (missing any will cause comp
 
 ## State Transition Pattern
 - For status transitions with side effects (e.g. leave approval triggering roster conflict refresh), wrap the update + side-effect hook in `withTransaction` so both commit atomically.
+
+## Roster Modal Pattern
+- For modal workflows launched from the roster page, keep the destination anchored to `ShowRosterWeekAction`.
+- Pattern:
+  - controller action reads `weekOffset` from params
+  - `setModal SomeView { .. }`
+  - `jumpToAction ShowRosterWeekAction { weekOffset }`
+- On validation failure, re-`setModal` and `jumpToAction` back to the same roster week instead of rendering a standalone page.

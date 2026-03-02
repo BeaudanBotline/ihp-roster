@@ -16,9 +16,16 @@ data ShowView = ShowView
     , weekStartDate :: Day
     , weekEndDate   :: Day
     , staffMembers  :: [Staff]
+    , panelStaff    :: [RosterStaffPanelEntry]
     , slotNames     :: [SlotName]
     , allSlots      :: [RosterSlot]
     , slotConflicts :: [(Id RosterSlot, [RosterConflict])]
+    }
+
+data RosterStaffPanelEntry = RosterStaffPanelEntry
+    { staff              :: Staff
+    , assignedShiftCount :: Int
+    , userRole           :: Text
     }
 
 instance View ShowView where
@@ -35,18 +42,18 @@ instance View ShowView where
             </div>
         </div>
 
-        {renderRosterContentFragment rosterWeek rosterDays weekOffset staffMembers slotNames weekStartDate allSlots slotConflicts}
+        {renderRosterContentFragment rosterWeek rosterDays weekOffset staffMembers panelStaff slotNames weekStartDate allSlots slotConflicts}
     |]
 
-renderRosterContentFragment :: (?context :: ControllerContext) => Maybe RosterWeek -> [RosterDay] -> Int -> [Staff] -> [SlotName] -> Day -> [RosterSlot] -> [(Id RosterSlot, [RosterConflict])] -> Html
-renderRosterContentFragment rosterWeek rosterDays weekOffset staffMembers slotNames weekStartDate allSlots slotConflicts = [hsx|
+renderRosterContentFragment :: (?context :: ControllerContext) => Maybe RosterWeek -> [RosterDay] -> Int -> [Staff] -> [RosterStaffPanelEntry] -> [SlotName] -> Day -> [RosterSlot] -> [(Id RosterSlot, [RosterConflict])] -> Html
+renderRosterContentFragment rosterWeek rosterDays weekOffset staffMembers panelStaff slotNames weekStartDate allSlots slotConflicts = [hsx|
     <div id="roster-content">
-        {renderRosterContent rosterWeek rosterDays weekOffset staffMembers slotNames weekStartDate allSlots slotConflicts}
+        {renderRosterContent rosterWeek rosterDays weekOffset staffMembers panelStaff slotNames weekStartDate allSlots slotConflicts}
     </div>
 |]
 
-renderRosterContent :: (?context :: ControllerContext) => Maybe RosterWeek -> [RosterDay] -> Int -> [Staff] -> [SlotName] -> Day -> [RosterSlot] -> [(Id RosterSlot, [RosterConflict])] -> Html
-renderRosterContent Nothing _ weekOffset _ _ _ _ _ = [hsx|
+renderRosterContent :: (?context :: ControllerContext) => Maybe RosterWeek -> [RosterDay] -> Int -> [Staff] -> [RosterStaffPanelEntry] -> [SlotName] -> Day -> [RosterSlot] -> [(Id RosterSlot, [RosterConflict])] -> Html
+renderRosterContent Nothing _ weekOffset _ _ _ _ _ _ = [hsx|
     <div class="alert alert-info d-flex justify-content-between align-items-center shadow-sm">
         <div>
             <strong class="d-block mb-1">No roster exists for this week yet.</strong>
@@ -56,33 +63,94 @@ renderRosterContent Nothing _ weekOffset _ _ _ _ _ = [hsx|
     </div>
 |]
 
-renderRosterContent (Just rosterWeek) rosterDays _ staffMembers slotNames weekStartDate allSlots slotConflicts = [hsx|
-    <div class="card shadow-sm mb-5">
-        <div class="card-header d-flex justify-content-between align-items-center py-3">
-            <div class="d-flex align-items-center gap-3">
-                <span class="fw-bold">Status:</span>
-                {renderStatusBadge rosterWeek.isLive}
+renderRosterContent (Just rosterWeek) rosterDays weekOffset staffMembers panelStaff slotNames weekStartDate allSlots slotConflicts = [hsx|
+    <div class="row g-4 align-items-start">
+        <div class={classes [("col-12", True), ("col-xl-8", currentUserIsManager), ("mx-auto", not currentUserIsManager)]}>
+            <div class="card shadow-sm mb-5">
+                <div class="card-header d-flex justify-content-between align-items-center py-3">
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="fw-bold">Status:</span>
+                        {renderStatusBadge rosterWeek.isLive}
+                    </div>
+                    {when (not rosterWeek.isLive && currentUserIsManager) (renderPublishForm rosterWeek)}
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm mb-0 align-middle roster-grid">
+                        <thead class="text-center text-uppercase fw-bold roster-grid-head">
+                            <tr>
+                                <th rowspan="2" class="py-2 roster-day-column">Day / Date</th>
+                                {forEach slotNames renderSlotHeaderGroup}
+                            </tr>
+                            <tr>
+                                {forEach slotNames renderSlotSubHeaders}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {forEach rosterDays (renderRosterDay slotNames staffMembers weekStartDate allSlots slotConflicts)}
+                        </tbody>
+                    </table>
+                </div>
             </div>
-            {when (not rosterWeek.isLive && currentUserIsManager) (renderPublishForm rosterWeek)}
         </div>
-        <div class="table-responsive">
-            <table class="table table-bordered table-sm mb-0 align-middle roster-grid">
-                <thead class="text-center text-uppercase fw-bold roster-grid-head">
-                    <tr>
-                        <th rowspan="2" class="py-2 roster-day-column">Day / Date</th>
-                        {forEach slotNames renderSlotHeaderGroup}
-                    </tr>
-                    <tr>
-                        {forEach slotNames renderSlotSubHeaders}
-                    </tr>
-                </thead>
-                <tbody>
-                    {forEach rosterDays (renderRosterDay slotNames staffMembers weekStartDate allSlots slotConflicts)}
-                </tbody>
-            </table>
+        {renderRosterStaffPanelColumn weekOffset panelStaff}
+    </div>
+|]
+
+renderRosterStaffPanelColumn :: (?context :: ControllerContext) => Int -> [RosterStaffPanelEntry] -> Html
+renderRosterStaffPanelColumn weekOffset panelStaff =
+    if currentUserIsManager
+        then [hsx|
+            <div class="col-12 col-xl-4">
+                {renderRosterStaffPanel weekOffset panelStaff}
+            </div>
+        |]
+        else mempty
+
+renderRosterStaffPanel :: Int -> [RosterStaffPanelEntry] -> Html
+renderRosterStaffPanel weekOffset panelStaff = [hsx|
+    <div class="app-panel roster-staff-panel">
+        <div class="app-panel-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h2 class="h5 mb-1">Staff</h2>
+                    <p class="app-muted mb-0 small">Active linked staff available from the roster workflow.</p>
+                </div>
+                <span class="badge bg-secondary">{tshow (length panelStaff)}</span>
+            </div>
+
+            <div class="d-grid gap-3">
+                {forEach panelStaff (renderRosterStaffPanelEntry weekOffset)}
+            </div>
         </div>
     </div>
 |]
+
+renderRosterStaffPanelEntry :: Int -> RosterStaffPanelEntry -> Html
+renderRosterStaffPanelEntry weekOffset entry = [hsx|
+    <section class="roster-staff-panel-entry border rounded-3 p-3">
+        <div class="d-flex justify-content-between align-items-start gap-3">
+            <div>
+                <h3 class="h6 mb-1">{entry.staff.firstName} {entry.staff.lastName}</h3>
+                <div class="small app-muted">
+                    {entry.assignedShiftCount} assigned this week
+                    {renderIdealShifts entry.staff}
+                </div>
+            </div>
+            <span class="badge text-bg-secondary text-uppercase">{entry.userRole}</span>
+        </div>
+        <div class="mt-3">
+            <a class="btn btn-sm btn-outline-secondary" href={appendQueryParams (pathTo (EditStaffAction entry.staff.id)) [("weekOffset", tshow weekOffset)]}>
+                Edit
+            </a>
+        </div>
+    </section>
+|]
+
+renderIdealShifts :: Staff -> Html
+renderIdealShifts staff =
+    case staff.idealShiftsPerWeek of
+        Just shifts -> [hsx|<span> · ideal {tshow shifts}</span>|]
+        Nothing     -> mempty
 
 renderSlotHeaderGroup :: SlotName -> Html
 renderSlotHeaderGroup slotName = [hsx|

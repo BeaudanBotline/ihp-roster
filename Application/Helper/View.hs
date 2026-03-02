@@ -1,6 +1,7 @@
 module Application.Helper.View where
 
 import Application.Helper.Controller (UserRole (..), hasRole, parseUserRole)
+import Data.List (sortBy)
 import qualified Data.Text as Text
 import Data.Time.Calendar (Day)
 import Data.Time.Format (defaultTimeLocale, formatTime, parseTimeM)
@@ -25,6 +26,14 @@ currentUserIsAdmin = hasRole AdminRole
 -- | True when a staff record is a trial placeholder (no linked user account).
 isTrialStaff :: Staff -> Bool
 isTrialStaff staff = isNothing staff.userId
+
+linkedActiveStaffForRosterPanel :: [Staff] -> [Staff]
+linkedActiveStaffForRosterPanel =
+    sortBy sortStaff
+        . filter (\staff -> staff.isActive && isJust staff.userId)
+    where
+        sortStaff left right =
+            compare left.firstName right.firstName <> compare left.lastName right.lastName
 
 -- | Shared modal id for the reusable quarter-hour time picker.
 timePickerModalId :: Text
@@ -249,6 +258,15 @@ renderTimesheetEntryModal title weekOffset formContent =
     renderModal Modal
         { modalTitle = title
         , modalCloseUrl = pathTo (ShowTimesheetWeekAction weekOffset)
+        , modalFooter = Nothing
+        , modalContent = formContent
+        }
+
+renderStaffEditModal :: Text -> Int -> Html -> Html
+renderStaffEditModal title weekOffset formContent =
+    renderModal Modal
+        { modalTitle = title
+        , modalCloseUrl = pathTo (ShowRosterWeekAction weekOffset)
         , modalFooter = Nothing
         , modalContent = formContent
         }
