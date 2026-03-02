@@ -24,10 +24,11 @@ defaultLayout inner = [hsx|
         <div class="app-shell">
             {renderAppHeader}
             <main class="app-content container py-4">
-                {renderFlashMessages}
                 {inner}
             </main>
         </div>
+        <div id={dialogOverlayMountId}></div>
+        {renderFlashOverlayToasts}
         {modal}
         {renderQuarterHourTimePickerModal}
     </body>

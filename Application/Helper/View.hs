@@ -7,6 +7,7 @@ import Data.Time.Calendar (Day)
 import Data.Time.Format (defaultTimeLocale, formatTime, parseTimeM)
 import Data.Time.LocalTime (TimeOfDay (..))
 import Generated.Types
+import IHP.FlashMessages.Types (FlashMessage (..))
 import IHP.ViewPrelude
 import Web.Routes ()
 import Web.Types
@@ -35,30 +36,221 @@ linkedActiveStaffForRosterPanel =
         sortStaff left right =
             compare left.firstName right.firstName <> compare left.lastName right.lastName
 
-htmxModalMountId :: Text
-htmxModalMountId = "htmx-modal-mount"
+dialogOverlayMountId :: Text
+dialogOverlayMountId = "dialog-overlay-mount"
 
-renderHtmxModal :: Text -> Html -> Html -> Html
-renderHtmxModal title modalContent modalFooter = [hsx|
+htmxModalMountId :: Text
+htmxModalMountId = dialogOverlayMountId
+
+toastOverlayMountId :: Text
+toastOverlayMountId = "toast-overlay-mount"
+
+data OverlayFormMode
+    = HtmxOverlayForm
+    | PageOverlayForm
+
+data OverlayButtonAction
+    = OverlayCloseAction
+    | OverlaySubmitFormAction !Text
+    | OverlayNavigateAction !Text
+
+data OverlayButton = OverlayButton
+    { overlayButtonLabel  :: !Text
+    , overlayButtonClass  :: !Text
+    , overlayButtonAction :: !OverlayButtonAction
+    }
+
+data DialogOverlayConfig = DialogOverlayConfig
+    { dialogOverlayTitle       :: !Text
+    , dialogOverlayBody        :: !Html
+    , dialogOverlayButtons     :: ![OverlayButton]
+    , dialogOverlayDialogClass :: !Text
+    }
+
+data ToastOverlayConfig = ToastOverlayConfig
+    { toastOverlayTitle      :: !(Maybe Text)
+    , toastOverlayMessage    :: !Text
+    , toastOverlayClass      :: !Text
+    , toastOverlayAutoHideMs :: !Int
+    }
+
+data ToastOverlayPosition
+    = ToastBottomLeft
+    | ToastBottomCenter
+    | ToastBottomRight
+    deriving (Eq)
+
+defaultOverlayButtons :: Text -> [OverlayButton]
+defaultOverlayButtons formId =
+    [ OverlayButton
+        { overlayButtonLabel = "Cancel"
+        , overlayButtonClass = "btn btn-outline-secondary"
+        , overlayButtonAction = OverlayCloseAction
+        }
+    , OverlayButton
+        { overlayButtonLabel = "Save"
+        , overlayButtonClass = "btn btn-primary"
+        , overlayButtonAction = OverlaySubmitFormAction formId
+        }
+    ]
+
+renderDialogOverlay :: DialogOverlayConfig -> Html
+renderDialogOverlay DialogOverlayConfig { dialogOverlayTitle, dialogOverlayBody, dialogOverlayButtons, dialogOverlayDialogClass } = [hsx|
     <div class="modal fade show d-block"
-         data-htmx-modal="true"
+         data-dialog-overlay="true"
          tabindex="-1"
          role="dialog"
          aria-modal="true"
-         aria-labelledby="htmx-modal-title">
-        <div class="modal-dialog modal-dialog-centered" role="document">
+         aria-labelledby="dialog-overlay-title">
+        <div class={classes [("modal-dialog", True), ("modal-dialog-centered", True), (dialogOverlayDialogClass, not (Text.null dialogOverlayDialogClass))]}
+             role="document">
             <div class="modal-content shadow">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="htmx-modal-title">{title}</h5>
-                    <button type="button" class="btn-close" aria-label="Close" data-htmx-modal-close="true"></button>
+                    <h5 class="modal-title" id="dialog-overlay-title">{dialogOverlayTitle}</h5>
+                    <button type="button" class="btn-close" aria-label="Close" data-dialog-overlay-close="true"></button>
                 </div>
-                <div class="modal-body">{modalContent}</div>
-                {modalFooter}
+                <div class="modal-body">{dialogOverlayBody}</div>
+                {renderDialogOverlayFooter dialogOverlayButtons}
             </div>
         </div>
     </div>
-    <div class="modal-backdrop fade show" data-htmx-modal-backdrop="true"></div>
+    <div class="modal-backdrop fade show" data-dialog-overlay-backdrop="true"></div>
 |]
+
+renderDialogOverlayFooter :: [OverlayButton] -> Html
+renderDialogOverlayFooter buttons
+    | null buttons = mempty
+    | otherwise = [hsx|
+        <div class="modal-footer">
+            {forEach buttons renderDialogOverlayButton}
+        </div>
+    |]
+
+renderDialogOverlayButton :: OverlayButton -> Html
+renderDialogOverlayButton button =
+    case button.overlayButtonAction of
+        OverlayCloseAction -> [hsx|
+            <button type="button" class={button.overlayButtonClass} data-dialog-overlay-close="true">
+                {button.overlayButtonLabel}
+            </button>
+        |]
+        OverlaySubmitFormAction formId -> [hsx|
+            <button type="submit" class={button.overlayButtonClass} form={formId}>
+                {button.overlayButtonLabel}
+            </button>
+        |]
+        OverlayNavigateAction targetUrl -> [hsx|
+            <a href={targetUrl} class={button.overlayButtonClass}>
+                {button.overlayButtonLabel}
+            </a>
+        |]
+
+renderPageDialogModal :: Text -> DialogOverlayConfig -> Html
+renderPageDialogModal closeUrl DialogOverlayConfig { dialogOverlayTitle, dialogOverlayBody, dialogOverlayButtons } =
+    renderModal Modal
+        { modalTitle = dialogOverlayTitle
+        , modalCloseUrl = closeUrl
+        , modalFooter = Just (renderPageDialogFooter closeUrl dialogOverlayButtons)
+        , modalContent = dialogOverlayBody
+        }
+
+renderPageDialogFooter :: Text -> [OverlayButton] -> Html
+renderPageDialogFooter closeUrl buttons
+    | null buttons = mempty
+    | otherwise = [hsx|
+        <div class="modal-footer">
+            {forEach buttons (renderPageDialogButton closeUrl)}
+        </div>
+    |]
+
+renderPageDialogButton :: Text -> OverlayButton -> Html
+renderPageDialogButton closeUrl button =
+    case button.overlayButtonAction of
+        OverlayCloseAction -> [hsx|
+            <a href={closeUrl} class={button.overlayButtonClass}>
+                {button.overlayButtonLabel}
+            </a>
+        |]
+        OverlaySubmitFormAction formId -> [hsx|
+            <button type="submit" class={button.overlayButtonClass} form={formId}>
+                {button.overlayButtonLabel}
+            </button>
+        |]
+        OverlayNavigateAction targetUrl -> [hsx|
+            <a href={targetUrl} class={button.overlayButtonClass}>
+                {button.overlayButtonLabel}
+            </a>
+        |]
+
+renderToastOverlayHost :: ToastOverlayPosition -> [ToastOverlayConfig] -> Html
+renderToastOverlayHost position toasts = [hsx|
+    <div id={toastOverlayMountId} class={toastOverlayHostClass position}>
+        {forEach toasts renderToastOverlay}
+    </div>
+|]
+
+renderToastOverlayHostOob :: ToastOverlayPosition -> [ToastOverlayConfig] -> Html
+renderToastOverlayHostOob position toasts = [hsx|
+    <div id={toastOverlayMountId} class={toastOverlayHostClass position} hx-swap-oob="innerHTML">
+        {forEach toasts renderToastOverlay}
+    </div>
+|]
+
+toastOverlayHostClass :: ToastOverlayPosition -> Text
+toastOverlayHostClass position =
+    classes
+        [ ("app-toast-host", True)
+        , ("app-toast-host-left", position == ToastBottomLeft)
+        , ("app-toast-host-center", position == ToastBottomCenter)
+        , ("app-toast-host-right", position == ToastBottomRight)
+        ]
+
+renderToastOverlay :: ToastOverlayConfig -> Html
+renderToastOverlay toast = [hsx|
+    <div class={classes [("app-toast", True), (toast.toastOverlayClass, True)]}
+         data-overlay-toast="true"
+         data-auto-hide-ms={tshow toast.toastOverlayAutoHideMs}>
+        <div class="app-toast-body">
+            {renderToastCopy toast}
+            <button type="button"
+                    class="btn-close btn-close-white app-toast-close"
+                    aria-label="Dismiss"
+                    data-toast-close="true"></button>
+        </div>
+    </div>
+|]
+
+renderToastCopy :: ToastOverlayConfig -> Html
+renderToastCopy toast =
+    case toast.toastOverlayTitle of
+        Nothing -> [hsx|<span>{toast.toastOverlayMessage}</span>|]
+        Just title -> [hsx|
+            <div>
+                <div class="app-toast-title">{title}</div>
+                <div>{toast.toastOverlayMessage}</div>
+            </div>
+        |]
+
+renderFlashOverlayToasts :: (?context :: ControllerContext) => Html
+renderFlashOverlayToasts =
+    renderToastOverlayHost ToastBottomCenter (map flashMessageToToast (fromFrozenContext :: [FlashMessage]))
+
+flashMessageToToast :: FlashMessage -> ToastOverlayConfig
+flashMessageToToast = \case
+    SuccessFlashMessage message ->
+        ToastOverlayConfig
+            { toastOverlayTitle = Just "Success"
+            , toastOverlayMessage = message
+            , toastOverlayClass = "app-toast-success"
+            , toastOverlayAutoHideMs = 3200
+            }
+    ErrorFlashMessage message ->
+        ToastOverlayConfig
+            { toastOverlayTitle = Just "Error"
+            , toastOverlayMessage = message
+            , toastOverlayClass = "app-toast-error"
+            , toastOverlayAutoHideMs = 4200
+            }
 
 -- | Shared modal id for the reusable quarter-hour time picker.
 timePickerModalId :: Text
@@ -153,65 +345,84 @@ renderTimePickerOption (value, label) = [hsx|
 |]
 
 -- | Shared timesheet entry form used by New and Edit views.
-renderTimesheetForm :: (?context :: ControllerContext) => TimesheetEntry -> [Staff] -> Int -> TimesheetsController -> Html
-renderTimesheetForm entry staffMembers weekOffset action = [hsx|
-    <form method="POST" action={action} class="mt-3">
-        <input type="hidden" name="weekOffset" value={tshow weekOffset} />
-        {renderStaffField entry staffMembers}
-        <div class="mb-3">
-            <label class="form-label">Day</label>
-            <input type="hidden" name="workedOn" value={dateValueIso} />
-            <div class="form-control">{dateLabel}</div>
-            {renderFieldError entry "workedOn"}
-        </div>
+renderTimesheetForm :: (?context :: ControllerContext) => TimesheetEntry -> [Staff] -> Int -> TimesheetsController -> Text -> OverlayFormMode -> Html
+renderTimesheetForm entry staffMembers weekOffset action formId formMode =
+    case formMode of
+        HtmxOverlayForm -> [hsx|
+            <form id={formId}
+                  method="POST"
+                  action={action}
+                  class="mt-3"
+                  hx-post={action}
+                  hx-target={"#" <> dialogOverlayMountId}
+                  hx-swap="innerHTML"
+                  hx-push-url="false">
+                {renderTimesheetFormFields entry staffMembers weekOffset}
+            </form>
+        |]
+        PageOverlayForm -> [hsx|
+            <form id={formId}
+                  method="POST"
+                  action={action}
+                  class="mt-3">
+                {renderTimesheetFormFields entry staffMembers weekOffset}
+            </form>
+        |]
 
-        <div class="row mb-3">
-            <div class="col">
-                <label class="form-label">Shift Start</label>
-                {renderTimePickerField "startTime" startTimeValue "06:00" "04:45" False}
-                {renderFieldError entry "startTime"}
-            </div>
-            <div class="col">
-                <label class="form-label">Shift End</label>
-                {renderTimePickerField "endTime" endTimeValue "06:00" "04:45" False}
-                {renderFieldError entry "endTime"}
-            </div>
-        </div>
+renderTimesheetFormFields :: (?context :: ControllerContext) => TimesheetEntry -> [Staff] -> Int -> Html
+renderTimesheetFormFields entry staffMembers weekOffset = [hsx|
+    <input type="hidden" name="weekOffset" value={tshow weekOffset} />
+    {renderStaffField entry staffMembers}
+    <div class="mb-3">
+        <label class="form-label">Day</label>
+        <input type="hidden" name="workedOn" value={dateValueIso} />
+        <div class="form-control">{dateLabel}</div>
+        {renderFieldError entry "workedOn"}
+    </div>
 
-        <div class="mb-3">
-            <div class="form-check">
-                <input
-                    id="hadBreak"
-                    name="hadBreak"
-                    type="checkbox"
-                    value="on"
-                    class={classes [("form-check-input", True), ("is-invalid", hasErrorFor entry "hadBreak")]}
-                    checked={entry.hadBreak}
-                    data-break-toggle="true"
-                    data-break-target="#timesheet-break-time-fields"
-                />
-                <label class="form-check-label" for="hadBreak">Had break</label>
-            </div>
-            {renderFieldError entry "hadBreak"}
+    <div class="row mb-3">
+        <div class="col">
+            <label class="form-label">Shift Start</label>
+            {renderTimePickerField "startTime" startTimeValue "06:00" "04:45" False}
+            {renderFieldError entry "startTime"}
         </div>
-
-        <div id="timesheet-break-time-fields" class="row mb-3" hidden={not entry.hadBreak}>
-            <div class="col">
-                <label class="form-label">Break Start</label>
-                {renderTimePickerField "breakStartTime" breakStartTimeValue "06:00" "04:45" (not entry.hadBreak)}
-                {renderFieldError entry "breakStartTime"}
-            </div>
-            <div class="col">
-                <label class="form-label">Break End</label>
-                {renderTimePickerField "breakEndTime" breakEndTimeValue "06:00" "04:45" (not entry.hadBreak)}
-                {renderFieldError entry "breakEndTime"}
-            </div>
+        <div class="col">
+            <label class="form-label">Shift End</label>
+            {renderTimePickerField "endTime" endTimeValue "06:00" "04:45" False}
+            {renderFieldError entry "endTime"}
         </div>
-        {renderFieldError entry "breakMinutes"}
+    </div>
 
-        <button type="submit" class="btn btn-primary">Save</button>
-        <a href={ShowTimesheetWeekAction weekOffset} class="btn btn-outline-secondary ms-2">Cancel</a>
-    </form>
+    <div class="mb-3">
+        <div class="form-check">
+            <input
+                id="hadBreak"
+                name="hadBreak"
+                type="checkbox"
+                value="on"
+                class={classes [("form-check-input", True), ("is-invalid", hasErrorFor entry "hadBreak")]}
+                checked={entry.hadBreak}
+                data-break-toggle="true"
+                data-break-target="#timesheet-break-time-fields"
+            />
+            <label class="form-check-label" for="hadBreak">Had break</label>
+        </div>
+        {renderFieldError entry "hadBreak"}
+    </div>
+
+    <div id="timesheet-break-time-fields" class="row mb-3" hidden={not entry.hadBreak}>
+        <div class="col">
+            <label class="form-label">Break Start</label>
+            {renderTimePickerField "breakStartTime" breakStartTimeValue "06:00" "04:45" (not entry.hadBreak)}
+            {renderFieldError entry "breakStartTime"}
+        </div>
+        <div class="col">
+            <label class="form-label">Break End</label>
+            {renderTimePickerField "breakEndTime" breakEndTimeValue "06:00" "04:45" (not entry.hadBreak)}
+            {renderFieldError entry "breakEndTime"}
+        </div>
+    </div>
+    {renderFieldError entry "breakMinutes"}
 |]
     where
         startTimeValue = timeOfDayToStorageValue entry.startTime
@@ -278,21 +489,42 @@ renderFieldError entry fieldName =
 hasErrorFor :: TimesheetEntry -> Text -> Bool
 hasErrorFor entry fieldName = isJust (lookup fieldName entry.meta.annotations)
 
-renderTimesheetEntryModal :: Text -> Int -> Html -> Html
-renderTimesheetEntryModal title weekOffset formContent =
-    renderModal Modal
-        { modalTitle = title
-        , modalCloseUrl = pathTo (ShowTimesheetWeekAction weekOffset)
-        , modalFooter = Nothing
-        , modalContent = formContent
+renderTimesheetEntryModal :: Text -> Int -> Text -> Html -> Html
+renderTimesheetEntryModal title weekOffset formId formContent =
+    renderPageDialogModal
+        (pathTo (ShowTimesheetWeekAction weekOffset))
+        DialogOverlayConfig
+            { dialogOverlayTitle = title
+            , dialogOverlayBody = formContent
+            , dialogOverlayButtons = defaultOverlayButtons formId
+            , dialogOverlayDialogClass = ""
+            }
+
+renderTimesheetEntryDialog :: Text -> Text -> Html -> Html
+renderTimesheetEntryDialog title formId formContent =
+    renderDialogOverlay DialogOverlayConfig
+        { dialogOverlayTitle = title
+        , dialogOverlayBody = formContent
+        , dialogOverlayButtons = defaultOverlayButtons formId
+        , dialogOverlayDialogClass = ""
         }
 
-renderStaffEditModal :: Text -> Int -> Html -> Html
-renderStaffEditModal title weekOffset formContent =
-    renderHtmxModal title formContent footer
-    where
-        footer = [hsx|
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-htmx-modal-close="true">Cancel</button>
-            </div>
-        |]
+renderStaffEditPageModal :: Int -> Text -> Html -> Html
+renderStaffEditPageModal weekOffset formId formContent =
+    renderPageDialogModal
+        (pathTo (ShowRosterWeekAction weekOffset))
+        DialogOverlayConfig
+            { dialogOverlayTitle = "Edit Staff Member"
+            , dialogOverlayBody = formContent
+            , dialogOverlayButtons = defaultOverlayButtons formId
+            , dialogOverlayDialogClass = ""
+            }
+
+renderStaffEditDialog :: Text -> Html -> Html
+renderStaffEditDialog formId formContent =
+    renderDialogOverlay DialogOverlayConfig
+        { dialogOverlayTitle = "Edit Staff Member"
+        , dialogOverlayBody = formContent
+        , dialogOverlayButtons = defaultOverlayButtons formId
+        , dialogOverlayDialogClass = ""
+        }

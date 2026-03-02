@@ -59,14 +59,14 @@ renderForm post = formFor post [hsx|
 - When Turbolinks navigations replace page content that contains new `hx-*` markup, call `htmx.process(document.body)` on `turbolinks:load` so fresh controls are live without a manual refresh.
 
 ## Reusable Time Picker Pattern
-- Use a shared modal + JS behavior for quarter-hour time selection instead of native `<input type="time">` in dense grids.
+- Use a shared picker overlay + JS behavior for quarter-hour time selection instead of native `<input type="time">` in dense grids.
 - Markup contract:
   - wrap field with `data-time-picker-field`
   - store canonical value in hidden `.js-time-picker-input` (`HH:MM` 24-hour)
   - open picker via `.js-time-picker-trigger`
   - render text in `.js-time-picker-label` (12-hour with AM/PM)
   - optional range override per field: `data-time-picker-start="HH:MM"` + `data-time-picker-end="HH:MM"` (end may wrap past midnight)
-- Render `renderQuarterHourTimePickerModal` once in the global layout so it stays a top-level modal and avoids nested modal stacking issues.
+- Render `renderQuarterHourTimePickerModal` once in the global layout so it stays in the picker lane and can open above a workflow dialog without competing for the shared dialog mount.
 - Keep HTMX autosave on the hidden input (`hx-trigger="change"`), and let JS dispatch `change` after selecting/clearing a modal option.
 
 ## Theming Pattern (Dark Mode)
@@ -91,6 +91,21 @@ renderForm post = formFor post [hsx|
 - Use compact controls in the roster page header: `<`, `this week`, `>`.
 - `this week` should link to `RosterWeeksAction` (server-side reset to current offset), not a client-side calculation.
 
-## Roster Modal Views
-- When a form is launched from the roster page as a modal, render it with `renderModal` via a small helper and set `modalCloseUrl` to `ShowRosterWeekAction weekOffset`.
-- Pass `weekOffset` through as a hidden form field so submit/validation round-trips reopen the modal over the same roster week.
+## Overlay Pattern
+- Prefer HTMX-driven workflow dialog fragments over `setModal` + page-jump flows for roster, timesheets, and other high-frequency in-place workflows.
+- Render top-level overlay hosts in `Web/View/Layout.hs`:
+  - one shared dialog mount for workflow dialogs
+  - one shared toast mount for transient notifications
+  - picker markup rendered separately for utility overlays
+- Default toast placement is bottom-center. Future left/right placement changes should come from shared helper config, not layout-specific markup changes.
+- Keep reusable overlay helpers in `Application/Helper/View.hs` so structure, title, close behavior, and footer/button handling stay centralized.
+- Dialog launch contract:
+  - trigger uses `hx-get`
+  - target is the shared dialog mount
+  - swap is `innerHTML`
+  - include `weekOffset` or other return-context params in the URL/query
+- Dialog submit contract:
+  - validation failure returns the dialog fragment again into the same mount
+  - success returns updated page fragments plus any out-of-band dialog or toast updates, instead of redirecting the full page
+- Prefer dialog footers built from shared overlay button config. Form helpers should usually not render their own save/cancel rows.
+- Only allow one workflow dialog at a time. Pickers may appear above a dialog, but they are a separate overlay kind with separate JS behavior.

@@ -41,6 +41,26 @@
 - Database queries use IHP's QueryBuilder, not raw SQL — see `IHP/Guide/querybuilder.markdown`
 - Form handling uses IHP's form helpers — see `IHP/Guide/form.markdown`
 
+## Overlay Architecture
+- Treat overlays as three separate lanes:
+  - `dialog` for workflow forms and confirmations
+  - `picker` for short-lived utility selection flows such as the quarter-hour time picker
+  - `toast` for transient notifications
+- Multiple overlay triggers may exist on a page, but only one workflow dialog should be active at a time in the shared dialog mount.
+- Do not build arbitrary nested workflow dialogs. A picker may appear above a workflow dialog, but dialogs should replace each other rather than stack.
+- Prefer declarative overlay config in `Application/Helper/View.hs` over ad-hoc per-view footer buttons. Shared forms should usually render fields only; overlay wrappers own primary and secondary actions.
+- For responsive HTMX flows, return the smallest updated fragment plus any out-of-band overlay updates. Avoid whole-page redirects when the current screen can be updated in place.
+
+## Overlay Implementation Plan
+- Shared overlay helpers live in `Application/Helper/View.hs` and define the canonical mount ids, config records, footer button rendering, and toast rendering.
+- `Web/View/Layout.hs` owns the top-level overlay hosts:
+  - one shared dialog mount for workflow dialogs
+  - one shared toast mount for transient notifications
+  - picker markup rendered once at layout level
+- Toast host placement should be set declaratively in the helper layer. Default to bottom-center unless a workflow explicitly needs left or right alignment.
+- Controllers should treat HTMX as the primary transport for in-place overlay workflows and keep `setModal` only as an explicit fallback when needed.
+- When migrating older modal code, remove duplicated form-level action rows first, then move save/cancel buttons into the shared overlay/footer helpers before changing controller response shape.
+
 ## Verification Tools
 
 These scripts are defined in `flake.nix` as devenv shell scripts. They are placed on `PATH` automatically when the **direnv environment is active** (i.e. when a user's shell has been loaded by direnv via the `.envrc` file using `use flake`).

@@ -5,32 +5,36 @@ $(document).on('ready turbolinks:load', function () {
     }
 });
 
-// Shared HTMX modal mount for roster workflows and other fragment-driven dialogs.
-(function enableHtmxModalMount() {
+// Shared workflow dialog mount for HTMX-driven form overlays.
+(function enableDialogOverlayMount() {
     if (typeof window === 'undefined') return;
 
-    const mountId = 'htmx-modal-mount';
+    const mountId = 'dialog-overlay-mount';
     let lastTrigger = null;
 
     function getMount() {
         return document.getElementById(mountId);
     }
 
-    function getActiveModal() {
+    function getActiveDialog() {
         const mountEl = getMount();
-        return mountEl ? mountEl.querySelector('[data-htmx-modal="true"]') : null;
+        return mountEl ? mountEl.querySelector('[data-dialog-overlay="true"]') : null;
     }
 
-    function focusModal(modalEl) {
-        if (!(modalEl instanceof HTMLElement)) return;
+    function hasVisibleBootstrapModal() {
+        return Boolean(document.querySelector('.modal.show:not([data-dialog-overlay="true"])'));
+    }
 
-        const focusTarget = modalEl.querySelector('[autofocus], .is-invalid, input, select, textarea, button, a[href]');
+    function focusDialog(dialogEl) {
+        if (!(dialogEl instanceof HTMLElement)) return;
+
+        const focusTarget = dialogEl.querySelector('[autofocus], .is-invalid, input, select, textarea, button, a[href]');
         if (focusTarget instanceof HTMLElement) {
             focusTarget.focus();
             return;
         }
 
-        modalEl.focus();
+        dialogEl.focus();
     }
 
     function restoreFocus() {
@@ -40,16 +44,17 @@ $(document).on('ready turbolinks:load', function () {
         lastTrigger = null;
     }
 
-    function syncModalState() {
-        const modalEl = getActiveModal();
-        const hasModal = modalEl instanceof HTMLElement;
+    function syncDialogState() {
+        const dialogEl = getActiveDialog();
+        const hasDialog = dialogEl instanceof HTMLElement;
+        const shouldLockBody = hasDialog || hasVisibleBootstrapModal();
 
-        document.body.classList.toggle('modal-open', hasModal);
-        document.body.style.overflow = hasModal ? 'hidden' : '';
+        document.body.classList.toggle('modal-open', shouldLockBody);
+        document.body.style.overflow = shouldLockBody ? 'hidden' : '';
 
-        if (hasModal) {
-            focusModal(modalEl);
-        } else {
+        if (hasDialog) {
+            focusDialog(dialogEl);
+        } else if (!hasVisibleBootstrapModal()) {
             restoreFocus();
         }
     }
@@ -59,7 +64,7 @@ $(document).on('ready turbolinks:load', function () {
         if (!(mountEl instanceof HTMLElement)) return;
 
         mountEl.innerHTML = '';
-        syncModalState();
+        syncDialogState();
     }
 
     document.addEventListener('click', function (event) {
@@ -70,15 +75,24 @@ $(document).on('ready turbolinks:load', function () {
     }, true);
 
     document.addEventListener('click', function (event) {
-        const closeEl = event.target.closest('[data-htmx-modal-close="true"]');
-        if (closeEl && getActiveModal()) {
+        const activeDialog = getActiveDialog();
+        const closeEl = event.target.closest('[data-dialog-overlay-close="true"]');
+        if (closeEl && activeDialog) {
             event.preventDefault();
             clearMount();
             return;
         }
 
-        const backdropEl = event.target.closest('[data-htmx-modal-backdrop="true"]');
-        if (backdropEl && getActiveModal()) {
+        const backdropEl = event.target.closest('[data-dialog-overlay-backdrop="true"]');
+        if (backdropEl && activeDialog) {
+            event.preventDefault();
+            clearMount();
+            return;
+        }
+
+        // The full-screen dialog shell sits above the backdrop, so background clicks
+        // often land on the shell instead of the separate backdrop node.
+        if (activeDialog && event.target === activeDialog) {
             event.preventDefault();
             clearMount();
         }
@@ -86,7 +100,7 @@ $(document).on('ready turbolinks:load', function () {
 
     document.addEventListener('keydown', function (event) {
         if (event.key !== 'Escape') return;
-        if (!getActiveModal()) return;
+        if (!getActiveDialog()) return;
 
         event.preventDefault();
         clearMount();
@@ -100,15 +114,78 @@ $(document).on('ready turbolinks:load', function () {
             window.htmx.process(event.detail.target);
         }
 
-        syncModalState();
+        syncDialogState();
     });
 
-    document.addEventListener('turbolinks:load', syncModalState);
+    document.addEventListener('shown.bs.modal', syncDialogState);
+    document.addEventListener('hidden.bs.modal', syncDialogState);
+    document.addEventListener('turbolinks:load', syncDialogState);
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', syncModalState);
+        document.addEventListener('DOMContentLoaded', syncDialogState);
     } else {
-        syncModalState();
+        syncDialogState();
+    }
+})();
+
+// Bottom-right toast host for redirects and HTMX-triggered transient messages.
+(function enableToastOverlayHost() {
+    if (typeof window === 'undefined') return;
+
+    const hostId = 'toast-overlay-mount';
+    const initializedKey = 'toastInitialized';
+
+    function getHost() {
+        return document.getElementById(hostId);
+    }
+
+    function dismissToast(toastEl) {
+        if (!(toastEl instanceof HTMLElement)) return;
+        toastEl.classList.add('app-toast-leaving');
+        window.setTimeout(function () {
+            if (toastEl.parentNode) {
+                toastEl.remove();
+            }
+        }, 220);
+    }
+
+    function initToast(toastEl) {
+        if (!(toastEl instanceof HTMLElement)) return;
+        if (toastEl.dataset[initializedKey] === 'true') return;
+
+        toastEl.dataset[initializedKey] = 'true';
+        const autoHideMs = Number.parseInt(toastEl.dataset.autoHideMs || '0', 10);
+        if (autoHideMs > 0) {
+            window.setTimeout(function () {
+                dismissToast(toastEl);
+            }, autoHideMs);
+        }
+    }
+
+    function initHostToasts() {
+        const hostEl = getHost();
+        if (!(hostEl instanceof HTMLElement)) return;
+        hostEl.querySelectorAll('[data-overlay-toast="true"]').forEach(initToast);
+    }
+
+    document.addEventListener('click', function (event) {
+        const closeEl = event.target.closest('[data-toast-close="true"]');
+        if (!(closeEl instanceof HTMLElement)) return;
+
+        const toastEl = closeEl.closest('[data-overlay-toast="true"]');
+        if (toastEl instanceof HTMLElement) {
+            dismissToast(toastEl);
+        }
+    });
+
+    document.addEventListener('htmx:afterSwap', initHostToasts);
+    document.addEventListener('htmx:oobAfterSwap', initHostToasts);
+    document.addEventListener('turbolinks:load', initHostToasts);
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initHostToasts);
+    } else {
+        initHostToasts();
     }
 })();
 

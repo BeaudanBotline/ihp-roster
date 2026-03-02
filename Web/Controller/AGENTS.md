@@ -77,10 +77,13 @@ Every controller requires changes in **four files** (missing any will cause comp
 ## State Transition Pattern
 - For status transitions with side effects (e.g. leave approval triggering roster conflict refresh), wrap the update + side-effect hook in `withTransaction` so both commit atomically.
 
-## Roster Modal Pattern
-- For modal workflows launched from the roster page, keep the destination anchored to `ShowRosterWeekAction`.
-- Pattern:
-  - controller action reads `weekOffset` from params
-  - `setModal SomeView { .. }`
-  - `jumpToAction ShowRosterWeekAction { weekOffset }`
-- On validation failure, re-`setModal` and `jumpToAction` back to the same roster week instead of rendering a standalone page.
+## Overlay Controller Pattern
+- Prefer dedicated HTMX dialog-fragment actions for in-place workflows instead of `setModal` + page jump.
+- Recommended shape:
+  - GET dialog action reads `weekOffset` or other context params and `respondHtml` with dialog fragment only
+  - POST/PATCH dialog submit action re-renders the dialog fragment on validation failure
+  - successful submit returns only the updated page fragment(s) needed by the current screen plus any out-of-band dialog or toast updates
+- Keep `setModal` only as an explicit fallback when a workflow truly needs non-HTMX behavior.
+- Reuse the same form/view helper for initial dialog render and validation rerender so field errors stay localized to the shared dialog mount.
+- If a workflow mutates roster or timesheet data, return the smallest updated fragment possible (`#roster-content`, row OOB fragments, or a single day section), not a full page redirect.
+- Only one workflow dialog should be active at a time. Utility pickers are a separate overlay lane and must not reuse the workflow dialog mount.

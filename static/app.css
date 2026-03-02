@@ -41,7 +41,7 @@ a:not(.btn):hover {
 }
 
 .app-content {
-    max-width: 1200px;
+    max-width: 1680px;
 }
 
 .app-header {
@@ -172,6 +172,170 @@ a:not(.btn):hover {
 .btn-outline-primary {
     border-color: #7ea6e6;
     color: #a9c6f5;
+}
+
+.roster-staff-panel {
+    min-height: 0;
+}
+
+.roster-staff-panel .app-panel-body {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+
+.roster-staff-table,
+.roster-staff-panel-entry {
+    display: grid;
+    grid-template-columns: minmax(0, 2.35fr) minmax(0, 1.2fr) minmax(0, 0.95fr) auto;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.roster-staff-table-head {
+    display: contents;
+}
+
+.roster-staff-table-head > div {
+    padding: 0 0 0.65rem;
+    border-bottom: 1px solid var(--app-border-strong);
+    color: var(--app-muted);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.roster-staff-panel-list {
+    min-height: 0;
+}
+
+.roster-staff-table-body {
+    margin-top: 0.4rem;
+}
+
+.roster-staff-panel-entry {
+    padding: 0.8rem 0;
+    border-bottom: 1px solid rgba(58, 70, 93, 0.65);
+}
+
+.roster-staff-panel-entry:last-child {
+    border-bottom: 0;
+}
+
+.roster-staff-cell {
+    min-width: 0;
+    font-size: 0.82rem;
+}
+
+.roster-staff-cell .badge,
+.roster-staff-cell .btn {
+    justify-self: start;
+}
+
+.roster-staff-name-primary {
+    display: block;
+    font-weight: 700;
+    color: var(--app-text);
+}
+
+.roster-staff-name {
+    min-width: 0;
+}
+
+@media (min-width: 1200px) {
+    .roster-staff-panel-list {
+        flex: 1 1 auto;
+        overflow-y: auto;
+        padding-right: 0.35rem;
+    }
+}
+
+@media (max-width: 1199.98px) {
+    .roster-staff-table,
+    .roster-staff-panel-entry {
+        grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr) minmax(0, 0.9fr) auto;
+    }
+}
+
+.app-toast-host {
+    position: fixed;
+    bottom: 1rem;
+    z-index: 1095;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    width: min(22rem, calc(100vw - 2rem));
+    pointer-events: none;
+}
+
+.app-toast-host-left {
+    left: 1rem;
+    right: auto;
+}
+
+.app-toast-host-center {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+}
+
+.app-toast-host-right {
+    right: 1rem;
+    left: auto;
+}
+
+.app-toast {
+    pointer-events: auto;
+    border: 1px solid var(--app-border-strong);
+    border-radius: 0.9rem;
+    background: rgba(20, 26, 36, 0.96);
+    color: var(--app-text);
+    box-shadow: 0 0.9rem 2rem rgba(0, 0, 0, 0.28);
+    transform: translateY(0);
+    opacity: 1;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.app-toast-success {
+    border-color: rgba(66, 184, 131, 0.55);
+}
+
+.app-toast-error {
+    border-color: rgba(244, 119, 119, 0.55);
+}
+
+.app-toast-body {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.85rem 1rem;
+}
+
+.app-toast-title {
+    margin-bottom: 0.15rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--app-muted);
+}
+
+.app-toast-close {
+    flex: 0 0 auto;
+    margin-top: 0.1rem;
+    opacity: 0.75;
+}
+
+.app-toast-close:hover {
+    opacity: 1;
+}
+
+.app-toast-leaving {
+    opacity: 0;
+    transform: translateY(0.35rem);
 }
 
 .roster-grid {
@@ -305,7 +469,6 @@ a:not(.btn):hover {
 .roster-grid .slot-note-input {
     width: 100%;
     font-weight: 700;
-    text-transform: uppercase;
 }
 
 .roster-grid .slot-staff-input {

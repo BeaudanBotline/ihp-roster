@@ -37,6 +37,13 @@ psql -h "$PWD/build/db" app -c "\dt"
 - `Application/Helper/Controller.hs` — Functions available in all controllers
 - `Application/Helper/View.hs` — Functions available in all views
 - These are already imported via `Web.Controller.Prelude` and `Web.View.Prelude`
+- Keep reusable overlay helpers in `Application/Helper/View.hs`:
+  - shared dialog and toast mount ids
+  - declarative overlay config/button types
+  - renderer helpers for workflow dialogs, `setModal` fallback footers, and toast notifications
+- Keep toast host placement declarative as well. Prefer a `position` enum or class mapping in the helper layer instead of hardcoded left/right CSS in the layout.
+- Prefer data/config records over passing Haskell callbacks into view builders. Server-rendered HSX stays easier to reuse when overlays are described declaratively.
+- Shared form helpers should usually render only fields plus the `<form>` wrapper. Put submit/cancel controls in the overlay footer so the same form body can be used by both HTMX dialogs and `setModal` fallback views.
 
 ## Database Queries
 Read `IHP/Guide/querybuilder.markdown`. Key patterns:
