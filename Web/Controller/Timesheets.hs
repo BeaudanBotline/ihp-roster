@@ -53,8 +53,9 @@ instance Controller TimesheetsController where
                             |> set #breakStartTime Nothing
                             |> set #breakEndTime Nothing
                             |> set #breakMinutes 0
-                setModal NewView { .. }
-                jumpToAction ShowTimesheetWeekAction { weekOffset }
+                if isHtmxRequest
+                    then respondHtml (renderNewTimesheetDialog timesheetEntry staffMembers weekOffset)
+                    else render NewView { .. }
 
     action CreateTimesheetEntryAction = do
         weekOffset <- weekOffsetFromParamOrCurrent
@@ -66,13 +67,17 @@ instance Controller TimesheetsController where
         timesheetEntry
             |> ifValid \case
                 Left timesheetEntry -> do
-                    setModal NewView { .. }
-                    jumpToAction ShowTimesheetWeekAction { weekOffset }
+                    if isHtmxRequest
+                        then respondHtml (renderNewTimesheetDialog timesheetEntry staffMembers weekOffset)
+                        else render NewView { .. }
                 Right timesheetEntry -> do
                     ensureStaffAssignmentAllowed timesheetEntry.staffId
                     _ <- timesheetEntry |> createRecord
-                    setSuccessMessage "Timesheet entry created"
-                    redirectTo ShowTimesheetWeekAction { weekOffset }
+                    if isHtmxRequest
+                        then respondWithTimesheetDaySection weekOffset timesheetEntry.workedOn
+                        else do
+                            setSuccessMessage "Timesheet entry created"
+                            redirectTo ShowTimesheetWeekAction { weekOffset }
 
     action EditTimesheetEntryAction { timesheetEntryId } = do
         timesheetEntry <- fetch timesheetEntryId
@@ -81,8 +86,9 @@ instance Controller TimesheetsController where
 
         weekOffset <- weekOffsetFromParamOrEntry timesheetEntry.workedOn
         staffMembers <- fetchStaffForForm
-        setModal EditView { .. }
-        jumpToAction ShowTimesheetWeekAction { weekOffset }
+        if isHtmxRequest
+            then respondHtml (renderEditTimesheetDialog timesheetEntry staffMembers weekOffset)
+            else render EditView { .. }
 
     action UpdateTimesheetEntryAction { timesheetEntryId } = do
         timesheetEntry <- fetch timesheetEntryId
@@ -97,18 +103,22 @@ instance Controller TimesheetsController where
             |> buildTimesheetEntry
             |> ifValid \case
                 Left timesheetEntry -> do
-                    setModal EditView { .. }
-                    jumpToAction ShowTimesheetWeekAction { weekOffset }
+                    if isHtmxRequest
+                        then respondHtml (renderEditTimesheetDialog timesheetEntry staffMembers weekOffset)
+                        else render EditView { .. }
                 Right timesheetEntry -> do
                     ensureStaffAssignmentAllowed timesheetEntry.staffId
                     _ <- timesheetEntry
                         |> resetApprovalOnEdit wasApproved
                         |> updateRecord
-                    when wasApproved do
-                        setSuccessMessage "Timesheet entry updated (approval reset)"
-                    unless wasApproved do
-                        setSuccessMessage "Timesheet entry updated"
-                    redirectTo ShowTimesheetWeekAction { weekOffset }
+                    if isHtmxRequest
+                        then respondWithTimesheetDaySection weekOffset timesheetEntry.workedOn
+                        else do
+                            when wasApproved do
+                                setSuccessMessage "Timesheet entry updated (approval reset)"
+                            unless wasApproved do
+                                setSuccessMessage "Timesheet entry updated"
+                            redirectTo ShowTimesheetWeekAction { weekOffset }
 
     action DeleteTimesheetEntryAction { timesheetEntryId } = do
         timesheetEntry <- fetch timesheetEntryId
@@ -188,6 +198,30 @@ fetchCurrentUserStaff =
     query @Staff
         |> filterWhere (#userId, Just (coerce (get #id currentUser)))
         |> fetchOneOrNothing
+
+respondWithTimesheetDaySection :: (?context :: ControllerContext, ?modelContext :: ModelContext) => Int -> Day -> IO ()
+respondWithTimesheetDaySection weekOffset workedOn = do
+    venueConfig <- fetchVenueConfig
+    let weekStartDate = addDays (toInteger (weekOffset * 7)) venueConfig.weekOffsetEpoch
+    let weekEndDate = addDays 6 weekStartDate
+    let dayOffset = fromInteger (diffDays workedOn weekStartDate)
+
+    (entries, staffMembers) <- fetchTimesheetDataForWeek weekStartDate weekEndDate
+    paySummariesByEntryId <- fetchTimesheetPaySummariesForEntries entries
+    now <- getCurrentTime
+    let today = utctDay now
+    let editWindowDays = venueConfig.staffTimesheetEditWindowDays
+
+    respondHtml $
+        renderDaySectionOob
+            entries
+            staffMembers
+            paySummariesByEntryId
+            today
+            editWindowDays
+            weekOffset
+            weekStartDate
+            dayOffset
 
 ensureTimesheetVisibility :: (?context :: ControllerContext, ?modelContext :: ModelContext) => TimesheetEntry -> IO ()
 ensureTimesheetVisibility entry =
@@ -364,3 +398,6 @@ currentTimesheetWeekOffset = do
 
 weekOffsetForDay :: Day -> Day -> Int
 weekOffsetForDay epoch day = fromInteger (diffDays day epoch `div` 7)
+
+isHtmxRequest :: (?context :: ControllerContext) => Bool
+isHtmxRequest = getHeader "HX-Request" == Just "true"

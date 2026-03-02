@@ -8,24 +8,47 @@ data EditView = EditView
     }
 
 instance View EditView where
-    html EditView { .. } = renderStaffEditModalFragment staff weekOffset
+    html EditView { .. } =
+        renderStaffEditPageModal
+            weekOffset
+            staffEditFormId
+            (renderForm PageOverlayForm staff weekOffset (UpdateStaffAction (get #id staff)))
+
+staffEditFormId :: Text
+staffEditFormId = "staff-edit-form"
 
 renderStaffEditModalFragment :: Staff -> Int -> Html
 renderStaffEditModalFragment staff weekOffset =
-    renderStaffEditModal
-        "Edit Staff Member"
-        weekOffset
-        (renderForm staff weekOffset (UpdateStaffAction (get #id staff)))
+    renderStaffEditDialog
+        staffEditFormId
+        (renderForm HtmxOverlayForm staff weekOffset (UpdateStaffAction (get #id staff)))
 
-renderForm :: Staff -> Int -> StaffController -> Html
-renderForm staff weekOffset action = [hsx|
-    <form method="POST"
-          action={action}
-          class="mt-3"
-          hx-post={action}
-          hx-target={"#" <> htmxModalMountId}
-          hx-swap="innerHTML"
-          hx-push-url="false">
+renderForm :: OverlayFormMode -> Staff -> Int -> StaffController -> Html
+renderForm formMode staff weekOffset action =
+    case formMode of
+        HtmxOverlayForm -> [hsx|
+            <form id={staffEditFormId}
+                  method="POST"
+                  action={action}
+                  class="mt-3"
+                  hx-post={action}
+                  hx-target={"#" <> dialogOverlayMountId}
+                  hx-swap="innerHTML"
+                  hx-push-url="false">
+                {renderFormFields staff weekOffset}
+            </form>
+        |]
+        PageOverlayForm -> [hsx|
+            <form id={staffEditFormId}
+                  method="POST"
+                  action={action}
+                  class="mt-3">
+                {renderFormFields staff weekOffset}
+            </form>
+        |]
+
+renderFormFields :: Staff -> Int -> Html
+renderFormFields staff weekOffset = [hsx|
         <input type="hidden" name="weekOffset" value={tshow weekOffset} />
         <div class="mb-3">
             <label for="firstName" class="form-label">First Name</label>
@@ -74,9 +97,6 @@ renderForm staff weekOffset action = [hsx|
             </select>
             {renderStaffFieldError staff "isActive"}
         </div>
-        <button type="submit" class="btn btn-primary">Save</button>
-        <a href={ShowRosterWeekAction weekOffset} class="btn btn-outline-secondary ms-2" data-htmx-modal-close="true">Cancel</a>
-    </form>
 |]
 
 inputClass :: Staff -> Text -> Text

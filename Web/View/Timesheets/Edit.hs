@@ -13,4 +13,15 @@ instance View EditView where
         renderTimesheetEntryModal
             "Edit Timesheet Entry"
             weekOffset
-            (renderTimesheetForm timesheetEntry staffMembers weekOffset (UpdateTimesheetEntryAction timesheetEntry.id))
+            editTimesheetFormId
+            (renderTimesheetForm timesheetEntry staffMembers weekOffset (UpdateTimesheetEntryAction timesheetEntry.id) editTimesheetFormId PageOverlayForm)
+
+editTimesheetFormId :: Text
+editTimesheetFormId = "timesheet-entry-edit-form"
+
+renderEditTimesheetDialog :: TimesheetEntry -> [Staff] -> Int -> Html
+renderEditTimesheetDialog timesheetEntry staffMembers weekOffset =
+    renderTimesheetEntryDialog
+        "Edit Timesheet Entry"
+        editTimesheetFormId
+        (renderTimesheetForm timesheetEntry staffMembers weekOffset (UpdateTimesheetEntryAction timesheetEntry.id) editTimesheetFormId HtmxOverlayForm)

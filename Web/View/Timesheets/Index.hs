@@ -39,15 +39,30 @@ instance View IndexView where
     |]
 
 renderDaySection :: (?context :: ControllerContext) => [TimesheetEntry] -> [Staff] -> Map.Map Text TimesheetPaySummary -> Day -> Int -> Int -> Day -> Int -> Html
-renderDaySection entries staffMembers paySummariesByEntryId today editWindowDays weekOffset weekStartDate dayOffset = [hsx|
-    <section class="app-panel">
+renderDaySection =
+    renderDaySectionWithSwap Nothing
+
+renderDaySectionOob :: (?context :: ControllerContext) => [TimesheetEntry] -> [Staff] -> Map.Map Text TimesheetPaySummary -> Day -> Int -> Int -> Day -> Int -> Html
+renderDaySectionOob =
+    renderDaySectionWithSwap (Just "outerHTML")
+
+renderDaySectionWithSwap :: (?context :: ControllerContext) => Maybe Text -> [TimesheetEntry] -> [Staff] -> Map.Map Text TimesheetPaySummary -> Day -> Int -> Int -> Day -> Int -> Html
+renderDaySectionWithSwap maybeSwapOob entries staffMembers paySummariesByEntryId today editWindowDays weekOffset weekStartDate dayOffset = [hsx|
+    <section id={timesheetDaySectionDomId dayOffset} class="app-panel" hx-swap-oob={maybeSwapOob}>
         <div class="app-panel-body">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <div>
                     <h2 class="h5 mb-0">{weekdayLabel}</h2>
                     <p class="app-muted mb-0">{formatDateDisplay dayDate}</p>
                 </div>
-                <a href={newEntryUrl} class="btn btn-sm btn-primary">Add Timesheet</a>
+                <a href={newEntryUrl}
+                   class="btn btn-sm btn-primary"
+                   hx-get={newEntryUrl}
+                   hx-target={"#" <> dialogOverlayMountId}
+                   hx-swap="innerHTML"
+                   hx-push-url="false">
+                    Add Timesheet
+                </a>
             </div>
 
             {renderDayEntries dayEntries staffMembers paySummariesByEntryId today editWindowDays weekOffset}
@@ -64,6 +79,9 @@ renderDaySection entries staffMembers paySummariesByEntryId today editWindowDays
                 [ ("weekOffset", tshow weekOffset)
                 , ("workedOn", tshow dayDate)
                 ]
+
+timesheetDaySectionDomId :: Int -> Text
+timesheetDaySectionDomId dayOffset = "timesheet-day-section-" <> tshow dayOffset
 
 renderDayEntries :: (?context :: ControllerContext) => [TimesheetEntry] -> [Staff] -> Map.Map Text TimesheetPaySummary -> Day -> Int -> Int -> Html
 renderDayEntries dayEntries staffMembers paySummariesByEntryId today editWindowDays weekOffset
@@ -124,7 +142,14 @@ renderPaySummary maybeSummary =
 renderEditActions :: TimesheetEntry -> Bool -> Int -> Html
 renderEditActions entry canEdit weekOffset
     | canEdit = [hsx|
-        <a href={editUrl} class="btn btn-sm btn-outline-secondary me-1">Edit</a>
+        <a href={editUrl}
+           class="btn btn-sm btn-outline-secondary me-1"
+           hx-get={editUrl}
+           hx-target={"#" <> dialogOverlayMountId}
+           hx-swap="innerHTML"
+           hx-push-url="false">
+            Edit
+        </a>
         <a href={deleteUrl} class="btn btn-sm btn-outline-danger js-delete js-delete-no-confirm">Delete</a>
     |]
     | otherwise = mempty

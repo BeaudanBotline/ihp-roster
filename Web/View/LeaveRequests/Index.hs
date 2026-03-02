@@ -14,14 +14,36 @@ instance View IndexView where
     html IndexView { .. } = [hsx|
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h1>Leave Requests</h1>
-            <a href={NewLeaveRequestAction} class="btn btn-primary">New Request</a>
+            <a href={NewLeaveRequestAction}
+               class="btn btn-primary"
+               hx-get={NewLeaveRequestAction}
+               hx-target={"#" <> dialogOverlayMountId}
+               hx-swap="innerHTML"
+               hx-push-url="false">
+                New Request
+            </a>
         </div>
 
+        {renderLeaveRequestsContentFragment leaveRequests staffMembers}
+    |]
+
+renderLeaveRequestsContentFragment :: (?context :: ControllerContext) => [LeaveRequest] -> [Staff] -> Html
+renderLeaveRequestsContentFragment =
+    renderLeaveRequestsContentFragmentWithSwap Nothing
+
+renderLeaveRequestsContentFragmentOob :: (?context :: ControllerContext) => [LeaveRequest] -> [Staff] -> Html
+renderLeaveRequestsContentFragmentOob =
+    renderLeaveRequestsContentFragmentWithSwap (Just "outerHTML")
+
+renderLeaveRequestsContentFragmentWithSwap :: (?context :: ControllerContext) => Maybe Text -> [LeaveRequest] -> [Staff] -> Html
+renderLeaveRequestsContentFragmentWithSwap maybeSwapOob leaveRequests staffMembers = [hsx|
+    <div id="leave-requests-content" hx-swap-oob={maybeSwapOob}>
         {if null leaveRequests
             then renderEmptyState
             else renderLeaveRequestsTable leaveRequests staffMembers
         }
-    |]
+    </div>
+|]
 
 renderEmptyState :: Html
 renderEmptyState = [hsx|

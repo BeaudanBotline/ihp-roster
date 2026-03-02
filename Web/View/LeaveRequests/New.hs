@@ -7,14 +7,55 @@ newtype NewView = NewView
     }
 
 instance View NewView where
-    html NewView { .. } = [hsx|
-        <h1>New Leave Request</h1>
-        {renderLeaveRequestForm leaveRequest}
-    |]
+    html NewView { .. } =
+        renderPageDialogModal
+            (pathTo LeaveRequestsAction)
+            DialogOverlayConfig
+                { dialogOverlayTitle = "New Leave Request"
+                , dialogOverlayBody = renderLeaveRequestForm PageOverlayForm leaveRequest
+                , dialogOverlayButtons = defaultOverlayButtons leaveRequestFormId
+                , dialogOverlayDialogClass = ""
+                }
 
-renderLeaveRequestForm :: LeaveRequest -> Html
-renderLeaveRequestForm leaveRequest = [hsx|
-    <form method="POST" action={CreateLeaveRequestAction} class="mt-3 app-form-width">
+leaveRequestFormId :: Text
+leaveRequestFormId = "leave-request-form"
+
+renderNewLeaveRequestDialog :: LeaveRequest -> Html
+renderNewLeaveRequestDialog leaveRequest =
+    renderDialogOverlay DialogOverlayConfig
+        { dialogOverlayTitle = "New Leave Request"
+        , dialogOverlayBody = renderLeaveRequestForm HtmxOverlayForm leaveRequest
+        , dialogOverlayButtons = defaultOverlayButtons leaveRequestFormId
+        , dialogOverlayDialogClass = ""
+        }
+
+renderLeaveRequestForm :: OverlayFormMode -> LeaveRequest -> Html
+renderLeaveRequestForm formMode leaveRequest =
+    case formMode of
+        HtmxOverlayForm -> [hsx|
+            <form id={leaveRequestFormId}
+                  method="POST"
+                  action={CreateLeaveRequestAction}
+                  class="mt-3"
+                  hx-post={CreateLeaveRequestAction}
+                  hx-target={"#" <> dialogOverlayMountId}
+                  hx-swap="innerHTML"
+                  hx-push-url="false">
+                {renderLeaveRequestFormFields leaveRequest}
+            </form>
+        |]
+        PageOverlayForm -> [hsx|
+            <form id={leaveRequestFormId}
+                  method="POST"
+                  action={CreateLeaveRequestAction}
+                  class="mt-3">
+                {renderLeaveRequestFormFields leaveRequest}
+            </form>
+        |]
+
+renderLeaveRequestFormFields :: LeaveRequest -> Html
+renderLeaveRequestFormFields leaveRequest = [hsx|
+    <div class="app-form-width">
         <div class="mb-3">
             <label for="startDate" class="form-label">Unavailable From</label>
             <input
@@ -52,10 +93,7 @@ renderLeaveRequestForm leaveRequest = [hsx|
             >{fromMaybe "" leaveRequest.notes}</textarea>
             {renderLeaveFieldError leaveRequest "notes"}
         </div>
-
-        <button type="submit" class="btn btn-primary">Submit Request</button>
-        <a href={LeaveRequestsAction} class="btn btn-outline-secondary ms-2">Cancel</a>
-    </form>
+    </div>
 |]
 
 renderLeaveFieldError :: LeaveRequest -> Text -> Html

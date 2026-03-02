@@ -1,5 +1,8 @@
 module Web.Controller.LeaveRequests where
 
+import Application.Helper.View (ToastOverlayConfig (..),
+                                ToastOverlayPosition (..),
+                                renderToastOverlayHostOob)
 import Data.Coerce (coerce)
 import Data.Time.Calendar (addDays)
 import Web.Controller.Prelude
@@ -28,7 +31,9 @@ instance Controller LeaveRequestsController where
                         newRecord @LeaveRequest
                             |> set #startDate today
                             |> set #endDate (addDays 1 today)
-                render NewView { .. }
+                if isHtmxRequest
+                    then respondHtml (renderNewLeaveRequestDialog leaveRequest)
+                    else render NewView { .. }
 
     action CreateLeaveRequestAction = do
         maybeStaff <- fetchCurrentUserStaff
@@ -45,11 +50,17 @@ instance Controller LeaveRequestsController where
 
                 leaveRequest
                     |> ifValid \case
-                        Left leaveRequest -> render NewView { .. }
+                        Left leaveRequest ->
+                            if isHtmxRequest
+                                then respondHtml (renderNewLeaveRequestDialog leaveRequest)
+                                else render NewView { .. }
                         Right leaveRequest -> do
                             _ <- leaveRequest |> createRecord
-                            setSuccessMessage "Leave request submitted"
-                            redirectTo LeaveRequestsAction
+                            if isHtmxRequest
+                                then respondWithLeaveRequestsContent
+                                else do
+                                    setSuccessMessage "Leave request submitted"
+                                    redirectTo LeaveRequestsAction
 
     action ApproveLeaveRequestAction { leaveRequestId } = do
         ensureManagerRole
@@ -106,6 +117,23 @@ fetchVisibleLeaveRequests = do
                 |> orderByDesc #startDate
                 |> fetch
 
+respondWithLeaveRequestsContent :: (?modelContext :: ModelContext, ?context :: ControllerContext) => IO ()
+respondWithLeaveRequestsContent = do
+    staffMembers <- query @Staff |> orderByAsc #lastName |> fetch
+    leaveRequests <- fetchVisibleLeaveRequests
+    respondHtml $
+        mconcat
+            [ renderLeaveRequestsContentFragmentOob leaveRequests staffMembers
+            , renderToastOverlayHostOob ToastBottomCenter
+                [ ToastOverlayConfig
+                    { toastOverlayTitle = Just "Success"
+                    , toastOverlayMessage = "Leave request submitted"
+                    , toastOverlayClass = "app-toast-success"
+                    , toastOverlayAutoHideMs = 3200
+                    }
+                ]
+            ]
+
 ensureLeaveDeleteAllowed :: (?context :: ControllerContext, ?modelContext :: ModelContext) => LeaveRequest -> IO ()
 ensureLeaveDeleteAllowed leaveRequest =
     if hasRole ManagerRole
@@ -125,3 +153,6 @@ buildLeaveRequest leaveRequest =
             if isLeaveDateRangeValid startDate endDate
                 then Success
                 else Failure "Available again must be at least one day after unavailable from"
+
+isHtmxRequest :: (?context :: ControllerContext) => Bool
+isHtmxRequest = getHeader "HX-Request" == Just "true"

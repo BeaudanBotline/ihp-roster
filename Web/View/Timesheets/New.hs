@@ -13,4 +13,15 @@ instance View NewView where
         renderTimesheetEntryModal
             "New Timesheet Entry"
             weekOffset
-            (renderTimesheetForm timesheetEntry staffMembers weekOffset CreateTimesheetEntryAction)
+            newTimesheetFormId
+            (renderTimesheetForm timesheetEntry staffMembers weekOffset CreateTimesheetEntryAction newTimesheetFormId PageOverlayForm)
+
+newTimesheetFormId :: Text
+newTimesheetFormId = "timesheet-entry-create-form"
+
+renderNewTimesheetDialog :: TimesheetEntry -> [Staff] -> Int -> Html
+renderNewTimesheetDialog timesheetEntry staffMembers weekOffset =
+    renderTimesheetEntryDialog
+        "New Timesheet Entry"
+        newTimesheetFormId
+        (renderTimesheetForm timesheetEntry staffMembers weekOffset CreateTimesheetEntryAction newTimesheetFormId HtmxOverlayForm)
