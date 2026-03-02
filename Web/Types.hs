@@ -63,7 +63,7 @@ data RosterWeeksController
     | CopyRosterWeekAction { sourceWeekOffset :: !Int, targetWeekOffset :: !Int }
     | PublishRosterWeekAction { rosterWeekId :: !(Id RosterWeek) }
     | AddRosterRowAction { rosterDayId :: !(Id RosterDay) }
-    | DeleteRosterRowAction { rosterDayId :: !(Id RosterDay), rowIndex :: !Int }
+    | RemoveRosterRowAction { rosterDayId :: !(Id RosterDay) }
     | UpdateRosterSlotAction { rosterSlotId :: !(Id RosterSlot) }
     deriving (Eq, Show, Data)
 

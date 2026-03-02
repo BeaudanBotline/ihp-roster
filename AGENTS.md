@@ -31,7 +31,7 @@
 ## Roster Week Navigation Conventions
 - `weekOffset` in the URL is the source of truth for the viewed roster week
 - Use `ShowRosterWeekAction { weekOffset = ... }` for explicit week navigation
-- `RosterWeeksAction` is the canonical "this week" reset entrypoint and redirects to the current week offset
+- `RosterWeeksAction` is the canonical "this week" reset entrypoint; normal requests redirect to the current week offset and HTMX requests should return the current week shell plus a pushed canonical URL
 - Do not persist "last viewed week" in DB unless explicitly requested in a future change
 
 ## Key Conventions
@@ -149,3 +149,7 @@ Playwright-based end-to-end tests live in `e2e/` and run against the live dev se
 - When you discover a new IHP pattern, convention, or gotcha while implementing a feature, **add it to the relevant `AGENTS.md`** so future agents benefit
 - Keep entries concise and actionable — show the code pattern, not lengthy explanations
 - Always verify patterns against `IHP/Guide/` or `IHP/ihp/IHP/` source before documenting
+
+## Current UI Patterns
+- Roster and timesheet week pagers use HTMX shell swaps with pushed canonical URLs instead of full-page week navigations
+- The roster staff sidebar uses CSS-only desktop behavior: sticky positioning, viewport-capped height, and internal list scrolling

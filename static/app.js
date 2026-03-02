@@ -349,51 +349,6 @@ $(document).on('ready turbolinks:load', function () {
     });
 })();
 
-// Keep the roster staff panel capped to the rendered roster card height on desktop.
-(function syncRosterStaffPanelHeight() {
-    if (typeof window === 'undefined') return;
-
-    const desktopMediaQuery = window.matchMedia('(min-width: 1200px)');
-
-    function applyLayoutSizing() {
-        const layouts = document.querySelectorAll('.roster-layout');
-
-        layouts.forEach(function (layoutEl) {
-            const mainCard = layoutEl.querySelector('.roster-layout-main > .card');
-            const staffPanel = layoutEl.querySelector('.roster-layout-side .roster-staff-panel');
-
-            if (!(mainCard instanceof HTMLElement) || !(staffPanel instanceof HTMLElement)) {
-                return;
-            }
-
-            if (!desktopMediaQuery.matches) {
-                staffPanel.style.height = '';
-                return;
-            }
-
-            const mainCardHeight = Math.ceil(mainCard.getBoundingClientRect().height);
-            if (mainCardHeight > 0) {
-                staffPanel.style.height = `${mainCardHeight}px`;
-            }
-        });
-    }
-
-    function scheduleApplyLayoutSizing() {
-        window.requestAnimationFrame(applyLayoutSizing);
-    }
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', scheduleApplyLayoutSizing);
-    } else {
-        scheduleApplyLayoutSizing();
-    }
-
-    window.addEventListener('load', scheduleApplyLayoutSizing);
-    window.addEventListener('resize', scheduleApplyLayoutSizing);
-    document.addEventListener('turbolinks:load', scheduleApplyLayoutSizing);
-    document.addEventListener('htmx:afterSettle', scheduleApplyLayoutSizing);
-})();
-
 // Reusable quarter-hour modal time picker.
 // Any field using [data-time-picker-field] + .js-time-picker-input + .js-time-picker-trigger
 // can opt into this behavior.

@@ -72,6 +72,8 @@ Every controller requires changes in **four files** (missing any will cause comp
 ## Navigation Controller Pattern
 - Keep `RosterWeeksAction` as the canonical "this week" redirect endpoint.
 - Week navigation should remain URL-driven via `ShowRosterWeekAction { weekOffset }`.
+- When a page supports HTMX week-shell swaps, keep the same canonical routes and branch inside the action: full `render` for normal requests, `respondHtml` fragment for HTMX requests.
+- If an HTMX request hits a redirect-style reset action such as `RosterWeeksAction`, prefer returning the target fragment and set `HX-Push-Url` to the canonical `Show...Action` path instead of relying on an AJAX redirect.
 - For planned modules (e.g. timesheets/admin), scaffold lightweight placeholder controllers/views/routes early so header links are always valid.
 
 ## State Transition Pattern

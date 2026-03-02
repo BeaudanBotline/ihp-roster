@@ -153,6 +153,3 @@ buildLeaveRequest leaveRequest =
             if isLeaveDateRangeValid startDate endDate
                 then Success
                 else Failure "Available again must be at least one day after unavailable from"
-
-isHtmxRequest :: (?context :: ControllerContext) => Bool
-isHtmxRequest = getHeader "HX-Request" == Just "true"

@@ -19,24 +19,46 @@ data IndexView = IndexView
     , weekEndDate           :: Day
     }
 
+timesheetWeekShellId :: Text
+timesheetWeekShellId = "timesheet-week-shell"
+
 instance View IndexView where
-    html IndexView { .. } = [hsx|
+    html indexView = renderTimesheetWeekShell indexView
+
+renderTimesheetWeekShell :: IndexView -> Html
+renderTimesheetWeekShell IndexView { .. } = [hsx|
+    <section id={timesheetWeekShellId} hx-history-elt="true">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
                 <h1 class="mb-0">Timesheets</h1>
                 <p class="app-muted mb-0">{formatDateDisplay weekStartDate} to {formatDateDisplay weekEndDate}</p>
             </div>
             <div class="d-flex gap-2 align-items-center">
-                <a href={ShowTimesheetWeekAction (weekOffset - 1)} class="btn btn-outline-secondary">&lt;</a>
-                <a href={TimesheetsAction} class="btn btn-outline-secondary">this week</a>
-                <a href={ShowTimesheetWeekAction (weekOffset + 1)} class="btn btn-outline-secondary">&gt;</a>
+                {renderTimesheetWeekNavigationLink "<" (pathTo (ShowTimesheetWeekAction (weekOffset - 1)))}
+                {renderTimesheetWeekNavigationLink "this week" (pathTo TimesheetsAction)}
+                {renderTimesheetWeekNavigationLink ">" (pathTo (ShowTimesheetWeekAction (weekOffset + 1)))}
             </div>
         </div>
 
         <div class="d-flex flex-column gap-3">
             {forEach [0 .. 6] (renderDaySection entries staffMembers paySummariesByEntryId today editWindowDays weekOffset weekStartDate)}
         </div>
-    |]
+    </section>
+|]
+
+renderTimesheetWeekNavigationLink :: Text -> Text -> Html
+renderTimesheetWeekNavigationLink label url =
+    renderPartialNavigationLink
+        PartialNavigationLink
+            { partialNavigationLabel = label
+            , partialNavigationUrl = url
+            , partialNavigationTargetId = timesheetWeekShellId
+            , partialNavigationSelectId = Just timesheetWeekShellId
+            , partialNavigationClass = "btn btn-outline-secondary"
+            , partialNavigationSwap = "outerHTML"
+            , partialNavigationSync = Just ("#" <> timesheetWeekShellId <> ":replace")
+            , partialNavigationPushUrl = True
+            }
 
 renderDaySection :: (?context :: ControllerContext) => [TimesheetEntry] -> [Staff] -> Map.Map Text TimesheetPaySummary -> Day -> Int -> Int -> Day -> Int -> Html
 renderDaySection =

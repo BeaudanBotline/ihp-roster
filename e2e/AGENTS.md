@@ -53,6 +53,10 @@ test.describe('My Feature', () => {
 });
 ```
 
+### UI behavior expectations worth covering
+- For HTMX week pagers, assert both the shell swap and that no full page navigation occurred by preserving a `window` marker across clicks.
+- For roster sidebar layout, prefer checking computed CSS (`position: sticky`, capped height, internal scroll container) over brittle pixel-perfect comparisons against neighboring panels.
+
 ### Logging in within a test
 ```typescript
 test('authenticated feature', async ({ page }) => {

@@ -93,6 +93,14 @@ ensureManagerRole = accessDeniedUnless (hasRole ManagerRole)
 ensureAdminRole :: (?context :: ControllerContext) => IO ()
 ensureAdminRole = accessDeniedUnless (hasRole AdminRole)
 
+-- | True when the current request came from htmx.
+isHtmxRequest :: (?context :: ControllerContext) => Bool
+isHtmxRequest = getHeader "HX-Request" == Just "true"
+
+-- | Ask htmx to push a canonical URL after a fragment response.
+setHtmxPushUrl :: (?context :: ControllerContext) => Text -> IO ()
+setHtmxPushUrl url = setHeader ("HX-Push-Url", cs url)
+
 -- | Parse a HH:MM text value into a TimeOfDay.
 parseTimeParam :: Text -> Maybe TimeOfDay
 parseTimeParam value = parseTimeM True defaultTimeLocale "%H:%M" (cs value)

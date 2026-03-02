@@ -178,6 +178,11 @@ a:not(.btn):hover {
     color: #a9c6f5;
 }
 
+.roster-layout-side {
+    display: flex;
+    min-width: 0;
+}
+
 .roster-staff-panel {
     min-height: 0;
 }
@@ -185,7 +190,6 @@ a:not(.btn):hover {
 .roster-staff-panel .app-panel-body {
     display: flex;
     flex-direction: column;
-    height: 100%;
     min-height: 0;
 }
 
@@ -249,6 +253,23 @@ a:not(.btn):hover {
 }
 
 @media (min-width: 1200px) {
+    .roster-layout-side {
+        position: sticky;
+        top: 1.5rem;
+        align-self: flex-start;
+    }
+
+    .roster-staff-panel {
+        display: flex;
+        flex-direction: column;
+        max-height: calc(100svh - 3rem);
+        overflow: hidden;
+    }
+
+    .roster-staff-panel .app-panel-body {
+        flex: 1 1 auto;
+    }
+
     .roster-staff-panel-list {
         flex: 1 1 auto;
         overflow-y: auto;
@@ -257,6 +278,10 @@ a:not(.btn):hover {
 }
 
 @media (max-width: 1199.98px) {
+    .roster-layout-side {
+        display: block;
+    }
+
     .roster-staff-table,
     .roster-staff-panel-entry {
         grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr) minmax(0, 0.9fr) auto;
@@ -383,6 +408,50 @@ a:not(.btn):hover {
     line-height: 1.15;
 }
 
+.roster-grid .roster-day-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-top: 0.15rem;
+}
+
+.roster-grid .roster-day-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    flex-shrink: 0;
+}
+
+.roster-grid .roster-day-action {
+    width: 1.5rem;
+    height: 1.5rem;
+    padding: 0;
+    border-radius: 999px;
+    border: 1px solid var(--app-border-strong);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--app-text);
+    font-size: 0.88rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.roster-grid .roster-day-action:hover,
+.roster-grid .roster-day-action:focus {
+    background: var(--app-accent-soft);
+    color: var(--app-text);
+    border-color: #6d97de;
+    box-shadow: none;
+}
+
+.roster-grid .roster-day-action-add {
+    color: #a9c6f5;
+}
+
+.roster-grid .roster-day-action-remove {
+    color: #f1a5b0;
+}
+
 .roster-grid .slot-time-cell {
     min-width: 108px;
     padding: 0 !important;
@@ -479,11 +548,6 @@ a:not(.btn):hover {
     font-weight: 700;
 }
 
-.roster-grid .roster-day-control {
-    font-size: 0.76rem;
-    font-weight: 700;
-}
-
 .roster-grid tr.day-row.day-alt-dark {
     background-color: var(--roster-day-a);
 }
@@ -517,7 +581,7 @@ a:not(.btn):hover {
 
 @media print {
     .btn,
-    .roster-day-control,
+    .roster-day-action,
     .breadcrumb {
         display: none !important;
     }

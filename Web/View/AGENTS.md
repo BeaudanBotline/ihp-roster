@@ -90,6 +90,9 @@ renderForm post = formFor post [hsx|
 - Keep week browsing URL-driven via `weekOffset` action params.
 - Use compact controls in the roster page header: `<`, `this week`, `>`.
 - `this week` should link to `RosterWeeksAction` (server-side reset to current offset), not a client-side calculation.
+- For HTMX week browsing, wrap the header + page content in a stable shell id, target that shell with `hx-get`, `hx-swap="outerHTML"`, `hx-select`, `hx-push-url="true"`, and `hx-sync="#shell-id:replace"`.
+- Add `data-turbolinks="false"` on HTMX partial-navigation anchors so Turbolinks does not steal the click and force a full-page visit.
+- For roster side-panel sizing on desktop, prefer CSS-only sticky layout with a viewport-capped panel and internal scroll over JS height syncing.
 
 ## Overlay Pattern
 - Prefer HTMX-driven workflow dialog fragments over `setModal` + page-jump flows for roster, timesheets, and other high-frequency in-place workflows.

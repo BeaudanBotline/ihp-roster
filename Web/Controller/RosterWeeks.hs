@@ -15,8 +15,10 @@ import Data.Time.LocalTime (TimeOfDay)
 import qualified Data.UUID as UUID
 import Web.Controller.Prelude
 import Web.View.RosterWeeks.Show (RosterStaffPanelEntry (..), ShowView (..),
+                                  lastRowIndexForRows,
                                   renderRosterContentFragment,
-                                  renderRosterContentFragmentOob, renderRowOob,
+                                  renderRosterContentFragmentOob,
+                                  renderRosterWeekShell, renderRowOob,
                                   rowsForDay)
 
 instance Controller RosterWeeksController where
@@ -33,80 +35,16 @@ instance Controller RosterWeeksController where
         let epoch = venueConfig.weekOffsetEpoch
         let daysSinceEpoch = diffDays today epoch
         let currentWeekOffset = fromIntegral (daysSinceEpoch `div` 7)
+        let currentWeekAction = ShowRosterWeekAction { weekOffset = currentWeekOffset }
 
-        redirectTo ShowRosterWeekAction { weekOffset = currentWeekOffset }
+        if isHtmxRequest
+            then do
+                setHtmxPushUrl (pathTo currentWeekAction)
+                renderRosterWeekPage currentWeekOffset
+            else redirectTo currentWeekAction
 
     action ShowRosterWeekAction { weekOffset } = autoRefresh do
-        venueConfig <- fetchVenueConfig
-        let epoch = venueConfig.weekOffsetEpoch
-        let weekStartDate = Calendar.addDays (toInteger (weekOffset * 7)) epoch
-        let weekEndDate = Calendar.addDays 6 weekStartDate
-
-        -- Try to fetch the roster week from the database
-        rosterWeekOrNothing <- query @RosterWeek
-            |> filterWhere (#weekOffset, weekOffset)
-            |> fetchOneOrNothing
-
-        let isManager = hasRole ManagerRole
-        let visibleRosterWeek = case rosterWeekOrNothing of
-                Just rw -> if not rw.isLive && not isManager then Nothing else Just rw
-                Nothing -> Nothing
-
-        case visibleRosterWeek of
-            Just rosterWeek -> do
-                -- We found it, render the week view
-                rosterDays <- query @RosterDay
-                    |> filterWhere (#rosterWeekId, coerce (get #id rosterWeek))
-                    |> orderBy #dayOffset
-                    |> fetch
-
-                -- Fetch all slots for these days
-                allSlots <- query @RosterSlot
-                    |> filterWhereIn (#rosterDayId, map (coerce . (.id)) rosterDays)
-                    |> fetch
-
-                -- Prefetch all staff for the dropdowns
-                staffMembers <- query @Staff
-                    |> filterWhere (#isActive, True)
-                    |> orderBy #lastName
-                    |> fetch
-
-                panelStaff <- fetchRosterStaffPanelEntries staffMembers allSlots
-
-                -- Prefetch slot names for column mapping
-                slotNames <- query @SlotName
-                    |> filterWhere (#isActive, True)
-                    |> fetch
-
-                let orderedSlotNames = sortBy (comparing (slotNameOrder . (.name))) slotNames
-                slotConflicts <- buildSlotConflicts venueConfig.lateToEarlyMinStartGapMinutes weekStartDate rosterDays allSlots staffMembers
-
-                render ShowView
-                    { rosterWeek = Just rosterWeek
-                    , rosterDays
-                    , weekOffset
-                    , weekStartDate
-                    , weekEndDate
-                    , staffMembers
-                    , panelStaff
-                    , slotNames = orderedSlotNames
-                    , allSlots
-                    , slotConflicts
-                    }
-            Nothing -> do
-                -- It doesn't exist yet, show the "Create" view/button
-                render ShowView
-                    { rosterWeek = Nothing
-                    , rosterDays = []
-                    , weekOffset
-                    , weekStartDate
-                    , weekEndDate
-                    , staffMembers = []
-                    , panelStaff = []
-                    , slotNames = []
-                    , allSlots = []
-                    , slotConflicts = []
-                    }
+        renderRosterWeekPage weekOffset
 
     action CreateRosterWeekAction { weekOffset } = do
         ensureManagerRole
@@ -232,14 +170,27 @@ instance Controller RosterWeeksController where
         rosterWeek <- fetch rosterWeekId
         respondWithRosterContent rosterWeek.weekOffset
 
-    action DeleteRosterRowAction { rosterDayId, rowIndex } = do
+    action RemoveRosterRowAction { rosterDayId } = do
         ensureManagerRole
 
-        -- Delete all slots in this row for the day
-        slotsToDelete <- query @RosterSlot
+        existingSlots <- query @RosterSlot
             |> filterWhere (#rosterDayId, coerce rosterDayId)
-            |> filterWhere (#rowIndex, rowIndex)
             |> fetch
+
+        let maybeLastRowIndex =
+                existingSlots
+                    |> map (.rowIndex)
+                    |> sort
+                    |> last
+
+        slotsToDelete <-
+            case maybeLastRowIndex of
+                Nothing -> pure []
+                Just lastRowIndex ->
+                    query @RosterSlot
+                        |> filterWhere (#rosterDayId, coerce rosterDayId)
+                        |> filterWhere (#rowIndex, lastRowIndex)
+                        |> fetch
 
         deleteRecords slotsToDelete
 
@@ -386,6 +337,81 @@ respondWithRosterRows weekOffset requestedRowKeys = do
             let renderedRows = mapMaybe (renderRequestedRow rosterDays weekStartDate orderedSlotNames staffMembers allSlots slotConflicts) uniqueRowKeys
             respondHtml (mconcat renderedRows)
 
+renderRosterWeekPage :: (?context :: ControllerContext, ?modelContext :: ModelContext) => Int -> IO ()
+renderRosterWeekPage weekOffset = do
+    venueConfig <- fetchVenueConfig
+    let epoch = venueConfig.weekOffsetEpoch
+    let weekStartDate = Calendar.addDays (toInteger (weekOffset * 7)) epoch
+    let weekEndDate = Calendar.addDays 6 weekStartDate
+
+    rosterWeekOrNothing <- query @RosterWeek
+        |> filterWhere (#weekOffset, weekOffset)
+        |> fetchOneOrNothing
+
+    let isManager = hasRole ManagerRole
+    let visibleRosterWeek = case rosterWeekOrNothing of
+            Just rw -> if not rw.isLive && not isManager then Nothing else Just rw
+            Nothing -> Nothing
+
+    case visibleRosterWeek of
+        Just rosterWeek -> do
+            rosterDays <- query @RosterDay
+                |> filterWhere (#rosterWeekId, coerce (get #id rosterWeek))
+                |> orderBy #dayOffset
+                |> fetch
+
+            allSlots <- query @RosterSlot
+                |> filterWhereIn (#rosterDayId, map (coerce . (.id)) rosterDays)
+                |> fetch
+
+            staffMembers <- query @Staff
+                |> filterWhere (#isActive, True)
+                |> orderBy #lastName
+                |> fetch
+
+            panelStaff <- fetchRosterStaffPanelEntries staffMembers allSlots
+
+            slotNames <- query @SlotName
+                |> filterWhere (#isActive, True)
+                |> fetch
+
+            let orderedSlotNames = sortBy (comparing (slotNameOrder . (.name))) slotNames
+            slotConflicts <- buildSlotConflicts venueConfig.lateToEarlyMinStartGapMinutes weekStartDate rosterDays allSlots staffMembers
+
+            respondWithRosterWeekView
+                ShowView
+                    { rosterWeek = Just rosterWeek
+                    , rosterDays
+                    , weekOffset
+                    , weekStartDate
+                    , weekEndDate
+                    , staffMembers
+                    , panelStaff
+                    , slotNames = orderedSlotNames
+                    , allSlots
+                    , slotConflicts
+                    }
+        Nothing ->
+            respondWithRosterWeekView
+                ShowView
+                    { rosterWeek = Nothing
+                    , rosterDays = []
+                    , weekOffset
+                    , weekStartDate
+                    , weekEndDate
+                    , staffMembers = []
+                    , panelStaff = []
+                    , slotNames = []
+                    , allSlots = []
+                    , slotConflicts = []
+                    }
+
+respondWithRosterWeekView :: (?context :: ControllerContext) => ShowView -> IO ()
+respondWithRosterWeekView showView =
+    if isHtmxRequest
+        then respondHtml (renderRosterWeekShell showView)
+        else render showView
+
 fetchRelatedSlotsForStaffIds :: (?modelContext :: ModelContext) => [UUID.UUID] -> IO [RosterSlot]
 fetchRelatedSlotsForStaffIds staffIds =
     if null staffIds
@@ -472,10 +498,11 @@ renderRequestedRow rosterDays weekStartDate orderedSlotNames staffMembers allSlo
     let daySlots = filter (\slot -> slot.rosterDayId == rosterDayUuid) allSlots
     let dayRows = rowsForDay daySlots
     let rowCount = length dayRows
+    let lastRowIndex = lastRowIndexForRows dayRows
     let indexedRows = zip [0 :: Int ..] dayRows
     (rowPosition, (_, rowSlots)) <- find (\(_, (rowIndex, _)) -> rowIndex == targetRowIndex) indexedRows
     let date = Calendar.addDays (toInteger (get #dayOffset rosterDay)) weekStartDate
-    pure (renderRowOob orderedSlotNames staffMembers date rosterDay rowCount slotConflicts (rowPosition, (targetRowIndex, rowSlots)))
+    pure (renderRowOob orderedSlotNames staffMembers date rosterDay rowCount lastRowIndex slotConflicts (rowPosition, (targetRowIndex, rowSlots)))
 
 impactedRowKeysForSlotUpdate :: Maybe UUID.UUID -> RosterSlot -> [RosterSlot] -> [(UUID.UUID, Int)]
 impactedRowKeysForSlotUpdate previousStaffId updatedSlot relatedSlots =

@@ -39,6 +39,3 @@ buildStaff staff = staff
     |> fill @'["firstName", "lastName", "idealShiftsPerWeek", "isActive"]
     |> validateField #firstName nonEmpty
     |> validateField #lastName nonEmpty
-
-isHtmxRequest :: (?context :: ControllerContext) => Bool
-isHtmxRequest = getHeader "HX-Request" == Just "true"

@@ -38,8 +38,8 @@ tests = beforeAll (mockContextNoDatabase WebApplication config) do
             response <- callAction (AddRosterRowAction "11111111-1111-1111-1111-111111111111")
             response `responseStatusShouldBe` status302
 
-        it "redirects unauthenticated users from DeleteRosterRowAction" $ withContext do
-            response <- callAction (DeleteRosterRowAction "11111111-1111-1111-1111-111111111111" 0)
+        it "redirects unauthenticated users from RemoveRosterRowAction" $ withContext do
+            response <- callAction (RemoveRosterRowAction "11111111-1111-1111-1111-111111111111")
             response `responseStatusShouldBe` status302
 
         it "redirects unauthenticated users from UpdateRosterSlotAction" $ withContext do

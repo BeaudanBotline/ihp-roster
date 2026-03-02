@@ -16,20 +16,15 @@ instance Controller TimesheetsController where
 
     action TimesheetsAction = do
         currentOffset <- currentTimesheetWeekOffset
-        redirectTo ShowTimesheetWeekAction { weekOffset = currentOffset }
+        let currentWeekAction = ShowTimesheetWeekAction { weekOffset = currentOffset }
+        if isHtmxRequest
+            then do
+                setHtmxPushUrl (pathTo currentWeekAction)
+                renderTimesheetWeekPage currentOffset
+            else redirectTo currentWeekAction
 
     action ShowTimesheetWeekAction { weekOffset } = do
-        venueConfig <- fetchVenueConfig
-        let weekStartDate = addDays (toInteger (weekOffset * 7)) venueConfig.weekOffsetEpoch
-        let weekEndDate = addDays 6 weekStartDate
-
-        (entries, staffMembers) <- fetchTimesheetDataForWeek weekStartDate weekEndDate
-        paySummariesByEntryId <- fetchTimesheetPaySummariesForEntries entries
-
-        now <- getCurrentTime
-        let today = utctDay now
-        let editWindowDays = venueConfig.staffTimesheetEditWindowDays
-        render IndexView { .. }
+        renderTimesheetWeekPage weekOffset
 
     action NewTimesheetEntryAction = do
         weekOffset <- weekOffsetFromParamOrCurrent
@@ -220,8 +215,29 @@ respondWithTimesheetDaySection weekOffset workedOn = do
             today
             editWindowDays
             weekOffset
-            weekStartDate
-            dayOffset
+                    weekStartDate
+                    dayOffset
+
+renderTimesheetWeekPage :: (?context :: ControllerContext, ?modelContext :: ModelContext) => Int -> IO ()
+renderTimesheetWeekPage weekOffset = do
+    venueConfig <- fetchVenueConfig
+    let weekStartDate = addDays (toInteger (weekOffset * 7)) venueConfig.weekOffsetEpoch
+    let weekEndDate = addDays 6 weekStartDate
+
+    (entries, staffMembers) <- fetchTimesheetDataForWeek weekStartDate weekEndDate
+    paySummariesByEntryId <- fetchTimesheetPaySummariesForEntries entries
+
+    now <- getCurrentTime
+    let today = utctDay now
+    let editWindowDays = venueConfig.staffTimesheetEditWindowDays
+
+    respondWithTimesheetWeekView IndexView { .. }
+
+respondWithTimesheetWeekView :: (?context :: ControllerContext) => IndexView -> IO ()
+respondWithTimesheetWeekView indexView =
+    if isHtmxRequest
+        then respondHtml (renderTimesheetWeekShell indexView)
+        else render indexView
 
 ensureTimesheetVisibility :: (?context :: ControllerContext, ?modelContext :: ModelContext) => TimesheetEntry -> IO ()
 ensureTimesheetVisibility entry =
@@ -398,6 +414,3 @@ currentTimesheetWeekOffset = do
 
 weekOffsetForDay :: Day -> Day -> Int
 weekOffsetForDay epoch day = fromInteger (diffDays day epoch `div` 7)
-
-isHtmxRequest :: (?context :: ControllerContext) => Bool
-isHtmxRequest = getHeader "HX-Request" == Just "true"

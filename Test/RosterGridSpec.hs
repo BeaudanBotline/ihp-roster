@@ -6,7 +6,7 @@ import IHP.ControllerPrelude (newRecord)
 import IHP.Prelude
 import Test.Hspec
 import Web.Controller.RosterWeeks (impactedRowKeysForSlotUpdate)
-import Web.View.RosterWeeks.Show (rowsForDay)
+import Web.View.RosterWeeks.Show (lastRowIndexForRows, rowsForDay)
 
 tests :: Spec
 tests = describe "Roster grid row grouping" do
@@ -20,6 +20,13 @@ tests = describe "Roster grid row grouping" do
         let rows = rowsForDay [mkSlot 2, mkSlot 0, mkSlot 2, mkSlot 1]
         map fst rows `shouldBe` [0, 1, 2]
         map (length . snd) rows `shouldBe` [1, 1, 2]
+
+    it "returns the highest row index for the day-level remove control" do
+        let mkSlot rowIndex =
+                (newRecord @RosterSlot)
+                    |> set #rowIndex rowIndex
+        lastRowIndexForRows (rowsForDay [mkSlot 4, mkSlot 1, mkSlot 4, mkSlot 2])
+            `shouldBe` 4
 
     it "includes the edited row and all rows assigned to old/new staff" do
         let Just staffA = UUID.fromText "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"

@@ -80,6 +80,17 @@ data ToastOverlayPosition
     | ToastBottomRight
     deriving (Eq)
 
+data PartialNavigationLink = PartialNavigationLink
+    { partialNavigationLabel    :: !Text
+    , partialNavigationUrl      :: !Text
+    , partialNavigationTargetId :: !Text
+    , partialNavigationSelectId :: !(Maybe Text)
+    , partialNavigationClass    :: !Text
+    , partialNavigationSwap     :: !Text
+    , partialNavigationSync     :: !(Maybe Text)
+    , partialNavigationPushUrl  :: !Bool
+    }
+
 defaultOverlayButtons :: Text -> [OverlayButton]
 defaultOverlayButtons formId =
     [ OverlayButton
@@ -181,6 +192,24 @@ renderPageDialogButton closeUrl button =
                 {button.overlayButtonLabel}
             </a>
         |]
+
+renderPartialNavigationLink :: PartialNavigationLink -> Html
+renderPartialNavigationLink PartialNavigationLink { partialNavigationLabel, partialNavigationUrl, partialNavigationTargetId, partialNavigationSelectId, partialNavigationClass, partialNavigationSwap, partialNavigationSync, partialNavigationPushUrl } = [hsx|
+    <a href={partialNavigationUrl}
+       class={partialNavigationClass}
+       data-turbolinks="false"
+       hx-get={partialNavigationUrl}
+       hx-target={"#" <> partialNavigationTargetId}
+       hx-swap={partialNavigationSwap}
+       hx-select={fmap ("#" <>) partialNavigationSelectId}
+       hx-push-url={pushUrlValue}
+       hx-sync={partialNavigationSync}>
+        {partialNavigationLabel}
+    </a>
+|]
+    where
+        pushUrlValue :: Text
+        pushUrlValue = if partialNavigationPushUrl then "true" else "false"
 
 renderToastOverlayHost :: ToastOverlayPosition -> [ToastOverlayConfig] -> Html
 renderToastOverlayHost position toasts = [hsx|
