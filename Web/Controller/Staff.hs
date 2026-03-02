@@ -1,7 +1,7 @@
 module Web.Controller.Staff where
 
 import Web.Controller.Prelude
-import Web.Controller.RosterWeeks ()
+import Web.Controller.RosterWeeks (respondWithRosterContentOob)
 import Web.View.Staff.Edit
 
 instance Controller StaffController where
@@ -13,8 +13,9 @@ instance Controller StaffController where
     action EditStaffAction { staffId } = do
         staff <- fetch staffId
         let weekOffset = paramOrDefault @Int 0 "weekOffset"
-        setModal EditView { .. }
-        jumpToAction ShowRosterWeekAction { weekOffset }
+        if isHtmxRequest
+            then respondHtml (renderStaffEditModalFragment staff weekOffset)
+            else render EditView { .. }
 
     action UpdateStaffAction { staffId } = do
         staff <- fetch staffId
@@ -23,14 +24,21 @@ instance Controller StaffController where
             |> buildStaff
             |> ifValid \case
                 Left staff -> do
-                    setModal EditView { .. }
-                    jumpToAction ShowRosterWeekAction { weekOffset }
+                    if isHtmxRequest
+                        then respondHtml (renderStaffEditModalFragment staff weekOffset)
+                        else render EditView { .. }
                 Right staff -> do
                     staff <- staff |> updateRecord
-                    setSuccessMessage "Staff member updated"
-                    redirectTo ShowRosterWeekAction { weekOffset }
+                    if isHtmxRequest
+                        then respondWithRosterContentOob weekOffset
+                        else do
+                            setSuccessMessage "Staff member updated"
+                            redirectTo ShowRosterWeekAction { weekOffset }
 
 buildStaff staff = staff
     |> fill @'["firstName", "lastName", "idealShiftsPerWeek", "isActive"]
     |> validateField #firstName nonEmpty
     |> validateField #lastName nonEmpty
+
+isHtmxRequest :: (?context :: ControllerContext) => Bool
+isHtmxRequest = getHeader "HX-Request" == Just "true"

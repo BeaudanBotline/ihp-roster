@@ -5,6 +5,113 @@ $(document).on('ready turbolinks:load', function () {
     }
 });
 
+// Shared HTMX modal mount for roster workflows and other fragment-driven dialogs.
+(function enableHtmxModalMount() {
+    if (typeof window === 'undefined') return;
+
+    const mountId = 'htmx-modal-mount';
+    let lastTrigger = null;
+
+    function getMount() {
+        return document.getElementById(mountId);
+    }
+
+    function getActiveModal() {
+        const mountEl = getMount();
+        return mountEl ? mountEl.querySelector('[data-htmx-modal="true"]') : null;
+    }
+
+    function focusModal(modalEl) {
+        if (!(modalEl instanceof HTMLElement)) return;
+
+        const focusTarget = modalEl.querySelector('[autofocus], .is-invalid, input, select, textarea, button, a[href]');
+        if (focusTarget instanceof HTMLElement) {
+            focusTarget.focus();
+            return;
+        }
+
+        modalEl.focus();
+    }
+
+    function restoreFocus() {
+        if (lastTrigger instanceof HTMLElement && document.contains(lastTrigger)) {
+            lastTrigger.focus();
+        }
+        lastTrigger = null;
+    }
+
+    function syncModalState() {
+        const modalEl = getActiveModal();
+        const hasModal = modalEl instanceof HTMLElement;
+
+        document.body.classList.toggle('modal-open', hasModal);
+        document.body.style.overflow = hasModal ? 'hidden' : '';
+
+        if (hasModal) {
+            focusModal(modalEl);
+        } else {
+            restoreFocus();
+        }
+    }
+
+    function clearMount() {
+        const mountEl = getMount();
+        if (!(mountEl instanceof HTMLElement)) return;
+
+        mountEl.innerHTML = '';
+        syncModalState();
+    }
+
+    document.addEventListener('click', function (event) {
+        const triggerEl = event.target.closest(`[hx-target="#${mountId}"]`);
+        if (triggerEl instanceof HTMLElement) {
+            lastTrigger = triggerEl;
+        }
+    }, true);
+
+    document.addEventListener('click', function (event) {
+        const closeEl = event.target.closest('[data-htmx-modal-close="true"]');
+        if (closeEl && getActiveModal()) {
+            event.preventDefault();
+            clearMount();
+            return;
+        }
+
+        const backdropEl = event.target.closest('[data-htmx-modal-backdrop="true"]');
+        if (backdropEl && getActiveModal()) {
+            event.preventDefault();
+            clearMount();
+        }
+    });
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key !== 'Escape') return;
+        if (!getActiveModal()) return;
+
+        event.preventDefault();
+        clearMount();
+    });
+
+    document.addEventListener('htmx:afterSwap', function (event) {
+        if (!(event.detail && event.detail.target instanceof HTMLElement)) return;
+        if (event.detail.target.id !== mountId) return;
+
+        if (window.htmx && typeof window.htmx.process === 'function') {
+            window.htmx.process(event.detail.target);
+        }
+
+        syncModalState();
+    });
+
+    document.addEventListener('turbolinks:load', syncModalState);
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', syncModalState);
+    } else {
+        syncModalState();
+    }
+})();
+
 // Defer auto-refresh updates for rows that are actively being edited.
 // This prevents in-progress edits from being clobbered by live updates while still replaying the latest row after blur.
 (function enableRosterGridAutoRefreshDeferral() {
@@ -163,6 +270,51 @@ $(document).on('ready turbolinks:load', function () {
     eventTarget.addEventListener('htmx:afterSettle', function () {
         scheduleResume();
     });
+})();
+
+// Keep the roster staff panel capped to the rendered roster card height on desktop.
+(function syncRosterStaffPanelHeight() {
+    if (typeof window === 'undefined') return;
+
+    const desktopMediaQuery = window.matchMedia('(min-width: 1200px)');
+
+    function applyLayoutSizing() {
+        const layouts = document.querySelectorAll('.roster-layout');
+
+        layouts.forEach(function (layoutEl) {
+            const mainCard = layoutEl.querySelector('.roster-layout-main > .card');
+            const staffPanel = layoutEl.querySelector('.roster-layout-side .roster-staff-panel');
+
+            if (!(mainCard instanceof HTMLElement) || !(staffPanel instanceof HTMLElement)) {
+                return;
+            }
+
+            if (!desktopMediaQuery.matches) {
+                staffPanel.style.height = '';
+                return;
+            }
+
+            const mainCardHeight = Math.ceil(mainCard.getBoundingClientRect().height);
+            if (mainCardHeight > 0) {
+                staffPanel.style.height = `${mainCardHeight}px`;
+            }
+        });
+    }
+
+    function scheduleApplyLayoutSizing() {
+        window.requestAnimationFrame(applyLayoutSizing);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', scheduleApplyLayoutSizing);
+    } else {
+        scheduleApplyLayoutSizing();
+    }
+
+    window.addEventListener('load', scheduleApplyLayoutSizing);
+    window.addEventListener('resize', scheduleApplyLayoutSizing);
+    document.addEventListener('turbolinks:load', scheduleApplyLayoutSizing);
+    document.addEventListener('htmx:afterSettle', scheduleApplyLayoutSizing);
 })();
 
 // Reusable quarter-hour modal time picker.

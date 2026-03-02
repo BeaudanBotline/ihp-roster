@@ -218,8 +218,32 @@ Business requirements are canonical in `specs/`.
   - Converted `Web/View/Staff/Edit.hs` into a modal view and added `renderStaffEditModal` in `Application/Helper/View.hs` so cancel/close returns to the same roster week.
   - Added a manager/admin roster-side staff panel to `Web/View/RosterWeeks/Show.hs` and `Web/Controller/RosterWeeks.hs`, showing active linked staff with assigned-shift count, ideal shifts, user role, and an `Edit` launcher that opens the modal over the roster page.
   - Added helper/test coverage for roster-panel filtering in `Application/Helper/View.hs` and `Test/SchemaSpec.hs`, and updated `Test/Controller/StaffSpec.hs` to cover the weekOffset-backed edit/update entrypoints.
+  - Follow-up design decision: this server-roundtrip modal approach is now considered transitional because it rerenders the roster page and introduces noticeable local latency when opening modals.
+
+### 2.1d Reusable HTMX modal system for roster workflows
+- **Status:** [x]
+- **Goal:** Replace roster-side `setModal` page-jump workflows with a reusable HTMX modal pattern that swaps only modal HTML into a shared mount.
+- **Dependencies:** 2.1c
+- **Deliverables:**
+  - A persistent modal mount in `Web/View/Layout.hs`.
+  - Shared modal fragment helper(s) in `Application/Helper/View.hs`.
+  - Staff edit flow migrated to HTMX GET/submit fragment responses.
+  - Shared JS to open, close, clear, and restore focus for arbitrary modal fragments.
+- **Acceptance checks:**
+  - Clicking `Edit` in the roster staff panel does not trigger a full-page rerender or Turbolinks visit.
+  - Validation errors rerender inside the modal only.
+  - Successful submit updates the relevant roster/staff fragments and closes the modal without a full-page navigation.
+  - The same modal infrastructure can be reused by future create/edit/confirm/picker workflows.
+- **Implementation notes:**
+  - Keep `weekOffset` or equivalent return-context params in HTMX URLs/forms so the modal stays anchored to the currently viewed roster week.
+  - Use `respondHtml` for fragment responses and favor minimal fragment updates (`#roster-content` or OOB row fragments) after successful submits.
+  - Treat full-page controller routes as fallback only; the primary roster UX should use HTMX modal fragments.
   - Documented the roster modal pattern in `Web/Controller/AGENTS.md` and `Web/View/AGENTS.md`.
-  - Verification run: `direnv exec . typecheck` and `direnv exec . test` passed. `direnv exec . lint` still reports the pre-existing Timesheets hints plus a non-actionable false-positive `Redundant id` hint on `UpdateStaffAction staff.id` in the new modal view.
+  - Added reusable HTMX modal helpers in `Application/Helper/View.hs` plus shared modal-mount lifecycle JS in `static/app.js` for open/close/escape/backdrop/focus behavior.
+  - Migrated `Web/Controller/Staff.hs` and `Web/View/Staff/Edit.hs` to HTMX fragment GET/POST handling with inline validation rendering and roster-content OOB refreshes on success.
+  - Updated `Web/View/RosterWeeks/Show.hs` and `Web/Controller/RosterWeeks.hs` so the roster staff panel launches the modal without Turbolinks navigation and accepts OOB roster refresh responses.
+  - Added focused browser coverage in `e2e/roster-staff-modal.spec.ts` for modal launch, HTMX validation-fragment response, and successful in-place save.
+  - Verification run: `direnv exec . typecheck`, `direnv exec . test`, and `direnv exec . e2e e2e/roster-staff-modal.spec.ts` passed. `direnv exec . lint` still reports only pre-existing Timesheets hints.
 
 ### 2.2 Trial staff placeholders
 - **Status:** [x]

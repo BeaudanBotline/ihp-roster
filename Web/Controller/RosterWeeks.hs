@@ -15,7 +15,8 @@ import Data.Time.LocalTime (TimeOfDay)
 import qualified Data.UUID as UUID
 import Web.Controller.Prelude
 import Web.View.RosterWeeks.Show (RosterStaffPanelEntry (..), ShowView (..),
-                                  renderRosterContentFragment, renderRowOob,
+                                  renderRosterContentFragment,
+                                  renderRosterContentFragmentOob, renderRowOob,
                                   rowsForDay)
 
 instance Controller RosterWeeksController where
@@ -116,18 +117,31 @@ instance Controller RosterWeeksController where
             Just week -> do
                 redirectTo ShowRosterWeekAction { weekOffset = week.weekOffset }
             Nothing -> do
+                slotNames <- query @SlotName
+                    |> filterWhere (#isActive, True)
+                    |> fetch
+                let orderedSlotNames = sortBy (comparing (slotNameOrder . (.name))) slotNames
+
                 -- Create the roster week
                 rosterWeek <- newRecord @RosterWeek
                     |> set #weekOffset weekOffset
                     |> set #isLive False
                     |> createRecord
 
-                -- Create 7 roster days for the week
+                -- Create 7 roster days for the week with 5 default rows per day.
                 forM_ [0 .. 6] \dayOffset -> do
-                    newRecord @RosterDay
+                    rosterDay <- newRecord @RosterDay
                         |> set #rosterWeekId (coerce (get #id rosterWeek))
                         |> set #dayOffset dayOffset
                         |> createRecord
+
+                    forM_ [0 .. 4] \rowIndex ->
+                        forM_ orderedSlotNames \slotName -> do
+                            newRecord @RosterSlot
+                                |> set #rosterDayId (coerce (get #id rosterDay))
+                                |> set #slotNameId (coerce (get #id slotName))
+                                |> set #rowIndex rowIndex
+                                |> createRecord
 
                 setSuccessMessage "Roster week created successfully"
                 redirectTo ShowRosterWeekAction { weekOffset }
@@ -334,6 +348,24 @@ respondWithRosterContent weekOffset = do
         Just RosterRenderData { rosterWeek, rosterDays, weekStartDate, staffMembers, panelStaff, orderedSlotNames, allSlots, slotConflicts } ->
             respondHtml $
                 renderRosterContentFragment
+                    (Just rosterWeek)
+                    rosterDays
+                    weekOffset
+                    staffMembers
+                    panelStaff
+                    orderedSlotNames
+                    weekStartDate
+                    allSlots
+                    slotConflicts
+
+respondWithRosterContentOob :: (?context :: ControllerContext, ?modelContext :: ModelContext) => Int -> IO ()
+respondWithRosterContentOob weekOffset = do
+    rosterData <- fetchRosterRenderData weekOffset
+    case rosterData of
+        Nothing -> respondHtml [hsx|<div id="roster-content" hx-swap-oob="outerHTML"></div>|]
+        Just RosterRenderData { rosterWeek, rosterDays, weekStartDate, staffMembers, panelStaff, orderedSlotNames, allSlots, slotConflicts } ->
+            respondHtml $
+                renderRosterContentFragmentOob
                     (Just rosterWeek)
                     rosterDays
                     weekOffset

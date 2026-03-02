@@ -32,8 +32,7 @@ instance View ShowView where
     html ShowView { .. } = [hsx|
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
-                <h1 class="mb-0">Roster Week {weekOffset}</h1>
-                <p class="app-muted mb-0">{formatDateDisplay weekStartDate} to {formatDateDisplay weekEndDate}</p>
+                <h1 class="mb-0">Roster Starting {formatDateDisplay weekStartDate}</h1>
             </div>
             <div class="d-flex gap-2 align-items-center">
                 <a href={ShowRosterWeekAction (weekOffset - 1)} class="btn btn-outline-secondary">&lt;</a>
@@ -46,8 +45,16 @@ instance View ShowView where
     |]
 
 renderRosterContentFragment :: (?context :: ControllerContext) => Maybe RosterWeek -> [RosterDay] -> Int -> [Staff] -> [RosterStaffPanelEntry] -> [SlotName] -> Day -> [RosterSlot] -> [(Id RosterSlot, [RosterConflict])] -> Html
-renderRosterContentFragment rosterWeek rosterDays weekOffset staffMembers panelStaff slotNames weekStartDate allSlots slotConflicts = [hsx|
-    <div id="roster-content">
+renderRosterContentFragment =
+    renderRosterContentFragmentWithSwap Nothing
+
+renderRosterContentFragmentOob :: (?context :: ControllerContext) => Maybe RosterWeek -> [RosterDay] -> Int -> [Staff] -> [RosterStaffPanelEntry] -> [SlotName] -> Day -> [RosterSlot] -> [(Id RosterSlot, [RosterConflict])] -> Html
+renderRosterContentFragmentOob =
+    renderRosterContentFragmentWithSwap (Just "outerHTML")
+
+renderRosterContentFragmentWithSwap :: (?context :: ControllerContext) => Maybe Text -> Maybe RosterWeek -> [RosterDay] -> Int -> [Staff] -> [RosterStaffPanelEntry] -> [SlotName] -> Day -> [RosterSlot] -> [(Id RosterSlot, [RosterConflict])] -> Html
+renderRosterContentFragmentWithSwap maybeSwapOob rosterWeek rosterDays weekOffset staffMembers panelStaff slotNames weekStartDate allSlots slotConflicts = [hsx|
+    <div id="roster-content" hx-swap-oob={maybeSwapOob}>
         {renderRosterContent rosterWeek rosterDays weekOffset staffMembers panelStaff slotNames weekStartDate allSlots slotConflicts}
     </div>
 |]
@@ -64,9 +71,9 @@ renderRosterContent Nothing _ weekOffset _ _ _ _ _ _ = [hsx|
 |]
 
 renderRosterContent (Just rosterWeek) rosterDays weekOffset staffMembers panelStaff slotNames weekStartDate allSlots slotConflicts = [hsx|
-    <div class="row g-4 align-items-start">
-        <div class={classes [("col-12", True), ("col-xl-8", currentUserIsManager), ("mx-auto", not currentUserIsManager)]}>
-            <div class="card shadow-sm mb-5">
+    <div class="row g-4 align-items-start roster-layout">
+        <div class={classes [("col-12", True), ("col-xl-8", currentUserIsManager), ("col-xxl-9", currentUserIsManager), ("mx-auto", not currentUserIsManager), ("roster-layout-main", currentUserIsManager)]}>
+            <div class="card shadow-sm mb-5 mb-xl-0">
                 <div class="card-header d-flex justify-content-between align-items-center py-3">
                     <div class="d-flex align-items-center gap-3">
                         <span class="fw-bold">Status:</span>
@@ -100,7 +107,7 @@ renderRosterStaffPanelColumn :: (?context :: ControllerContext) => Int -> [Roste
 renderRosterStaffPanelColumn weekOffset panelStaff =
     if currentUserIsManager
         then [hsx|
-            <div class="col-12 col-xl-4">
+            <div class="col-12 col-xl-4 col-xxl-3 roster-layout-side">
                 {renderRosterStaffPanel weekOffset panelStaff}
             </div>
         |]
@@ -110,15 +117,18 @@ renderRosterStaffPanel :: Int -> [RosterStaffPanelEntry] -> Html
 renderRosterStaffPanel weekOffset panelStaff = [hsx|
     <div class="app-panel roster-staff-panel">
         <div class="app-panel-body">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <div>
-                    <h2 class="h5 mb-1">Staff</h2>
-                    <p class="app-muted mb-0 small">Active linked staff available from the roster workflow.</p>
+            <h2 class="h5 mb-3">Staff</h2>
+
+            <div class="roster-staff-table">
+                <div class="roster-staff-table-head">
+                    <div>Name</div>
+                    <div>Shifts (Ideal)</div>
+                    <div>Role</div>
+                    <div>Action</div>
                 </div>
-                <span class="badge bg-secondary">{tshow (length panelStaff)}</span>
             </div>
 
-            <div class="d-grid gap-3">
+            <div class="roster-staff-panel-list roster-staff-table-body">
                 {forEach panelStaff (renderRosterStaffPanelEntry weekOffset)}
             </div>
         </div>
@@ -127,30 +137,32 @@ renderRosterStaffPanel weekOffset panelStaff = [hsx|
 
 renderRosterStaffPanelEntry :: Int -> RosterStaffPanelEntry -> Html
 renderRosterStaffPanelEntry weekOffset entry = [hsx|
-    <section class="roster-staff-panel-entry border rounded-3 p-3">
-        <div class="d-flex justify-content-between align-items-start gap-3">
-            <div>
-                <h3 class="h6 mb-1">{entry.staff.firstName} {entry.staff.lastName}</h3>
-                <div class="small app-muted">
-                    {entry.assignedShiftCount} assigned this week
-                    {renderIdealShifts entry.staff}
-                </div>
-            </div>
+    <section class="roster-staff-panel-entry">
+        <div class="roster-staff-cell roster-staff-name">
+            <span class="roster-staff-name-primary">{entry.staff.firstName} {entry.staff.lastName}</span>
+        </div>
+        <div class="roster-staff-cell">{renderShiftSummary entry}</div>
+        <div class="roster-staff-cell">
             <span class="badge text-bg-secondary text-uppercase">{entry.userRole}</span>
         </div>
-        <div class="mt-3">
-            <a class="btn btn-sm btn-outline-secondary" href={appendQueryParams (pathTo (EditStaffAction entry.staff.id)) [("weekOffset", tshow weekOffset)]}>
+        <div class="roster-staff-cell">
+            <button type="button"
+               class="btn btn-sm btn-outline-secondary"
+               hx-get={appendQueryParams (pathTo (EditStaffAction entry.staff.id)) [("weekOffset", tshow weekOffset)]}
+               hx-target={"#" <> htmxModalMountId}
+               hx-swap="innerHTML"
+               hx-push-url="false">
                 Edit
-            </a>
+            </button>
         </div>
     </section>
 |]
 
-renderIdealShifts :: Staff -> Html
-renderIdealShifts staff =
-    case staff.idealShiftsPerWeek of
-        Just shifts -> [hsx|<span> · ideal {tshow shifts}</span>|]
-        Nothing     -> mempty
+renderShiftSummary :: RosterStaffPanelEntry -> Html
+renderShiftSummary entry =
+    case entry.staff.idealShiftsPerWeek of
+        Just shifts -> [hsx|{tshow entry.assignedShiftCount} ({tshow shifts})|]
+        Nothing     -> [hsx|{tshow entry.assignedShiftCount} <span class="app-muted">(-)</span>|]
 
 renderSlotHeaderGroup :: SlotName -> Html
 renderSlotHeaderGroup slotName = [hsx|
@@ -162,7 +174,7 @@ renderSlotSubHeaders _ =
     mconcat
         [ [hsx|<th class="py-1 roster-subhead roster-col-time">Time</th>|]
         , [hsx|<th class="py-1 roster-subhead roster-col-staff">Staff</th>|]
-        , [hsx|<th class="py-1 roster-subhead roster-col-code roster-block-end">Code</th>|]
+        , [hsx|<th class="py-1 roster-subhead roster-col-code roster-block-end">Note</th>|]
         ]
 
 renderRosterDay :: (?context :: ControllerContext) => [SlotName] -> [Staff] -> Day -> [RosterSlot] -> [(Id RosterSlot, [RosterConflict])] -> RosterDay -> Html
@@ -294,7 +306,7 @@ renderBlockCells staffMembers rosterDayId rowIndex rowSlots slotConflicts (block
                                 hx-sync="#roster-content:queue last"
                                 hx-swap="none"
                                 disabled={not currentUserIsManager}>
-                            <option value="">Unassigned</option>
+                            <option value=""></option>
                             {forEach staffMembers (renderStaffOption slot.staffId)}
                         </select>
                         {renderConflictBadge currentPrimaryConflict}
@@ -306,7 +318,7 @@ renderBlockCells staffMembers rosterDayId rowIndex rowSlots slotConflicts (block
                         <input type="text"
                                name="note"
                                value={currentNote}
-                               placeholder="Code"
+                               placeholder=""
                                class="form-control form-control-sm slot-note-input slot-cell-input"
                                hx-post={UpdateRosterSlotAction slot.id}
                                hx-trigger="change"

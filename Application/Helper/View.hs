@@ -35,6 +35,31 @@ linkedActiveStaffForRosterPanel =
         sortStaff left right =
             compare left.firstName right.firstName <> compare left.lastName right.lastName
 
+htmxModalMountId :: Text
+htmxModalMountId = "htmx-modal-mount"
+
+renderHtmxModal :: Text -> Html -> Html -> Html
+renderHtmxModal title modalContent modalFooter = [hsx|
+    <div class="modal fade show d-block"
+         data-htmx-modal="true"
+         tabindex="-1"
+         role="dialog"
+         aria-modal="true"
+         aria-labelledby="htmx-modal-title">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content shadow">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="htmx-modal-title">{title}</h5>
+                    <button type="button" class="btn-close" aria-label="Close" data-htmx-modal-close="true"></button>
+                </div>
+                <div class="modal-body">{modalContent}</div>
+                {modalFooter}
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show" data-htmx-modal-backdrop="true"></div>
+|]
+
 -- | Shared modal id for the reusable quarter-hour time picker.
 timePickerModalId :: Text
 timePickerModalId = "quarter-hour-time-picker-modal"
@@ -264,9 +289,10 @@ renderTimesheetEntryModal title weekOffset formContent =
 
 renderStaffEditModal :: Text -> Int -> Html -> Html
 renderStaffEditModal title weekOffset formContent =
-    renderModal Modal
-        { modalTitle = title
-        , modalCloseUrl = pathTo (ShowRosterWeekAction weekOffset)
-        , modalFooter = Nothing
-        , modalContent = formContent
-        }
+    renderHtmxModal title formContent footer
+    where
+        footer = [hsx|
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-htmx-modal-close="true">Cancel</button>
+            </div>
+        |]
