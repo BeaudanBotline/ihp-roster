@@ -1,6 +1,8 @@
 module Test.Controller.UsersSpec where
 
+import Application.Helper.Controller (updateVenueMembershipRoleWithAudit)
 import Config
+import Data.Aeson (Value (Null))
 import Data.Time.Clock (addUTCTime, getCurrentTime)
 import Generated.Types
 import IHP.ControllerPrelude
@@ -118,3 +120,34 @@ tests = beforeAll testContext do
                 auditEvent.eventType `shouldBe` "venue_role_assigned"
                 auditEvent.targetTable `shouldBe` "venue_memberships"
                 auditEvent.targetId `shouldBe` unpackId membership.id
+
+                roleEvent <- query @VenueMembershipRoleEvent |> fetchOne
+                roleEvent.eventType `shouldBe` "assigned"
+                roleEvent.previousRole `shouldBe` Nothing
+                roleEvent.newRole `shouldBe` "venue_owner"
+
+        it "records durable history when a venue membership role changes" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Role Change Venue"
+                owner <- createUserRecord "owner-role@example.com" "staff" True
+                user <- createUserRecord "worker-role@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue owner "venue_owner"
+                membership <- createVenueMembershipRecord venue user "worker"
+
+                updatedMembership <- updateVenueMembershipRoleWithAudit
+                    (unpackId owner.id)
+                    "web"
+                    membership
+                    "manager"
+                    Null
+
+                updatedMembership.venueRole `shouldBe` "manager"
+
+                auditEvent <- query @AuditEvent |> fetchOne
+                auditEvent.eventType `shouldBe` "venue_role_changed"
+                auditEvent.targetId `shouldBe` unpackId membership.id
+
+                roleEvent <- query @VenueMembershipRoleEvent |> fetchOne
+                roleEvent.eventType `shouldBe` "changed"
+                roleEvent.previousRole `shouldBe` Just "worker"
+                roleEvent.newRole `shouldBe` "manager"

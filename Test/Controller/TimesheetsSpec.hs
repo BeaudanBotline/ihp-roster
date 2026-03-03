@@ -64,6 +64,11 @@ tests = beforeAll testContext do
                 updatedEntry.isApproved `shouldBe` True
                 updatedEntry.approvedByUserId `shouldBe` Just (unpackId manager.id)
 
+                version <- query @TimesheetEntryVersion |> fetchOne
+                version.versionAction `shouldBe` "approved"
+                version.timesheetEntryId `shouldBe` unpackId entry.id
+                version.actorUserId `shouldBe` unpackId manager.id
+
                 auditEvent <- query @AuditEvent |> fetchOne
                 auditEvent.venueId `shouldBe` unpackId venue.id
                 auditEvent.actorUserId `shouldBe` unpackId manager.id
@@ -91,6 +96,10 @@ tests = beforeAll testContext do
                 updatedEntry <- fetch entry.id
                 updatedEntry.isApproved `shouldBe` False
                 updatedEntry.approvedByUserId `shouldBe` Nothing
+
+                version <- query @TimesheetEntryVersion |> fetchOne
+                version.versionAction `shouldBe` "unapproved"
+                version.timesheetEntryId `shouldBe` unpackId entry.id
 
                 auditEvent <- query @AuditEvent |> fetchOne
                 auditEvent.eventType `shouldBe` "timesheet_unapproved"
@@ -122,6 +131,54 @@ tests = beforeAll testContext do
                 parseTimeParam "09:15" `shouldBe` Just updatedEntry.startTime
                 parseTimeParam "17:15" `shouldBe` Just updatedEntry.endTime
 
+                version <- query @TimesheetEntryVersion |> fetchOne
+                version.versionAction `shouldBe` "approval_reset"
+                version.timesheetEntryId `shouldBe` unpackId entry.id
+
                 auditEvent <- query @AuditEvent |> fetchOne
                 auditEvent.eventType `shouldBe` "timesheet_approval_reset"
                 auditEvent.targetId `shouldBe` unpackId entry.id
+
+        it "records a version row before deleting an unapproved timesheet entry" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Timesheet Venue"
+                manager <- createUserRecord "timesheet-delete@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue manager "manager"
+                staff <- createStaffRecord venue Nothing "Del" "Shift"
+                entry <- createTimesheetEntryRecord venue staff (fromGregorian 2025 1 10)
+
+                response <- withUserAndCurrentVenue manager venue.id do
+                    callActionWithParams (DeleteTimesheetEntryAction entry.id)
+                        [("weekOffset", "0")]
+
+                response `responseStatusShouldBe` status302
+
+                remainingEntries <- query @TimesheetEntry |> fetchCount
+                remainingEntries `shouldBe` 0
+
+                version <- query @TimesheetEntryVersion |> fetchOne
+                version.versionAction `shouldBe` "deleted"
+                version.timesheetEntryId `shouldBe` unpackId entry.id
+
+        it "blocks deleting an approved timesheet entry" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Timesheet Venue"
+                manager <- createUserRecord "timesheet-protected-delete@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue manager "manager"
+                staff <- createStaffRecord venue Nothing "Ada" "Shift"
+                entry <- createTimesheetEntryRecord venue staff (fromGregorian 2025 1 11)
+                    >>= updateRecord
+                        . set #isApproved True
+                        . set #approvedByUserId (Just (unpackId manager.id))
+
+                response <- withUserAndCurrentVenue manager venue.id do
+                    callActionWithParams (DeleteTimesheetEntryAction entry.id)
+                        [("weekOffset", "0")]
+
+                response `responseStatusShouldBe` status302
+
+                remainingEntries <- query @TimesheetEntry |> fetchCount
+                remainingEntries `shouldBe` 1
+
+                versionCount <- query @TimesheetEntryVersion |> fetchCount
+                versionCount `shouldBe` 0

@@ -185,6 +185,20 @@ CREATE TABLE leave_requests (
     FOREIGN KEY (venue_id) REFERENCES venues (id) ON DELETE CASCADE,
     FOREIGN KEY (staff_id) REFERENCES staff (id) ON DELETE CASCADE
 );
+CREATE TABLE leave_request_events (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
+    venue_id UUID NOT NULL,
+    leave_request_id UUID NOT NULL,
+    actor_user_id UUID NOT NULL,
+    event_type TEXT NOT NULL,
+    previous_status TEXT,
+    new_status TEXT,
+    payload JSONB DEFAULT '{}'::JSONB NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    CHECK (event_type IN ('created', 'approved', 'denied', 'deleted')),
+    FOREIGN KEY (venue_id) REFERENCES venues (id) ON DELETE CASCADE,
+    FOREIGN KEY (actor_user_id) REFERENCES users (id) ON DELETE RESTRICT
+);
 CREATE TABLE audit_events (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
     venue_id UUID NOT NULL,
@@ -245,6 +259,33 @@ CREATE TABLE timesheet_entries (
     FOREIGN KEY (staff_id) REFERENCES staff (id) ON DELETE CASCADE,
     FOREIGN KEY (approved_by_user_id) REFERENCES users (id) ON DELETE SET NULL
 );
+CREATE TABLE timesheet_entry_versions (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
+    venue_id UUID NOT NULL,
+    timesheet_entry_id UUID NOT NULL,
+    actor_user_id UUID NOT NULL,
+    version_action TEXT NOT NULL,
+    snapshot JSONB DEFAULT '{}'::JSONB NOT NULL,
+    payload JSONB DEFAULT '{}'::JSONB NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    CHECK (version_action IN ('created', 'updated', 'approved', 'unapproved', 'approval_reset', 'deleted')),
+    FOREIGN KEY (venue_id) REFERENCES venues (id) ON DELETE CASCADE,
+    FOREIGN KEY (actor_user_id) REFERENCES users (id) ON DELETE RESTRICT
+);
+CREATE TABLE venue_membership_role_events (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
+    venue_id UUID NOT NULL,
+    venue_membership_id UUID NOT NULL,
+    actor_user_id UUID NOT NULL,
+    event_type TEXT NOT NULL,
+    previous_role TEXT,
+    new_role TEXT NOT NULL,
+    payload JSONB DEFAULT '{}'::JSONB NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    CHECK (event_type IN ('assigned', 'changed')),
+    FOREIGN KEY (venue_id) REFERENCES venues (id) ON DELETE CASCADE,
+    FOREIGN KEY (actor_user_id) REFERENCES users (id) ON DELETE RESTRICT
+);
 
 -- Composite indexes for common venue-scoped access paths
 CREATE INDEX idx_venue_memberships_venue_user ON venue_memberships (venue_id, user_id);
@@ -254,12 +295,15 @@ CREATE INDEX idx_staff_venue ON staff (venue_id);
 CREATE INDEX idx_roster_weeks_venue_offset ON roster_weeks (venue_id, week_offset);
 CREATE INDEX idx_timesheet_entries_venue_staff ON timesheet_entries (venue_id, staff_id);
 CREATE INDEX idx_timesheet_entries_venue_worked_on ON timesheet_entries (venue_id, worked_on);
+CREATE INDEX idx_timesheet_entry_versions_entry_created_at ON timesheet_entry_versions (timesheet_entry_id, created_at DESC);
 CREATE INDEX idx_leave_requests_venue_staff ON leave_requests (venue_id, staff_id);
 CREATE INDEX idx_leave_requests_venue_start_date ON leave_requests (venue_id, start_date);
+CREATE INDEX idx_leave_request_events_request_created_at ON leave_request_events (leave_request_id, created_at DESC);
 CREATE INDEX idx_staff_availability_venue ON staff_availability (venue_id);
 CREATE INDEX idx_audit_events_venue_created_at ON audit_events (venue_id, created_at DESC);
 CREATE INDEX idx_audit_events_target ON audit_events (target_table, target_id);
 CREATE INDEX idx_export_jobs_venue_created_at ON export_jobs (venue_id, created_at DESC);
+CREATE INDEX idx_venue_membership_role_events_membership_created_at ON venue_membership_role_events (venue_membership_id, created_at DESC);
 CREATE UNIQUE INDEX idx_export_jobs_generated_file_id ON export_jobs (generated_file_id);
 CREATE UNIQUE INDEX idx_export_jobs_download_token ON export_jobs (download_token);
 

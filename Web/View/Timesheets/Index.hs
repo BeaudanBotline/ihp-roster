@@ -172,12 +172,15 @@ renderEditActions entry canEdit weekOffset
            hx-push-url="false">
             Edit
         </a>
-        <a href={deleteUrl} class="btn btn-sm btn-outline-danger js-delete js-delete-no-confirm">Delete</a>
+        {when (not entry.isApproved) renderDeleteButton}
     |]
     | otherwise = mempty
     where
         editUrl = appendQueryParams (pathTo (EditTimesheetEntryAction (get #id entry))) [("weekOffset", tshow weekOffset)]
         deleteUrl = appendQueryParams (pathTo (DeleteTimesheetEntryAction (get #id entry))) [("weekOffset", tshow weekOffset)]
+        renderDeleteButton = [hsx|
+            <a href={deleteUrl} class="btn btn-sm btn-outline-danger js-delete js-delete-no-confirm">Delete</a>
+        |]
 
 renderApprovalAction :: (?context :: ControllerContext) => TimesheetEntry -> Int -> Html
 renderApprovalAction entry weekOffset

@@ -59,7 +59,16 @@ instance Controller LeaveRequestsController where
                                 then respondHtml (renderNewLeaveRequestDialog leaveRequest)
                                 else render NewView { .. }
                         Right leaveRequest -> do
-                            _ <- leaveRequest |> createRecord
+                            _ <- withTransaction do
+                                createdLeaveRequest <- leaveRequest |> createRecord
+                                void $
+                                    recordCurrentUserLeaveRequestEvent
+                                        createdLeaveRequest
+                                        "created"
+                                        Nothing
+                                        (Just createdLeaveRequest.status)
+                                        Aeson.Null
+                                pure createdLeaveRequest
                             if isHtmxRequest
                                 then respondWithLeaveRequestsContent
                                 else do
@@ -76,6 +85,13 @@ instance Controller LeaveRequestsController where
                 leaveRequest
                     |> set #status (leaveRequestStatusToText LeaveApproved)
                     |> updateRecord
+            void $
+                recordCurrentUserLeaveRequestEvent
+                    updatedLeaveRequest
+                    "approved"
+                    (Just leaveRequest.status)
+                    (Just updatedLeaveRequest.status)
+                    Aeson.Null
             unless wasApproved do
                 triggerRosterConflictRecomputeForLeave updatedLeaveRequest
             void $ recordCurrentUserAuditEvent
@@ -103,6 +119,13 @@ instance Controller LeaveRequestsController where
                 leaveRequest
                     |> set #status (leaveRequestStatusToText LeaveDenied)
                     |> updateRecord
+            void $
+                recordCurrentUserLeaveRequestEvent
+                    updatedLeaveRequest
+                    "denied"
+                    (Just leaveRequest.status)
+                    (Just updatedLeaveRequest.status)
+                    Aeson.Null
             when wasApproved do
                 triggerRosterConflictRecomputeForLeave updatedLeaveRequest
             void $ recordCurrentUserAuditEvent
@@ -124,9 +147,17 @@ instance Controller LeaveRequestsController where
         leaveRequest <- fetch leaveRequestId
         ensureRecordInCurrentVenue leaveRequest.venueId
         ensureLeaveDeleteAllowed leaveRequest
+        unless (leaveRequestCanBeDeleted leaveRequest) do
+            setErrorMessage "Reviewed leave requests cannot be deleted."
+            redirectTo LeaveRequestsAction
         withTransaction do
-            when (parseLeaveRequestStatus leaveRequest.status == Just LeaveApproved) do
-                triggerRosterConflictRecomputeForLeave leaveRequest
+            void $
+                recordCurrentUserLeaveRequestEvent
+                    leaveRequest
+                    "deleted"
+                    (Just leaveRequest.status)
+                    Nothing
+                    Aeson.Null
             void $ recordCurrentUserAuditEvent
                 "leave_deleted"
                 "leave_requests"

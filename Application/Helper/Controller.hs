@@ -216,6 +216,144 @@ recordCurrentUserAuditEvent eventType targetTable targetId payload =
         payload
         requestAuditSourceChannel
 
+timesheetEntrySnapshot :: TimesheetEntry -> Aeson.Value
+timesheetEntrySnapshot entry =
+    Aeson.object
+        [ "id" Aeson..= unpackId (get #id entry)
+        , "venueId" Aeson..= entry.venueId
+        , "staffId" Aeson..= entry.staffId
+        , "workedOn" Aeson..= entry.workedOn
+        , "startTime" Aeson..= entry.startTime
+        , "endTime" Aeson..= entry.endTime
+        , "hadBreak" Aeson..= entry.hadBreak
+        , "breakStartTime" Aeson..= entry.breakStartTime
+        , "breakEndTime" Aeson..= entry.breakEndTime
+        , "breakMinutes" Aeson..= entry.breakMinutes
+        , "isApproved" Aeson..= entry.isApproved
+        , "approvedAt" Aeson..= entry.approvedAt
+        , "approvedByUserId" Aeson..= entry.approvedByUserId
+        ]
+
+recordTimesheetEntryVersion ::
+    (?modelContext :: ModelContext) =>
+    UUID ->
+    UUID ->
+    Text ->
+    TimesheetEntry ->
+    Aeson.Value ->
+    IO TimesheetEntryVersion
+recordTimesheetEntryVersion venueId actorUserId versionAction entry payload =
+    newRecord @TimesheetEntryVersion
+        |> set #venueId venueId
+        |> set #timesheetEntryId (unpackId (get #id entry))
+        |> set #actorUserId actorUserId
+        |> set #versionAction versionAction
+        |> set #snapshot (timesheetEntrySnapshot entry)
+        |> set #payload payload
+        |> createRecord
+
+recordCurrentUserTimesheetEntryVersion ::
+    (?context :: ControllerContext, ?modelContext :: ModelContext) =>
+    Text ->
+    TimesheetEntry ->
+    Aeson.Value ->
+    IO TimesheetEntryVersion
+recordCurrentUserTimesheetEntryVersion =
+    recordTimesheetEntryVersion
+        (unpackId currentVenueId)
+        (unpackId (get #id currentUser))
+
+recordLeaveRequestEvent ::
+    (?modelContext :: ModelContext) =>
+    UUID ->
+    UUID ->
+    UUID ->
+    Text ->
+    Maybe Text ->
+    Maybe Text ->
+    Aeson.Value ->
+    IO LeaveRequestEvent
+recordLeaveRequestEvent venueId actorUserId leaveRequestId eventType previousStatus newStatus payload =
+    newRecord @LeaveRequestEvent
+        |> set #venueId venueId
+        |> set #leaveRequestId leaveRequestId
+        |> set #actorUserId actorUserId
+        |> set #eventType eventType
+        |> set #previousStatus previousStatus
+        |> set #newStatus newStatus
+        |> set #payload payload
+        |> createRecord
+
+recordCurrentUserLeaveRequestEvent ::
+    (?context :: ControllerContext, ?modelContext :: ModelContext) =>
+    LeaveRequest ->
+    Text ->
+    Maybe Text ->
+    Maybe Text ->
+    Aeson.Value ->
+    IO LeaveRequestEvent
+recordCurrentUserLeaveRequestEvent leaveRequest =
+    recordLeaveRequestEvent
+        (unpackId currentVenueId)
+        (unpackId (get #id currentUser))
+        (unpackId (get #id leaveRequest))
+
+recordVenueMembershipRoleEvent ::
+    (?modelContext :: ModelContext) =>
+    UUID ->
+    UUID ->
+    VenueMembership ->
+    Text ->
+    Maybe Text ->
+    Text ->
+    Aeson.Value ->
+    IO VenueMembershipRoleEvent
+recordVenueMembershipRoleEvent venueId actorUserId membership eventType previousRole newRole payload =
+    newRecord @VenueMembershipRoleEvent
+        |> set #venueId venueId
+        |> set #venueMembershipId (unpackId (get #id membership))
+        |> set #actorUserId actorUserId
+        |> set #eventType eventType
+        |> set #previousRole previousRole
+        |> set #newRole newRole
+        |> set #payload payload
+        |> createRecord
+
+updateVenueMembershipRoleWithAudit ::
+    (?modelContext :: ModelContext) =>
+    UUID ->
+    Text ->
+    VenueMembership ->
+    Text ->
+    Aeson.Value ->
+    IO VenueMembership
+updateVenueMembershipRoleWithAudit actorUserId sourceChannel membership newRole payload
+    | membership.venueRole == newRole = pure membership
+    | otherwise = withTransaction do
+        updatedMembership <- membership |> set #venueRole newRole |> updateRecord
+        _ <- recordAuditEvent
+            membership.venueId
+            actorUserId
+            "venue_role_changed"
+            "venue_memberships"
+            (unpackId (get #id membership))
+            (Aeson.object
+                [ "previousRole" Aeson..= membership.venueRole
+                , "newRole" Aeson..= newRole
+                , "details" Aeson..= payload
+                ]
+            )
+            sourceChannel
+        _ <- recordVenueMembershipRoleEvent
+            membership.venueId
+            actorUserId
+            updatedMembership
+            "changed"
+            (Just membership.venueRole)
+            newRole
+            payload
+        pure updatedMembership
+
 -- | Parse a HH:MM text value into a TimeOfDay.
 parseTimeParam :: Text -> Maybe TimeOfDay
 parseTimeParam value = parseTimeM True defaultTimeLocale "%H:%M" (cs value)
@@ -257,6 +395,10 @@ ensureEditWindowOrManager workedOn =
         config <- fetchVenueConfig
         today <- utctDay <$> getCurrentTime
         accessDeniedUnless (isWithinEditWindow today workedOn config.staffTimesheetEditWindowDays)
+
+leaveRequestCanBeDeleted :: LeaveRequest -> Bool
+leaveRequestCanBeDeleted leaveRequest =
+    parseLeaveRequestStatus leaveRequest.status == Just LeavePending
 
 -- | True when leave date range is valid.
 -- Start date is first unavailable date, end date is first available date.

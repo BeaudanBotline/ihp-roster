@@ -1,6 +1,7 @@
 module Web.View.LeaveRequests.Index where
 
 import Application.Helper.Controller (LeaveRequestStatus (..),
+                                      leaveRequestCanBeDeleted,
                                       parseLeaveRequestStatus)
 import Data.Coerce (coerce)
 import Web.View.Prelude
@@ -138,7 +139,9 @@ renderDeleteAction staffMembers leaveRequest =
         |]
         else mempty
     where
-        canDelete = currentUserIsManager || isCurrentUsersLeaveRequest staffMembers leaveRequest
+        canDelete =
+            leaveRequestCanBeDeleted leaveRequest
+                && (currentUserIsManager || isCurrentUsersLeaveRequest staffMembers leaveRequest)
 
 isCurrentUsersLeaveRequest :: (?context :: ControllerContext) => [Staff] -> LeaveRequest -> Bool
 isCurrentUsersLeaveRequest staffMembers leaveRequest =

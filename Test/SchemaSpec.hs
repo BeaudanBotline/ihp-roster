@@ -30,7 +30,9 @@ tests = describe "Schema" do
         let _ = (Nothing :: Maybe RosterDay)
         let _ = (Nothing :: Maybe RosterSlot)
         let _ = (Nothing :: Maybe TimesheetEntry)
+        let _ = (Nothing :: Maybe TimesheetEntryVersion)
         let _ = (Nothing :: Maybe LeaveRequest)
+        let _ = (Nothing :: Maybe LeaveRequestEvent)
         let _ = (Nothing :: Maybe VenueConfig)
         let _ = (Nothing :: Maybe StaffAvailability)
         let _ = (Nothing :: Maybe PayLevel)
@@ -40,6 +42,7 @@ tests = describe "Schema" do
         let _ = (Nothing :: Maybe PayLevelDayRule)
         let _ = (Nothing :: Maybe AuditEvent)
         let _ = (Nothing :: Maybe ExportJob)
+        let _ = (Nothing :: Maybe VenueMembershipRoleEvent)
         True `shouldBe` True
 
     it "generates venue and venue membership models" do

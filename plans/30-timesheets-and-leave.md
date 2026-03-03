@@ -37,7 +37,7 @@ Deliver timesheet and leave workflows that are venue-scoped, approval-aware, and
 - **Status:** [x]
 
 ### A.6 Correction-safe timesheets, leave history and role changes
-- **Status:** [ ]
+- **Status:** [x]
 - **Goal:** Replace destructive employment-record behavior with provenance-preserving flows.
 - **Deliverables:**
   - Choose and implement a correction-safe model for timesheets.
@@ -47,6 +47,7 @@ Deliver timesheet and leave workflows that are venue-scoped, approval-aware, and
 - **Acceptance checks:**
   - Payroll-adjacent changes are not silently destructive.
   - Approval and correction history remain attributable and test-covered.
+- **Completion notes:** Added `timesheet_entry_versions`, `leave_request_events`, and `venue_membership_role_events` in `Application/Schema.sql`; wired shared provenance helpers through `Application/Helper/Controller.hs`; updated `Web/Controller/Timesheets.hs`, `Web/Controller/LeaveRequests.hs`, `Web/Controller/Users.hs`, and related views to block destructive deletion of approved/reviewed records; extended `Test/Controller/TimesheetsSpec.hs`, `Test/Controller/LeaveRequestsSpec.hs`, `Test/Controller/UsersSpec.hs`, and `Test/SchemaSpec.hs`.
 
 ## Primary Files
 

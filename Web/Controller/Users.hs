@@ -79,6 +79,18 @@ instance Controller UsersController where
                                                 ]
                                             )
                                             requestAuditSourceChannel
+                                        void $ recordVenueMembershipRoleEvent
+                                            invitation.venueId
+                                            (unpackId (get #id user))
+                                            membership
+                                            "assigned"
+                                            Nothing
+                                            membership.venueRole
+                                            (Aeson.object
+                                                [ "email" Aeson..= user.email
+                                                , "invitationId" Aeson..= unpackId (get #id invitation)
+                                                ]
+                                            )
                                     setSuccessMessage "Account created from invitation. Please sign in."
                                     redirectTo NewSessionAction
                     _ -> do

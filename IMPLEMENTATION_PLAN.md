@@ -91,9 +91,10 @@ These steps are globally ordered. Detailed task breakdowns live in the linked pi
 - **Note:** parts of this stream are already delivered; remaining work should respect auth/scoping foundations.
 
 ### Pipeline 30 — Timesheets and Leave
-- **Status:** [ ]
+- **Status:** [x]
 - **File:** `plans/30-timesheets-and-leave.md`
 - **Focus:** exact time validation, approval workflows, edit windows, leave lifecycle, and correction-safe history.
+- **Progress:** 5.1, 5.2, 5.3, 5.4, and A.6 are complete. Timesheet mutations now append `timesheet_entry_versions`, leave lifecycle transitions append `leave_request_events`, invitation assignment plus role changes append `venue_membership_role_events`, and reviewed payroll-adjacent records are no longer silently deleted; coverage was added in timesheet, leave, user, and schema specs.
 
 ### Pipeline 40 — Pay Config and Admin
 - **Status:** [ ]

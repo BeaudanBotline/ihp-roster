@@ -59,12 +59,12 @@ instance Controller TimesheetsController where
     action CreateTimesheetEntryAction = do
         weekOffset <- weekOffsetFromParamOrCurrent
         staffMembers <- fetchStaffForForm
-        let timesheetEntry =
+        let timesheetEntryRecord =
                 newRecord @TimesheetEntry
                     |> set #venueId (unpackId currentVenueId)
                     |> buildTimesheetEntry
 
-        timesheetEntry
+        timesheetEntryRecord
             |> ifValid \case
                 Left timesheetEntry -> do
                     if isHtmxRequest
@@ -72,9 +72,12 @@ instance Controller TimesheetsController where
                         else render NewView { .. }
                 Right timesheetEntry -> do
                     ensureStaffAssignmentAllowed timesheetEntry.staffId
-                    _ <- timesheetEntry |> createRecord
+                    createdEntry <- withTransaction do
+                        createdEntry <- timesheetEntry |> createRecord
+                        void $ recordCurrentUserTimesheetEntryVersion "created" createdEntry Aeson.Null
+                        pure createdEntry
                     if isHtmxRequest
-                        then respondWithTimesheetDaySection weekOffset timesheetEntry.workedOn
+                        then respondWithTimesheetDaySection weekOffset createdEntry.workedOn
                         else do
                             setSuccessMessage "Timesheet entry created"
                             redirectTo ShowTimesheetWeekAction { weekOffset }
@@ -92,16 +95,16 @@ instance Controller TimesheetsController where
             else render EditView { .. }
 
     action UpdateTimesheetEntryAction { timesheetEntryId } = do
-        timesheetEntry <- fetch timesheetEntryId
-        ensureRecordInCurrentVenue timesheetEntry.venueId
-        ensureTimesheetVisibility timesheetEntry
-        ensureEditWindowOrManager timesheetEntry.workedOn
+        existingEntry <- fetch timesheetEntryId
+        ensureRecordInCurrentVenue existingEntry.venueId
+        ensureTimesheetVisibility existingEntry
+        ensureEditWindowOrManager existingEntry.workedOn
 
-        weekOffset <- weekOffsetFromParamOrEntry timesheetEntry.workedOn
+        weekOffset <- weekOffsetFromParamOrEntry existingEntry.workedOn
         staffMembers <- fetchStaffForForm
 
-        let wasApproved = timesheetEntry.isApproved
-        timesheetEntry
+        let wasApproved = existingEntry.isApproved
+        existingEntry
             |> buildTimesheetEntry
             |> ifValid \case
                 Left timesheetEntry -> do
@@ -110,10 +113,19 @@ instance Controller TimesheetsController where
                         else render EditView { .. }
                 Right timesheetEntry -> do
                     ensureStaffAssignmentAllowed timesheetEntry.staffId
+                    let updateAction = if wasApproved then "approval_reset" else "updated"
                     withTransaction do
-                        _ <- timesheetEntry
+                        updatedEntry <- timesheetEntry
                             |> resetApprovalOnEdit wasApproved
                             |> updateRecord
+                        void $
+                            recordCurrentUserTimesheetEntryVersion
+                                updateAction
+                                updatedEntry
+                                (Aeson.object
+                                    [ "previous" Aeson..= timesheetEntrySnapshot existingEntry
+                                    ]
+                                )
                         when wasApproved do
                             void $ recordCurrentUserAuditEvent
                                 "timesheet_approval_reset"
@@ -142,8 +154,17 @@ instance Controller TimesheetsController where
         ensureEditWindowOrManager timesheetEntry.workedOn
 
         weekOffset <- weekOffsetFromParamOrEntry timesheetEntry.workedOn
-        deleteRecord timesheetEntry
-        setSuccessMessage "Timesheet entry deleted"
+        if timesheetEntry.isApproved
+            then setErrorMessage "Approved timesheet entries must be unapproved before deletion."
+            else do
+                withTransaction do
+                    void $
+                        recordCurrentUserTimesheetEntryVersion
+                            "deleted"
+                            timesheetEntry
+                            Aeson.Null
+                    deleteRecord timesheetEntry
+                setSuccessMessage "Timesheet entry deleted"
         redirectTo ShowTimesheetWeekAction { weekOffset }
 
     action ApproveTimesheetEntryAction { timesheetEntryId } = do
@@ -154,11 +175,19 @@ instance Controller TimesheetsController where
 
         now <- getCurrentTime
         withTransaction do
-            _ <- timesheetEntry
+            updatedEntry <- timesheetEntry
                 |> set #isApproved True
                 |> set #approvedAt (Just now)
                 |> set #approvedByUserId (Just (unpackId (get #id currentUser)))
                 |> updateRecord
+            void $
+                recordCurrentUserTimesheetEntryVersion
+                    "approved"
+                    updatedEntry
+                    (Aeson.object
+                        [ "previous" Aeson..= timesheetEntrySnapshot timesheetEntry
+                        ]
+                    )
             void $ recordCurrentUserAuditEvent
                 "timesheet_approved"
                 "timesheet_entries"
@@ -181,11 +210,19 @@ instance Controller TimesheetsController where
         weekOffset <- weekOffsetFromParamOrEntry timesheetEntry.workedOn
 
         withTransaction do
-            _ <- timesheetEntry
+            updatedEntry <- timesheetEntry
                 |> set #isApproved False
                 |> set #approvedAt Nothing
                 |> set #approvedByUserId Nothing
                 |> updateRecord
+            void $
+                recordCurrentUserTimesheetEntryVersion
+                    "unapproved"
+                    updatedEntry
+                    (Aeson.object
+                        [ "previous" Aeson..= timesheetEntrySnapshot timesheetEntry
+                        ]
+                    )
             void $ recordCurrentUserAuditEvent
                 "timesheet_unapproved"
                 "timesheet_entries"
