@@ -29,12 +29,16 @@ Enforce venue-scoped data access everywhere, then add the audit and export primi
   - Venue-scoped indexes and fixture wiring are in place.
 
 ### A.4 Venue-scope all core business queries
-- **Status:** [ ]
+- **Status:** [x]
 - **Goal:** Remove global-data assumptions from controllers and helpers.
 - **Deliverables:**
   - Add venue filters to roster, timesheet, leave, profile and staff queries.
   - Refactor singleton config assumptions where venue ownership is required.
   - Add helper functions for common venue-scoped query patterns.
+- **Completion notes:**
+  - `Web/Controller/RosterWeeks.hs`, `Web/Controller/Timesheets.hs`, `Web/Controller/LeaveRequests.hs`, `Web/Controller/Profiles.hs`, and `Web/Controller/Staff.hs` scope operational queries through `currentVenue`, current-membership helpers, and explicit same-venue record guards.
+  - `Application/Helper/Controller.hs` centralizes venue-scoped helpers for current-user staff lookup, optional staff validation, same-venue record checks, venue config lookup, and leave-triggered roster recompute writes.
+  - Leave approval side effects now only touch `roster_weeks` in the same venue as the leave request, eliminating a cross-venue week-offset write path.
 - **Acceptance checks:**
   - No authenticated business flow can read or write another venue’s data.
   - Venue-scoped tests exist for roster, leave and timesheet flows.
@@ -62,12 +66,16 @@ Enforce venue-scoped data access everywhere, then add the audit and export primi
   - Export lifecycle is explicit rather than ad hoc controller output.
 
 ### 1.3 Update tests for venue isolation
-- **Status:** [ ]
+- **Status:** [x]
 - **Goal:** Prove that cross-venue access is blocked.
 - **Deliverables:**
   - Controller tests for unauthorized cross-venue access.
   - Visibility tests for roster, timesheet and leave data.
   - Tests proving `users` fields cannot bypass venue membership checks.
+- **Completion notes:**
+  - `Test/Controller/VenueAccessSpec.hs` covers cross-venue denial for staff, roster, leave, and timesheet actions plus venue-scoped visibility for roster, leave, and timesheet pages.
+  - `Test/Controller/LeaveRequestsSpec.hs` covers leave-approval side effects staying inside the current venue’s roster weeks.
+  - `Test/SchemaSpec.hs` and venue-access controller tests prove `users.user_role` does not bypass venue membership authority.
 
 ## Primary Files
 

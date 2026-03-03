@@ -221,6 +221,7 @@ triggerRosterConflictRecomputeForLeave leaveRequest = do
     unless (null affectedOffsets) do
         now <- getCurrentTime
         affectedWeeks <- query @RosterWeek
+            |> filterWhere (#venueId, leaveRequest.venueId)
             |> filterWhereIn (#weekOffset, affectedOffsets)
             |> fetch
 
