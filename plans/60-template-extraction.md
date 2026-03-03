@@ -59,7 +59,7 @@ Work within a phase is sequential (each slice depends on the prior). Phases them
 - **Completion notes:** Landed on `master` as `11af962`. Verified with `direnv exec . typecheck`, then `dev-start`, `dev-wait 90`, `dev-status`, and `dev-stop`; the environment was already healthy when `dev-start` ran, and `dev-stop` shut the managed process down cleanly.
 
 ### Slice 1.3: hlint QuasiQuotes fix
-- **Status:** [ ]
+- **Status:** [x]
 - **Source commit:** `f330df7` (partial — only the hlint change)
 - **Strategy:** In `flake.nix`, change the two `hlint` invocations to include `-XQuasiQuotes`:
   ```
@@ -71,6 +71,7 @@ Work within a phase is sequential (each slice depends on the prior). Phases them
 - **Files:**
   - `flake.nix` (2 lines)
 - **Verification:** `direnv exec . lint`
+- **Completion notes:** Landed on `master` as `21c5f38`. In addition to the planned `flake.nix` change, current `master` required the companion `newtype` cleanup in `Web/View/Users/New.hs` from `f330df7` so `direnv exec . lint` would pass with `No hints`.
 
 ### Slice 1.4: Makefile IHP_LIB fallback
 - **Status:** [ ]
