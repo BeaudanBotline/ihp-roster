@@ -310,7 +310,7 @@ Depends on Phase 2 (Layout must have the dark-mode shell and mount points).
 No code dependencies — can proceed after Phase 1 or in parallel with Phases 2-3.
 
 ### Slice 4.1: Root AGENTS.md updates
-- **Status:** [ ]
+- **Status:** [x]
 - **Strategy:** Merge the generic additions from the roster branch `AGENTS.md` diff into master's `AGENTS.md`. Include:
   - **Dev automation section:** `dev-start`, `dev-stop`, `dev-status`, `dev-wait` documentation and the recommended automation snippet
   - **`XDG_CACHE_HOME` note** for nix fetcher cache
@@ -326,9 +326,10 @@ No code dependencies — can proceed after Phase 1 or in parallel with Phases 2-
 - **Files:**
   - `AGENTS.md`
 - **Verification:** Read the file; ensure no domain-specific references remain.
+- **Completion notes:** Landed on `master` as part of `24b7691`. Added the dev automation, overlay architecture, overlay implementation, `XDG_CACHE_HOME`, and verification workflow guidance while removing domain-specific navigation and planning details.
 
 ### Slice 4.2: Application/AGENTS.md
-- **Status:** [ ]
+- **Status:** [x]
 - **Strategy:** Create `Application/AGENTS.md` using the roster branch version but generalized:
   - Keep: Schema conventions, helper file descriptions, QueryBuilder cheat sheet, overlay helper guidance
   - Remove: References to venue/roster/staff/leave-specific context helpers
@@ -336,9 +337,10 @@ No code dependencies — can proceed after Phase 1 or in parallel with Phases 2-
 - **Files:**
   - `Application/AGENTS.md` (new)
 - **Verification:** Read the file.
+- **Completion notes:** Landed on `master` as part of `24b7691`. Generalized helper and schema guidance, including request-scoped context and overlay-helper patterns, without venue- or roster-specific examples.
 
 ### Slice 4.3: Web/Controller/AGENTS.md
-- **Status:** [ ]
+- **Status:** [x]
 - **Strategy:** Create `Web/Controller/AGENTS.md` using the roster branch version but generalized:
   - Keep: 4-file controller creation checklist, common patterns, overlay controller pattern, state transition pattern
   - Remove: "Navigation Controller Pattern" section (roster-specific `weekOffset` pattern)
@@ -346,9 +348,10 @@ No code dependencies — can proceed after Phase 1 or in parallel with Phases 2-
 - **Files:**
   - `Web/Controller/AGENTS.md` (new)
 - **Verification:** Read the file.
+- **Completion notes:** Landed on `master` as part of `24b7691`. Kept the four-file controller checklist, common controller patterns, overlay-controller pattern, and state-transition guidance while removing roster-specific navigation examples.
 
 ### Slice 4.4: Web/View/AGENTS.md
-- **Status:** [ ]
+- **Status:** [x]
 - **Strategy:** Create `Web/View/AGENTS.md` using the roster branch version but generalized:
   - Keep: View creation pattern, HSX rules, form pattern, key imports, theming pattern (dark mode), overlay pattern, global header pattern
   - Remove: "Roster HTMX Pattern", "Roster Week Controls", "Reusable Time Picker Pattern" sections
@@ -356,9 +359,10 @@ No code dependencies — can proceed after Phase 1 or in parallel with Phases 2-
 - **Files:**
   - `Web/View/AGENTS.md` (new)
 - **Verification:** Read the file.
+- **Completion notes:** Landed on `master` as part of `24b7691`. Generalized the theming, overlay, and global-header guidance and removed roster- and picker-specific sections from the template docs.
 
 ### Slice 4.5: e2e/AGENTS.md
-- **Status:** [ ]
+- **Status:** [x]
 - **Strategy:** Create `e2e/AGENTS.md` using the roster branch version but generalized:
   - Keep: Running tests, prerequisites, writing new tests (template, login pattern), test data convention, assertion style, operational notes, authenticated screenshot helper, common selectors, debugging
   - Remove: Roster/timesheet-specific assertion advice, venue-specific seed data notes
@@ -366,6 +370,7 @@ No code dependencies — can proceed after Phase 1 or in parallel with Phases 2-
 - **Files:**
   - `e2e/AGENTS.md` (new)
 - **Verification:** Read the file.
+- **Completion notes:** Landed on `master` as part of `24b7691`. Added generalized Playwright workflow, operational notes, authenticated screenshot helper guidance, and selector conventions without roster- or venue-specific expectations.
 
 ---
 
