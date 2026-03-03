@@ -1,0 +1,195 @@
+module Test.Support where
+
+import Application.Helper.Controller (currentVenueSessionKey)
+import qualified Data.Map.Strict as Map
+import Data.IORef (IORef, modifyIORef', newIORef, readIORef)
+import Config
+import qualified Data.ByteString as ByteString
+import Data.Time.Calendar (Day, fromGregorian)
+import Data.Time.LocalTime (TimeOfDay (..))
+import qualified Data.Serialize as Serialize
+import qualified Data.Vault.Lazy as Vault
+import Generated.Types
+import IHP.ApplicationContext (ApplicationContext)
+import IHP.Controller.Context (ControllerContext, newControllerContext)
+import IHP.Controller.RequestContext (RequestContext (..))
+import IHP.Controller.Session (sessionVaultKey)
+import IHP.ControllerPrelude
+import IHP.FrameworkConfig
+import IHP.HaskellSupport
+import qualified IHP.LoginSupport.Helper.Controller as LoginSupport
+import IHP.ModelSupport (sqlExec)
+import IHP.Prelude
+import IHP.Test.Mocking
+import qualified Network.Wai as Wai
+import qualified Network.Wai.Session
+import Web.FrontController ()
+import Web.Types
+
+testContext :: IO (MockContext WebApplication)
+testContext = mockContextNoDatabase WebApplication config
+
+withCleanDb :: (?modelContext :: ModelContext) => IO a -> IO a
+withCleanDb action = do
+    resetDatabase
+    action
+
+withControllerTestContext ::
+    (?mocking :: MockContext WebApplication) =>
+    ((?context :: ControllerContext) => IO a) ->
+    ((?context :: RequestContext) => IO a)
+withControllerTestContext action =
+    withSessionValues [] do
+        let ?requestContext = ?context
+        controllerContext <- newControllerContext
+        let ?context = controllerContext
+        action
+
+resetDatabase :: (?modelContext :: ModelContext) => IO ()
+resetDatabase = do
+    sqlExec
+        "TRUNCATE TABLE timesheet_entries, leave_requests, staff_availability, roster_slots, roster_days, roster_weeks, venue_config, day_names, slot_names, shift_types, pay_levels, staff, venue_memberships, users, venues RESTART IDENTITY CASCADE"
+        ()
+    pure ()
+
+createVenueWithConfig :: (?modelContext :: ModelContext) => Text -> IO Venue
+createVenueWithConfig name = do
+    venue <- newRecord @Venue
+        |> set #name name
+        |> createRecord
+    _ <- newRecord @VenueConfig
+        |> set #venueId (unpackId (get #id venue))
+        |> set #timezone "UTC"
+        |> set #weekOffsetEpoch defaultWeekEpoch
+        |> set #lateToEarlyMinStartGapMinutes 600
+        |> set #staffTimesheetEditWindowDays 7
+        |> createRecord
+    pure venue
+
+createUserRecord :: (?modelContext :: ModelContext) => Text -> Text -> Bool -> IO User
+createUserRecord emailAddress globalRole isProfileCompleted = do
+    passwordHash <- hashPassword testPassword
+    newRecord @User
+        |> set #email emailAddress
+        |> set #passwordHash passwordHash
+        |> set #userRole globalRole
+        |> set #isProfileCompleted isProfileCompleted
+        |> createRecord
+
+createVenueMembershipRecord :: (?modelContext :: ModelContext) => Venue -> User -> Text -> IO VenueMembership
+createVenueMembershipRecord venue user venueRole =
+    newRecord @VenueMembership
+        |> set #venueId (unpackId (get #id venue))
+        |> set #userId (unpackId (get #id user))
+        |> set #venueRole venueRole
+        |> set #isActive True
+        |> createRecord
+
+createStaffRecord :: (?modelContext :: ModelContext) => Venue -> Maybe User -> Text -> Text -> IO Staff
+createStaffRecord venue maybeUser firstName lastName =
+    newRecord @Staff
+        |> set #venueId (unpackId (get #id venue))
+        |> set #userId (fmap (unpackId . get #id) maybeUser)
+        |> set #firstName firstName
+        |> set #lastName lastName
+        |> set #isActive True
+        |> createRecord
+
+createSlotNameRecord :: (?modelContext :: ModelContext) => Venue -> Text -> IO SlotName
+createSlotNameRecord venue slotName =
+    newRecord @SlotName
+        |> set #venueId (unpackId (get #id venue))
+        |> set #name slotName
+        |> set #isActive True
+        |> createRecord
+
+createRosterWeekRecord :: (?modelContext :: ModelContext) => Venue -> Int -> Bool -> IO RosterWeek
+createRosterWeekRecord venue weekOffset isLive =
+    newRecord @RosterWeek
+        |> set #venueId (unpackId (get #id venue))
+        |> set #weekOffset weekOffset
+        |> set #isLive isLive
+        |> createRecord
+
+createRosterDayRecord :: (?modelContext :: ModelContext) => RosterWeek -> Int -> IO RosterDay
+createRosterDayRecord rosterWeek dayOffset =
+    newRecord @RosterDay
+        |> set #rosterWeekId (unpackId (get #id rosterWeek))
+        |> set #dayOffset dayOffset
+        |> createRecord
+
+createRosterSlotRecord :: (?modelContext :: ModelContext) => RosterDay -> SlotName -> Maybe Staff -> Int -> IO RosterSlot
+createRosterSlotRecord rosterDay slotName maybeStaff rowIndex =
+    newRecord @RosterSlot
+        |> set #rosterDayId (unpackId (get #id rosterDay))
+        |> set #slotNameId (unpackId (get #id slotName))
+        |> set #staffId (fmap (unpackId . get #id) maybeStaff)
+        |> set #rowIndex rowIndex
+        |> createRecord
+
+createTimesheetEntryRecord :: (?modelContext :: ModelContext) => Venue -> Staff -> Day -> IO TimesheetEntry
+createTimesheetEntryRecord venue staff workedOn =
+    newRecord @TimesheetEntry
+        |> set #venueId (unpackId (get #id venue))
+        |> set #staffId (unpackId (get #id staff))
+        |> set #workedOn workedOn
+        |> set #startTime (TimeOfDay 9 0 0)
+        |> set #endTime (TimeOfDay 17 0 0)
+        |> set #hadBreak False
+        |> set #breakStartTime Nothing
+        |> set #breakEndTime Nothing
+        |> set #breakMinutes 0
+        |> createRecord
+
+createLeaveRequestRecord :: (?modelContext :: ModelContext) => Venue -> Staff -> Day -> Day -> Text -> IO LeaveRequest
+createLeaveRequestRecord venue staff startDate endDate leaveStatus =
+    newRecord @LeaveRequest
+        |> set #venueId (unpackId (get #id venue))
+        |> set #staffId (unpackId (get #id staff))
+        |> set #startDate startDate
+        |> set #endDate endDate
+        |> set #status leaveStatus
+        |> createRecord
+
+withUserAndCurrentVenue ::
+    forall result.
+    (?mocking :: MockContext WebApplication, ?context :: RequestContext, ?applicationContext :: ApplicationContext) =>
+    User ->
+    Id Venue ->
+    ((?context :: RequestContext) => IO result) ->
+    IO result
+withUserAndCurrentVenue user venueId callback =
+    withSessionValues
+        [ (cs (LoginSupport.sessionKey @User), Serialize.encode user.id)
+        , (currentVenueSessionKey, Serialize.encode venueId)
+        ]
+        callback
+
+withSessionValues ::
+    forall result.
+    (?mocking :: MockContext WebApplication, ?context :: RequestContext) =>
+    [(ByteString.ByteString, ByteString.ByteString)] ->
+    ((?context :: RequestContext) => IO result) ->
+    IO result
+withSessionValues initialValues callback = do
+    store <- newIORef (Map.fromList initialValues)
+    let ?context = (?context) { request = requestWithSession store }
+    callback
+    where
+        RequestContext { request } = ?mocking.requestContext
+
+        requestWithSession store =
+            request { Wai.vault = Vault.insert sessionVaultKey (newSession store) (Wai.vault request) }
+
+        newSession :: IORef (Map.Map ByteString.ByteString ByteString.ByteString) -> Network.Wai.Session.Session IO ByteString.ByteString ByteString.ByteString
+        newSession store = (lookupSession store, insertSession store)
+
+        lookupSession store key = Map.lookup key <$> readIORef store
+
+        insertSession store key value = modifyIORef' store (Map.insert key value)
+
+defaultWeekEpoch :: Day
+defaultWeekEpoch = fromGregorian 2025 1 6
+
+testPassword :: Text
+testPassword = "test-password-123"

@@ -12,6 +12,36 @@ direnv exec . test                             # compile and run all tests
 direnv exec . test --match "PostsController"  # run tests matching a pattern
 ```
 
+## DB-Backed Controller Tests
+
+When auth or controller setup touches the database, prefer the shared helpers in `Test/Support.hs` instead of `mockContextNoDatabase` alone.
+
+Useful patterns:
+
+- `tests = beforeAll testContext do ...`
+- `withContext do withCleanDb do ...` to reset the DB between examples
+- `createVenueWithConfig`, `createUserRecord`, `createVenueMembershipRecord`, `createStaffRecord`, and related helpers to seed only the rows the example needs
+- `withUserAndCurrentVenue user venueId do ...` when the request needs both authenticated user session and `currentVenueId`
+- `withControllerTestContext do ...` when the test needs a real `ControllerContext`, e.g. to call `beforeLogin` and then `getSession`
+
+Example shape:
+
+```haskell
+tests :: Spec
+tests = beforeAll testContext do
+    describe "LeaveRequestsController" do
+        it "scopes manager queries to the current venue" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Venue A"
+                user <- createUserRecord "manager@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue user "manager"
+
+                response <- withUserAndCurrentVenue user venue.id do
+                    callAction LeaveRequestsAction
+
+                response `responseStatusShouldBe` status200
+```
+
 ## Adding Tests for a New Controller
 
 When adding a new controller (e.g., `PostsController`), create a corresponding spec:
@@ -80,9 +110,10 @@ When adding a new controller (e.g., `PostsController`), create a corresponding s
 This means:
 
 - **Safe to test** with `mockContextNoDatabase`: rendering forms, unauthenticated redirects (`ensureIsUser` with no session), any action that never queries the DB
-- **Cannot test** with `mockContextNoDatabase`: `CreateSessionAction`/`DeleteSessionAction` (both query the DB), `withUser` + an auth-gated page (because `initAuthentication` fetches the user record from the DB by session ID, even when the session is set via `withUser`)
+- **Cannot test** with `mockContextNoDatabase` by itself: `CreateSessionAction`/`DeleteSessionAction`, `withUser` + an auth-gated page, or any controller path that resolves current venue/membership from the DB
+- **Can test** these flows now by combining `testContext` with the helpers in `Test/Support.hs`
 
-For tests that require a real database, a separate test database and `mockContext` with a live connection would be needed. Document these as `-- requires real DB` and skip them until a test DB is configured.
+Do not add new `pendingWith "requires real DB"` placeholders for normal controller work without checking `Test/Support.hs` first. Most auth-gated and venue-scoped controller tests should now be implemented directly.
 
 ## What to Test
 
@@ -90,3 +121,9 @@ For tests that require a real database, a separate test database and `mockContex
 - **Form submissions** (Create/Update) should verify redirect and side effects
 - **Auth-protected actions** should test both authenticated and unauthenticated access
 - **View content** — assert key content appears in the response body
+
+## Session Notes
+
+`IHP.Test.Mocking.withUser` only seeds the login session key. If the app depends on additional session state, add it through `withSessionValues`/`withUserAndCurrentVenue` in `Test/Support.hs`.
+
+This matters for venue-scoped auth because `beforeLogin` writes `currentVenueId`, and request init reads that session value back on subsequent requests.

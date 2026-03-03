@@ -1,6 +1,7 @@
 module Test.Controller.StaticSpec where
 
 import Network.HTTP.Types.Status
+import qualified Network.HTTP.Types as HTTP
 
 import Config
 import IHP.FrameworkConfig
@@ -8,6 +9,7 @@ import IHP.HaskellSupport
 import IHP.Prelude
 import IHP.Test.Mocking
 import Test.Hspec
+import Test.Support
 
 import Generated.Types
 import IHP.ControllerPrelude
@@ -18,7 +20,7 @@ import Web.Routes
 import Web.Types
 
 tests :: Spec
-tests = beforeAll (mockContextNoDatabase WebApplication config) do
+tests = beforeAll testContext do
     describe "StaticController" do
         it "renders the welcome page for unauthenticated users" $ withContext do
             response <- callAction WelcomeAction
@@ -27,4 +29,13 @@ tests = beforeAll (mockContextNoDatabase WebApplication config) do
             response `responseBodyShouldContain` "Create Account"
 
         it "redirects authenticated users to the roster week view" $ withContext do
-            pendingWith "requires real DB-backed mockContext to exercise withUser + initAuthentication"
+            withCleanDb do
+                venue <- createVenueWithConfig "Venue A"
+                user <- createUserRecord "welcome-auth@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue user "worker"
+
+                response <- withUser user do
+                    callAction WelcomeAction
+
+                response `responseStatusShouldBe` status302
+                lookup HTTP.hLocation (responseHeaders response) `shouldBe` Just "http://localhost/RosterWeeks"

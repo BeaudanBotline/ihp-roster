@@ -7,8 +7,9 @@ import Data.Time.Clock (UTCTime (..), getCurrentTime)
 import Data.Time.Format (defaultTimeLocale, parseTimeM)
 import Data.Time.LocalTime (TimeOfDay (..))
 import Generated.Types
-import IHP.Controller.Context (fromFrozenContext, putContext)
+import IHP.Controller.Context (maybeFromContext, putContext)
 import IHP.ControllerPrelude
+import System.IO.Unsafe (unsafePerformIO)
 import Web.Routes ()
 import Web.Types (ProfilesController (EditProfileAction))
 
@@ -105,7 +106,7 @@ ensureProfileCompleted =
         redirectTo EditProfileAction
 
 currentVenueOrNothing :: (?context :: ControllerContext) => Maybe Venue
-currentVenueOrNothing = fromFrozenContext @(Maybe Venue)
+currentVenueOrNothing = unsafePerformIO (join <$> maybeFromContext @(Maybe Venue))
 
 currentVenue :: (?context :: ControllerContext) => Venue
 currentVenue =
@@ -115,14 +116,14 @@ currentVenueId :: (?context :: ControllerContext) => Id Venue
 currentVenueId = get #id currentVenue
 
 currentVenueMembershipOrNothing :: (?context :: ControllerContext) => Maybe VenueMembership
-currentVenueMembershipOrNothing = fromFrozenContext @(Maybe VenueMembership)
+currentVenueMembershipOrNothing = unsafePerformIO (join <$> maybeFromContext @(Maybe VenueMembership))
 
 currentVenueMembership :: (?context :: ControllerContext) => VenueMembership
 currentVenueMembership =
     fromMaybe (error "currentVenueMembership: no active venue membership in controller context") currentVenueMembershipOrNothing
 
 currentVenueRoleOrNothing :: (?context :: ControllerContext) => Maybe VenueRole
-currentVenueRoleOrNothing = fromFrozenContext @(Maybe VenueRole)
+currentVenueRoleOrNothing = unsafePerformIO (join <$> maybeFromContext @(Maybe VenueRole))
 
 currentVenueRole :: (?context :: ControllerContext) => VenueRole
 currentVenueRole =

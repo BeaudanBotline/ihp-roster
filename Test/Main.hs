@@ -13,6 +13,7 @@ import qualified Test.Controller.StaffSpec
 import qualified Test.Controller.StaticSpec
 import qualified Test.Controller.TimesheetsSpec
 import qualified Test.Controller.UsersSpec
+import qualified Test.Controller.VenueAccessSpec
 import qualified Test.PaySpec
 import qualified Test.RosterGridSpec
 import qualified Test.SchemaSpec
@@ -22,6 +23,7 @@ main = hspec do
     Test.Controller.StaticSpec.tests
     Test.Controller.SessionsSpec.tests
     Test.Controller.UsersSpec.tests
+    Test.Controller.VenueAccessSpec.tests
     Test.Controller.AdminSpec.tests
     Test.Controller.ProfilesSpec.tests
     Test.Controller.LeaveRequestsSpec.tests
