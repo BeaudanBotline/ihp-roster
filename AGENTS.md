@@ -41,6 +41,11 @@
 - Database queries use IHP's QueryBuilder, not raw SQL — see `IHP/Guide/querybuilder.markdown`
 - Form handling uses IHP's form helpers — see `IHP/Guide/form.markdown`
 
+## Planning Files
+- `IMPLEMENTATION_PLAN.md` is the canonical roadmap for global ordering and cross-pipeline dependencies.
+- Detailed execution plans live under `plans/` and are scoped by workstream; read only the relevant pipeline file after reading the root roadmap.
+- `plans/90-historical-completed-slices.md` holds completed or superseded detail that may still matter for migration work.
+
 ## Overlay Architecture
 - Treat overlays as three separate lanes:
   - `dialog` for workflow forms and confirmations
