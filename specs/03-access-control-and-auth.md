@@ -9,7 +9,7 @@ There are two levels of access:
 - platform-level operator access
 - venue-level customer access
 
-The product must not rely on global in-app business roles without tenancy boundaries.
+The product must not rely on global in-app business roles without venue boundaries.
 
 ## Venue roles
 
@@ -52,18 +52,20 @@ The product must not rely on global in-app business roles without tenancy bounda
 
 - Do not use "first registered user becomes admin" in SaaS mode.
 - Venue creation must use a controlled bootstrap flow:
-  - verified owner/admin invitation,
+  - founder-created venue plus verified owner/admin invitation,
   - controlled venue creation workflow, or
   - support-assisted bootstrap.
 - Public self-registration is not part of the near-term operating model.
 - If public self-registration is retained for any reason, it must not grant privileged venue roles automatically.
 - Default first-client workflow is founder-managed venue creation and invitation.
+- Venue business roles belong to `venue_memberships`, not `users`.
 
 ## Authentication requirements
 
 - Authentication must support secure sessions and server-side authorisation checks on every request.
 - MFA should be introduced for privileged roles before broader commercial rollout.
 - Role changes, exports and other high-risk actions should be auditable and candidates for step-up auth.
+- Server-side authorisation must resolve the current venue membership rather than trusting a global business role on `users`.
 
 ## Mandatory profile gate
 

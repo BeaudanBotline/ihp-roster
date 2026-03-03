@@ -2,10 +2,10 @@
 
 ## Roster lifecycle
 
-1. Managers/Admins can browse any roster week offset.
-2. Viewing a missing week as Manager/Admin auto-creates that week in draft mode (`is_live = false`).
-3. Managers/Admins edit assignments directly on the roster week page.
-4. Managers/Admins control live/draft state from roster settings.
+1. Managers, Venue Admins and Venue Owners can browse any roster week offset.
+2. Viewing a missing week as Manager, Venue Admin or Venue Owner auto-creates that week in draft mode (`is_live = false`).
+3. Managers, Venue Admins and Venue Owners edit assignments directly on the roster week page.
+4. Managers, Venue Admins and Venue Owners control live/draft state from roster settings.
 5. Staff can browse all week offsets, but only published/live roster content is shown.
 6. When a staff user views an unpublished week, the page shows that the week is not published yet.
 
@@ -30,7 +30,7 @@ Roster assignment UI must support filter toggles:
   - Repeating rows per day.
   - Three chronological blocks (`Early`, `Mid`, `Late`) with `start_time`, `staff`, and short `note` code.
 - `note` is intended for short operational flags (e.g. `M`, `DEL`, `SUP`, `D`, `*AS`) and should stay concise.
-- The roster page also provides a Manager/Admin-only staff side panel:
+- The roster page also provides a Manager, Venue Admin and Venue Owner staff side panel:
   - default visible
   - populated with active linked staff only
   - sorted by first name

@@ -20,8 +20,13 @@ This folder contains the canonical specification set for this project:
 7. Kitchen flag is out of scope.
 8. Timesheet time input requires **exact 15-minute increments**.
 9. Trial staff are placeholders only; no conversion flow.
-10. **Managers and Admins can publish** rosters.
-11. Initial commercial model is **local managed multi-venue SaaS**, not public self-serve SaaS.
+10. **Managers, Venue Admins and Venue Owners can publish** rosters.
+11. Initial commercial model is **local managed SaaS with venue as the current customer boundary**, not public self-serve SaaS.
+12. Venue business roles live on **`venue_memberships`**, not on `users`.
+13. Initial privileged access uses a **founder-managed venue bootstrap flow**, not first-user auto-admin.
+14. Payroll-adjacent records use **correction-safe history**, not silent destructive overwrite.
+15. Pay and configuration behavior must remain **historically reproducible** for past periods and exports.
+16. Venue admin bulk config save creates a new **immutable pay/config snapshot version**.
 
 ## Document map
 

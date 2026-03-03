@@ -11,7 +11,7 @@
 ## Roster grid
 
 - **Primary Page:** The roster week page is the app's main operational surface; there is no separate dashboard landing workflow.
-- **Roster Settings Bar:** Manager/Admin sees a collapsible settings bar above the roster content.
+- **Roster Settings Bar:** Managers, Venue Admins and Venue Owners see a collapsible settings bar above the roster content.
   - Initial settings include:
     - `Show staff list`
     - live/draft checkbox
@@ -51,7 +51,7 @@
 
 ## Roster-side staff panel
 
-- **Visibility:** Visible only to Manager/Admin, controlled by the `Show staff list` setting, default `on`.
+- **Visibility:** Visible only to Manager, Venue Admin and Venue Owner, controlled by the `Show staff list` setting, default `on`.
 - **Desktop Layout:** On large screens, roster and staff panel render in a `70/30` split with the panel on the right.
 - **Desktop Height Rule:** The staff panel matches the visible rendered height of the roster area and scrolls internally when its content exceeds that height.
 - **Desktop Hidden State:** When the staff panel is hidden, the roster keeps the same visual width and centers within the page.
@@ -63,13 +63,14 @@
   - Ideal shifts
   - User role
   - `Edit` button
-- **Edit Interaction:** `Edit` opens a read/write modal for Manager/Admin using the same staff fields previously exposed on the dedicated staff management screen.
+- **Edit Interaction:** `Edit` opens a read/write modal for Manager, Venue Admin or Venue Owner using the same staff fields previously exposed on the dedicated staff management screen.
 
 ## Timesheets
 
 - Simple create/edit form with strict 15-minute increment validation feedback.
 - Timesheet time selection should reuse the same modal quarter-hour picker component used by roster start-time fields.
 - Approval status badges and manager actions.
+- Correction-safe workflows should display when an entry has been corrected, superseded or reset for re-approval.
 
 ## Leave
 
@@ -80,6 +81,9 @@
 
 - Singleton venue settings screen.
 - Config tables (slot names, day names, shift types, pay levels) with active/inactive support.
+- Venue admin edits pay-relevant configuration in bulk on the admin page and saves once to create a new immutable pay/config snapshot version.
+- Unsaved changes affect only the current draft state in the form; save creates the next historical version.
+- The admin UI should expose recent saved versions or at minimum the active version identifier and latest save timestamp.
 
 ## UX constraints
 

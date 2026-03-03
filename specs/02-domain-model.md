@@ -2,10 +2,10 @@
 
 ## Core entities
 
-## Tenancy and identity
+## Venue boundary and identity
 
 - `venues`
-  - Customer business account and top-level data ownership boundary.
+  - Current customer account and top-level data ownership boundary.
   - Holds venue lifecycle, status and top-level settings.
 - `users`
   - Global auth identity.
@@ -13,6 +13,9 @@
 - `venue_memberships`
   - Links a `user` to a `venue`.
   - Holds venue-scoped role and membership lifecycle.
+- `business_accounts` / `tenants` (future, optional)
+  - If needed later, sit above venues for multi-venue customers.
+  - Must be additive to the current venue-owned operational model rather than a rewrite of existing records.
 
 ## Worker records
 
@@ -31,6 +34,9 @@
   - Venue-scoped record of generated exports, scope, file metadata, requestor and lifecycle.
 - `record_corrections` or equivalent event/version tables
   - Additive correction history for payroll-adjacent records.
+- `pay_config_versions` / `venue_config_snapshots` or equivalent
+  - Immutable versions of pay-relevant venue configuration created from venue admin bulk-save actions.
+  - Referenced by approved payroll-adjacent records and exports.
 
 ## Scheduling
 
@@ -71,6 +77,7 @@
   - Week start/day naming preferences.
   - `week_offset_epoch` (global fixed epoch value unless later re-specified).
   - `late_to_early_min_start_gap_minutes` (venue-level threshold).
+  - Current editable configuration surfaced on the venue admin page.
 - Supporting config tables:
   - `slot_names`
   - `day_names`
@@ -89,5 +96,8 @@
 - Soft-delete or active/inactive flags for config that may be referenced historically.
 - Historical timesheet/pay rows must remain calculable even if config entries are disabled later.
 - All venue-owned records must be venue-scoped at the schema level.
+- Business roles belong to `venue_memberships`; `users` is identity, not venue authority.
 - Employment-record changes must preserve provenance, including actor and timestamp.
 - Export generation must produce a durable audit trail and versioned output metadata.
+- Pay-relevant configuration must be historically reproducible through immutable snapshot/version records created by venue admin save actions.
+- Approved payroll-adjacent records and exports must reference the pay/config snapshot version used.

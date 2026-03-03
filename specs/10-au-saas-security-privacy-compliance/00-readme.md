@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This spec set defines the minimum architectural and governance direction required to turn this project into a local, high-touch, multi-venue SaaS product for small Australian hospitality businesses.
+This spec set defines the minimum architectural and governance direction required to turn this project into a local, high-touch SaaS product for small Australian hospitality businesses, with venue as the current customer boundary.
 
 It is written from the assumption that the product will handle:
 
@@ -17,7 +17,7 @@ This is a product and architecture guide, not legal advice. It is intended to re
 
 ## Why this matters now
 
-The current codebase already behaves like an employment records system. The product is still early, which means the highest-value work is not feature breadth. It is getting the data boundaries, tenancy model, auditability, retention model, access control model and export model right before more personal information is added.
+The current codebase already behaves like an employment records system. The product is still early, which means the highest-value work is not feature breadth. It is getting the data boundaries, venue model, auditability, retention model, access control model and export model right before more personal information is added.
 
 The most expensive mistakes to fix later are:
 
@@ -33,7 +33,7 @@ The most expensive mistakes to fix later are:
 
 The current repository is missing or under-specified in the following areas:
 
-- no venue model or venue-scoped data ownership model
+- venue ownership exists in schema, but role resolution, bootstrap rules and business authority remain under-specified
 - no immutable audit/event history for timesheet, leave or role changes
 - no retention and archival model for employment records
 - no structured privacy governance layer
@@ -79,7 +79,7 @@ This is best understood as a managed SaaS service, not an internal staff tool an
 
 ## Operating assumptions
 
-1. The product will become multi-venue.
+1. The product will use venue as the current customer boundary, with any higher-level account model deferred until needed.
 2. The product will eventually store more detailed worker profile information.
 3. The product may later support payroll, accountant exports, award interpretation and decision support.
 4. The product should prefer Australian hosting and Australian-default subprocessors unless there is a strong reason not to.

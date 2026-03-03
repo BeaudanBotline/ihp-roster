@@ -6,9 +6,9 @@ Build a SaaS rostering, timesheet and payroll-adjacent operations system for sma
 
 ## Deployment model
 
-- Multi-venue SaaS is the target architecture from the outset, even if early pilots are operationally simple.
-- Each customer business is a venue.
-- A venue may initially operate a single venue, but the product must not depend on "one deployment per business" assumptions.
+- Standardised SaaS is the target architecture from the outset, even if early pilots are operationally simple.
+- In the current product, each customer maps to a single venue, and that venue is the primary ownership and permission boundary.
+- If a broader business-account layer is needed later, it should be introduced above venues without rewriting venue-owned operational records.
 - Configuration is stored in DB and editable by venue-authorized users subject to audit and permission rules.
 - Initial go-to-market model is local, high-touch and managed:
   - small number of local venues,
@@ -59,6 +59,14 @@ Native dates can be derived for display/reporting, but offsets are canonical for
 - The product is designed as APP-aligned by default rather than relying on customer exemptions.
 - Payroll-adjacent and employment records must support retention, correction provenance and export integrity.
 - Exports to employers, bookkeepers or accountants are treated as controlled disclosures, not simple file downloads.
+
+## Growth-critical business logic
+
+- Business authority is membership-scoped: venue roles belong to `venue_memberships`, not global `users` fields.
+- Initial privileged access is created through founder-managed venue bootstrap and invitation, not public self-promotion.
+- Timesheets, leave approvals and role changes are treated as correction-safe business records, not ordinary mutable CRUD rows.
+- Pay calculations, exports and past approvals must remain explainable after future configuration changes.
+- Venue admin configuration is edited in bulk and saved as a new immutable pay/config snapshot version.
 
 ## Commercial posture
 

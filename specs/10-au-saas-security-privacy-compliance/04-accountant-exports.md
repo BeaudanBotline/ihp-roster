@@ -9,6 +9,7 @@ They do not reduce the need for strong privacy and security controls. They incre
 - disclosure governance
 - auditability
 - integrity of payroll-adjacent records
+- historical reproducibility of pay-related outputs
 - customer contract clarity
 - export scoping and retention
 
@@ -16,7 +17,7 @@ They do not reduce the need for strong privacy and security controls. They incre
 
 The product should still be built as:
 
-- a multi-venue SaaS platform
+- a managed SaaS platform with venue as the current customer boundary
 - an APP-aligned system
 - a correction-safe record system
 - a system with formal export and disclosure controls
@@ -87,8 +88,8 @@ Benefits:
 Direct accountant access is feasible, but should come after:
 
 - venue model
+- membership-scoped role model
 - export audit model
-- role model
 - legal terms and privacy documents
 - support process
 
@@ -137,6 +138,7 @@ Each export job should store:
 - requestor id
 - export type
 - schema version
+- pay/config snapshot version where relevant
 - data range and filters
 - generated file id
 - created timestamp

@@ -4,30 +4,35 @@
 
 The implementation order below is intentional. It prioritises decisions that become expensive to unwind once customer data exists.
 
-The first milestone to implement now is the SaaS pivot foundation:
+The first milestone to implement now is the business-logic hardening foundation:
 
-1. venue schema and membership model
-2. current venue resolution and venue-scoped auth helpers
-3. removal of bootstrap-admin and public-signup assumptions
+1. controlled venue bootstrap and removal of bootstrap-admin/public-signup assumptions
+2. current venue resolution and membership-scoped auth helpers
+3. removal of global business-role assumptions from `users`
 4. venue-scoping of all core business queries
+5. audit/event infrastructure for sensitive actions
+6. correction-safe handling for payroll-adjacent records
+7. snapshot-based pay/config stability rules
 
 Do not treat this as optional future hardening. It is the new prerequisite for continued feature work.
 
 ### Phase 1: foundations before broader feature expansion
 
-1. Introduce venue entities and venue-scoped authorisation across the application.
+1. Keep venue as the current customer boundary and make venue-scoped authorisation explicit across the application.
 2. Replace bootstrap-admin behavior with controlled venue owner/admin bootstrap.
-3. Add audit/event infrastructure for:
+3. Move business authority to `venue_memberships` and treat `users` as identity-only for venue permissions.
+4. Add audit/event infrastructure for:
    - role changes,
    - timesheet approval and correction,
    - leave approval and status changes,
    - export generation and download,
    - security-sensitive access.
-4. Define correction-safe handling for payroll-adjacent records:
+5. Define correction-safe handling for payroll-adjacent records:
    - additive corrections,
    - versioning, or
    - immutable event sourcing with derived current state.
-5. Add export job infrastructure and file lifecycle metadata even before deep integrations.
+6. Define snapshot-based historical stability for pay and pay-relevant configuration so old results remain explainable.
+7. Add export job infrastructure and file lifecycle metadata even before deep integrations.
 
 ### Phase 2: security and governance baseline before first clients
 
@@ -46,7 +51,7 @@ Do not treat this as optional future hardening. It is the new prerequisite for c
 1. Add employer-mediated export workflows.
 2. Add signed, expiring export download handling with audit logs.
 3. Add support tooling with explicit access workflow and logging.
-4. Defer direct accountant roles and advanced integrations until tenancy, audit and export governance are stable.
+4. Defer direct accountant roles and advanced integrations until venue-scoped auth, audit and export governance are stable.
 
 ### Delivery posture
 
@@ -66,6 +71,8 @@ For the first 1 to 5 venues, optimise implementation for:
 - Regenerate generated types after schema changes.
 - Add first-class venue ownership fields to venue-owned records.
 - Plan dedicated tables for audit events, export jobs and record correction/version history.
+- Keep business-role authority on `venue_memberships`, not `users`.
+- Add explicit support for historical pay/config reproducibility through immutable snapshot/version records created by venue admin bulk-save actions.
 - Do not add sensitive future data directly to `users` or `staff` without a dedicated spec.
 
 ## Controllers
@@ -109,8 +116,8 @@ Each new controller requires:
     - selectable range is `06:00` to `23:45` in 15-minute increments
     - UI interactions dispatch `change` on the hidden input so existing HTMX autosave remains unchanged
     - component is shared for future timesheet forms
-- The roster page must support a Manager/Admin-only right-side staff panel on large screens and a stacked-below layout on smaller screens.
-- The roster page must expose a collapsible settings bar for Manager/Admin settings such as `show staff list` and live/draft state.
+- The roster page must support a Manager, Venue Admin and Venue Owner right-side staff panel on large screens and a stacked-below layout on smaller screens.
+- The roster page must expose a collapsible settings bar for Manager, Venue Admin and Venue Owner settings such as `show staff list` and live/draft state.
 - Staff users navigating to unpublished weeks should receive a clear "not published yet" state instead of editable roster controls.
 
 ## Helpers and services
@@ -119,8 +126,10 @@ Each new controller requires:
 - Keep permission checks explicit in controller actions.
 - Keep pay math canonical in SQL functions and call from controllers/helpers.
 - Centralise venue lookup and venue authorisation guards instead of scattering ad hoc venue checks.
+- Centralise venue membership role resolution instead of reading business authority from `users`.
 - Centralise audit-event emission for security-sensitive actions.
 - Centralise export generation and signed file lifecycle handling.
+- Treat the venue admin config page as the normal workflow that creates new pay/config snapshot versions.
 
 ## Realtime considerations
 
@@ -135,3 +144,4 @@ Each new controller requires:
 - Audit/event writes should participate in the same transaction as the business action where feasible.
 - Export snapshots must be generated from a defined data scope and schema version.
 - Record corrections must preserve historical traceability rather than overwriting history silently.
+- Historical pay calculations must resolve against explicit historical rule context rather than mutable current config alone.

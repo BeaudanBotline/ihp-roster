@@ -16,7 +16,7 @@ These are the highest-leverage decisions and should happen first.
 
 Decide and document that the product is being built as:
 
-- multi-venue SaaS
+- managed SaaS with venue as the current customer boundary
 - managed local SaaS for the near term
 - privacy-by-design
 - APP-aligned by default
@@ -35,7 +35,7 @@ Do not add:
 
 until the foundational model below is specified.
 
-### 3. Create the venue model
+### 3. Formalise the venue membership model
 
 Required before broadening the feature set.
 
@@ -44,7 +44,7 @@ Deliverables:
 - venue entities
 - venue membership model
 - venue-scoped authorisation rules
-- venue ownership bootstrap flow
+- founder-managed venue ownership bootstrap flow
 
 ### 4. Replace mutable employment-record behavior
 
@@ -69,15 +69,17 @@ Deliverables:
 
 Translate the roadmap into implementation work in this order:
 
-1. Update canonical specs and product assumptions to multi-venue SaaS.
-2. Add venue schema and venue membership schema.
-3. Refactor auth and routing to resolve current venue context on every authenticated request.
-4. Make all core business records venue-owned.
-5. Introduce audit-event infrastructure.
-6. Replace destructive or silent mutable record behavior for timesheets, leave and approvals.
-7. Add export job schema and export service abstractions.
-8. Add privacy, compliance and support administration surfaces only after the underlying data model exists.
-9. Keep early customer operations manual and standardised rather than building self-serve growth mechanics.
+1. Update canonical specs and product assumptions to venue-first managed SaaS.
+2. Remove bootstrap-admin and public-signup assumptions.
+3. Refactor auth and routing to resolve current venue membership on every authenticated request.
+4. Move business authority to venue memberships and eliminate dependence on global business roles on `users`.
+5. Make all core business records and queries venue-owned and venue-scoped.
+6. Introduce audit-event infrastructure.
+7. Replace destructive or silent mutable record behavior for timesheets, leave and approvals.
+8. Define snapshot-based pay/config stability before wider payroll-adjacent use, with venue admin bulk-save creating new versions.
+9. Add export job schema and export service abstractions.
+10. Add privacy, compliance and support administration surfaces only after the underlying data model exists.
+11. Keep early customer operations manual and standardised rather than building self-serve growth mechanics.
 
 ## Phase 1: before first pilot customers
 
@@ -201,12 +203,13 @@ Deliverables:
 
 If only a small set of changes can be done soon, prioritise these:
 
-1. Venue model and venue-scoped auth.
-2. Immutable audit and correction model for timesheets, leave and approvals.
-3. Invitation-based identity bootstrap and removal of public admin bootstrap.
-4. Data classification and restricted-data design.
-5. Export architecture and audit trail.
-6. Privacy policy, collection notice and subprocessor inventory.
+1. Venue membership model and venue-scoped auth.
+2. Invitation-based identity bootstrap and removal of public admin bootstrap.
+3. Immutable audit and correction model for timesheets, leave and approvals.
+4. Snapshot-based pay/config stability model.
+5. Data classification and restricted-data design.
+6. Export architecture and audit trail.
+7. Privacy policy, collection notice and subprocessor inventory.
 
 ## What can wait slightly longer
 

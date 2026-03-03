@@ -6,47 +6,33 @@ This document converts the roadmap into a repo-specific engineering backlog for 
 
 - local, founder-managed rollout
 - small number of venues
-- standardised multi-venue SaaS architecture
+- standardised managed SaaS with venue as the current customer boundary
 - no public self-serve venue signup in the near term
 
 The backlog is ordered by what is most expensive to change later.
 
 ## Phase 0: do next
 
-### 0.1 Venue model in schema
+### 0.1 Membership-scoped authority model
 
 Goal:
 
-- introduce venue ownership before more product expansion
+- make venue membership the canonical source of business authority
 
-Schema work:
+Implementation work:
 
-- add `venues`
-- add `venue_memberships`
-- decide whether venue role lives on `venue_memberships` or a related table
-- add `venue_id` to:
-  - `staff`
-  - `roster_weeks`
-  - `roster_days` indirectly through `roster_weeks` or directly if preferred
-  - `roster_slots` indirectly through `roster_days` or directly if preferred
-  - `leave_requests`
-  - `timesheet_entries`
-  - `staff_availability`
-  - config tables that are venue-owned
-
-Constraints and indexes:
-
-- add foreign keys for all venue-owned records
-- add composite indexes around common access paths:
-  - `venue_id, week_offset`
-  - `venue_id, user_id`
-  - `venue_id, staff_id`
-  - `venue_id, worked_on`
-  - `venue_id, start_date`
+- treat `users` as identity-only for venue permissions
+- define canonical role values and capability mapping on `venue_memberships`
+- remove controller/helper reliance on global business roles on `users`
+- define role-change audit requirements and bootstrap defaults
+- remove runtime dependence on `users.user_role` for venue business permissions
 
 Repo impact:
 
 - [Application/Schema.sql](/home/beau/documents/projects/ihp-template/Application/Schema.sql)
+- [Application/Helper/Controller.hs](/home/beau/documents/projects/ihp-template/Application/Helper/Controller.hs)
+- [Web/Controller/Prelude.hs](/home/beau/documents/projects/ihp-template/Web/Controller/Prelude.hs)
+- [Web/Controller/Sessions.hs](/home/beau/documents/projects/ihp-template/Web/Controller/Sessions.hs)
 - generated types after `regen-types`
 
 ### 0.2 Authentication and current venue resolution
@@ -65,6 +51,7 @@ Implementation work:
   - current venue
   - current venue membership
   - venue-scoped role checks
+- ensure requests fail closed when no valid active venue membership exists
 
 Repo impact:
 
@@ -88,6 +75,7 @@ Implementation work:
   - founder creates venue
   - founder invites initial venue owner/admin
 - optionally keep worker invitation flow for later
+- remove tests and helpers that encode first-user auto-admin behavior
 
 Repo impact:
 
@@ -99,6 +87,24 @@ Repo impact:
 Decision required:
 
 - whether public signup is removed entirely now or left disabled by default behind config
+
+### 0.4 Snapshot-based pay/config stability design
+
+Goal:
+
+- make historical pay behavior reproducible before broader payroll-adjacent use
+
+Implementation work:
+
+- define the pay/config snapshot schema created by venue admin bulk-save actions
+- define how approved timesheets and exports reference the applicable snapshot version
+- define venue admin page semantics for draft edits versus saved version creation
+
+Repo impact:
+
+- [Application/Schema.sql](/home/beau/documents/projects/ihp-template/Application/Schema.sql)
+- [Application/Helper/Pay.hs](/home/beau/documents/projects/ihp-template/Application/Helper/Pay.hs)
+- [specs/06-pay-engine.md](/home/beau/documents/projects/ihp-template/specs/06-pay-engine.md)
 
 ## Phase 1: venue-scope the product
 
@@ -129,13 +135,15 @@ Repo impact:
 
 Goal:
 
-- move away from singleton config assumptions where the venue should own the setting
+- remove remaining singleton/global config assumptions from business logic
 
 Implementation work:
 
-- decide whether `venue_config` becomes `venue_config` or similar
+- keep `venue_config` as the venue-owned boundary
 - make pay/config tables venue-owned where needed
 - preserve deterministic calculation behavior during migration
+- ensure historical pay/config strategy from Phase 0.4 is reflected in schema and helpers
+- build the venue admin bulk-edit/save workflow that creates new immutable pay/config versions
 
 Repo impact:
 
@@ -154,6 +162,7 @@ Implementation work:
 - add controller tests for unauthorized cross-venue access
 - add tests for venue-scoped visibility of roster, timesheet and leave data
 - add tests for venue bootstrap flow
+- add tests proving global `users` fields cannot bypass venue membership checks
 
 Repo impact:
 
@@ -237,6 +246,26 @@ Repo impact:
 - [Application/Schema.sql](/home/beau/documents/projects/ihp-template/Application/Schema.sql)
 - [Web/Controller/LeaveRequests.hs](/home/beau/documents/projects/ihp-template/Web/Controller/LeaveRequests.hs)
 - [Web/View/LeaveRequests/Index.hs](/home/beau/documents/projects/ihp-template/Web/View/LeaveRequests/Index.hs)
+
+### 2.4 Historical pay/config implementation
+
+Goal:
+
+- turn the chosen historical stability model into enforceable application behavior
+
+Implementation work:
+
+- implement snapshot/version records created from venue admin save actions
+- update SQL pay functions to resolve against explicit historical rule context
+- version exports so old payroll-adjacent outputs remain interpretable
+- add tests for recalculating historical periods after later config changes
+
+Repo impact:
+
+- [Application/Schema.sql](/home/beau/documents/projects/ihp-template/Application/Schema.sql)
+- [Application/Helper/Pay.hs](/home/beau/documents/projects/ihp-template/Application/Helper/Pay.hs)
+- SQL functions in [Application/Schema.sql](/home/beau/documents/projects/ihp-template/Application/Schema.sql)
+- [Test/PaySpec.hs](/home/beau/documents/projects/ihp-template/Test/PaySpec.hs)
 
 ## Phase 3: exports and managed-service operations
 
@@ -345,26 +374,30 @@ Engineering support required:
 
 ## Recommended implementation sequence for the repo
 
-1. Venue schema and membership model.
+1. Membership-scoped authority model.
 2. Current venue resolution and venue role helpers.
 3. Removal of bootstrap-admin and public signup assumptions.
-4. Venue-scoping of all business queries and config.
-5. Venue isolation tests.
-6. Audit-event infrastructure.
-7. Correction-safe timesheets.
-8. Correction-safe leave history.
-9. Export job infrastructure.
-10. Session/security hardening and third-party asset review.
+4. Historical pay/config stability design.
+5. Venue-scoping of all business queries and config.
+6. Venue isolation tests.
+7. Audit-event infrastructure.
+8. Correction-safe timesheets.
+9. Correction-safe leave history.
+10. Historical pay/config implementation.
+11. Export job infrastructure.
+12. Session/security hardening and third-party asset review.
 
 ## Suggested "stop after this" milestone for first pilot clients
 
 The first realistic milestone for local pilot venues is:
 
 - venue model complete
+- business authority lives on venue memberships
 - no public signup
 - venue-scoped auth complete
 - audit events for sensitive actions
 - correction-safe timesheet handling
+- historical pay/config model chosen and implemented for approved records
 - basic export job logging
 - privacy policy draft
 - customer terms draft

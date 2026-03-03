@@ -33,6 +33,16 @@ For each calculable segment:
 1. Use `pay_level_day_rules` override when present.
 2. Otherwise fall back to `shift_type.default_pay_level`.
 
+## Historical reproducibility requirements
+
+- Past pay results must remain explainable even after later changes to pay levels, day rules, shift types or venue configuration.
+- The historical stability model is snapshot/version based:
+  - venue admin bulk config edits create a new immutable pay/config version on save
+  - approved records and exports store the version reference used
+- Exported pay data must include a schema or calculation version that lets the result be interpreted later.
+- Recalculation of historical periods must use the applicable historical rule set, not whatever configuration happens to be current at request time.
+- Draft and unapproved calculations may use the venue's current editable config, but approved/exported outputs must use their stored snapshot version.
+
 ## Suggested PostgreSQL function surface (v1)
 
 - `calculate_timesheet_pay(entry_id uuid) returns jsonb`
@@ -43,6 +53,7 @@ For each calculable segment:
   - Shared helper for precedence logic.
 
 These functions should be pure/read-only from perspective of business state (no side effects besides computation).
+They should also resolve pay logic against an explicit historical rule context rather than implicitly trusting only current live config.
 
 ## Haskell orchestration responsibilities
 
@@ -50,6 +61,7 @@ These functions should be pure/read-only from perspective of business state (no 
 - Call SQL functions for canonical numbers.
 - Compose API/view models for roster/timesheet/report screens.
 - Generate CSV/report payloads from SQL results.
+- Create or reference the correct pay/config version when venue admin bulk-save actions publish new config snapshots.
 
 ## Pros/cons reference
 

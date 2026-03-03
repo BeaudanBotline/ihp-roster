@@ -2,7 +2,7 @@
 
 ## Architectural objective
 
-Build the product as a multi-venue employment operations platform with strong record integrity and privacy boundaries, not as a generic CRUD app with authentication.
+Build the product as a venue-scoped employment operations platform with strong record integrity and privacy boundaries, not as a generic CRUD app with authentication.
 
 For the first few venues, this should operate as a managed SaaS product with standardised workflows and founder-led support.
 
@@ -19,14 +19,14 @@ For the first few venues, this should operate as a managed SaaS product with sta
 
 ## Domain model changes to make early
 
-### Introduce tenancy now
+### Keep venue as the current customer boundary
 
-Add a first-class venue model before expanding features further.
+Keep venue as the first-class customer and operational boundary before expanding features further.
 
 Suggested core entities:
 
 - `venues`
-- `venue_users`
+- `users`
 - `venue_memberships`
 - `venue_roles`
 - `venue_settings`
@@ -34,6 +34,7 @@ Suggested core entities:
 Every employment, roster, timesheet, leave, availability and export record should belong to exactly one venue.
 
 Do not rely on a loose "current business" convention later.
+If a broader customer-account layer is needed later, add it above venues without rewriting venue-owned operational records.
 
 ### Separate identity from employment relationship
 
@@ -124,6 +125,21 @@ Hard delete should be reserved for:
 - accidental duplicate data before business use
 - data classes with no retention obligation and no legal hold
 
+### Stabilise pay and configuration history
+
+Pay-relevant configuration must not become a moving target for historical records.
+
+The selected model is immutable snapshot/version records created from venue admin bulk-save actions.
+
+Working rule:
+
+- venue admin edits current config in bulk
+- save creates a new immutable pay/config version
+- approved timesheets and exports reference that version
+- later config edits do not rewrite earlier approved/exported context
+
+Whichever model is chosen, the system must be able to explain a historical pay output using the rule context that applied at the time.
+
 ## Access control architecture
 
 ### Replace bootstrap-admin assumptions
@@ -156,6 +172,7 @@ Venue roles:
 - worker
 
 Permissions should be capability-based and venue-scoped.
+Business authority should live on `venue_memberships`, not on `users`.
 
 ### Sensitive action controls
 

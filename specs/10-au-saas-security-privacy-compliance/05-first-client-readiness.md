@@ -14,10 +14,13 @@ The product should not take on its first real client until the following are tru
 
 ## Product and architecture
 
-- Multi-venue data ownership is implemented.
+- Venue-scoped data ownership is implemented.
 - Venue-scoped authorisation is implemented and tested.
+- Business authority is resolved from venue memberships rather than global user roles.
 - Payroll-adjacent records use a correction-safe model rather than destructive overwrite.
 - Security-sensitive actions create durable audit records.
+- Historical pay/config behavior is reproducible for past periods and exports.
+- Venue admin bulk-save creates versioned pay/config snapshots used by approved records and exports.
 - Export generation is attributable and logged.
 - Backup and restore have been tested at least once against realistic data.
 
