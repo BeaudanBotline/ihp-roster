@@ -10,6 +10,7 @@ instance AutoRoute UsersController
 instance AutoRoute ProfilesController
 instance AutoRoute TimesheetsController
 instance AutoRoute LeaveRequestsController
+instance AutoRoute ExportsController
 instance AutoRoute AdminController
 instance AutoRoute StaffController
 instance AutoRoute RosterWeeksController

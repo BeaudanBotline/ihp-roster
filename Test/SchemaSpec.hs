@@ -1,6 +1,7 @@
 module Test.SchemaSpec where
 
 import Application.Helper.Controller
+import Application.Helper.Export
 import Application.Helper.View (appendQueryParams, formatDateDisplay,
                                 isTrialStaff, linkedActiveStaffForRosterPanel,
                                 quarterHourTimeOptions,
@@ -38,6 +39,7 @@ tests = describe "Schema" do
         let _ = (Nothing :: Maybe DayName)
         let _ = (Nothing :: Maybe PayLevelDayRule)
         let _ = (Nothing :: Maybe AuditEvent)
+        let _ = (Nothing :: Maybe ExportJob)
         True `shouldBe` True
 
     it "generates venue and venue membership models" do
@@ -96,6 +98,8 @@ tests = describe "Schema" do
             , "support_access_granted"
             ]
         allAuditSourceChannelValues `shouldBe` ["web", "htmx", "system"]
+        allExportJobTypeValues `shouldBe` ["approved_timesheets_csv"]
+        allExportJobStatusValues `shouldBe` ["pending", "ready", "expired"]
 
         parseUserRole "staff" `shouldBe` Just StaffRole
         parseUserRole "manager" `shouldBe` Just ManagerRole
@@ -112,10 +116,18 @@ tests = describe "Schema" do
         parseLeaveRequestStatus "approved" `shouldBe` Just LeaveApproved
         parseLeaveRequestStatus "denied" `shouldBe` Just LeaveDenied
         parseLeaveRequestStatus "cancelled" `shouldBe` Nothing
+        parseExportJobType "approved_timesheets_csv" `shouldBe` Just ApprovedTimesheetsCsv
+        parseExportJobType "leave_csv" `shouldBe` Nothing
+        parseExportJobStatus "pending" `shouldBe` Just ExportPending
+        parseExportJobStatus "ready" `shouldBe` Just ExportReady
+        parseExportJobStatus "expired" `shouldBe` Just ExportExpired
+        parseExportJobStatus "deleted" `shouldBe` Nothing
 
         map userRoleToText [StaffRole, ManagerRole, AdminRole] `shouldBe` allUserRoleValues
         map venueRoleToText [WorkerRole, ManagerRole', VenueAdminRole, VenueOwnerRole] `shouldBe` allVenueRoleValues
         map leaveRequestStatusToText [LeavePending, LeaveApproved, LeaveDenied] `shouldBe` allLeaveRequestStatusValues
+        map exportJobTypeToText [ApprovedTimesheetsCsv] `shouldBe` allExportJobTypeValues
+        map exportJobStatusToText [ExportPending, ExportReady, ExportExpired] `shouldBe` allExportJobStatusValues
 
     describe "Leave request helpers" do
         it "validates leave date ranges as unavailable-from to available-again" do
@@ -312,6 +324,12 @@ tests = describe "Schema" do
                 , "break_minutes", "is_approved", "approved_at", "approved_by_user_id"
                 , "actor_user_id", "event_type", "target_table", "target_id"
                 , "source_channel", "payload"
+                , "requested_by_user_id", "export_type", "schema_version"
+                , "pay_config_snapshot_version", "range_start", "range_end"
+                , "scope", "delivery_method", "destination_metadata"
+                , "generated_file_id", "file_name", "content_type"
+                , "file_contents", "download_token", "expires_at"
+                , "downloaded_at", "downloaded_by_user_id"
                 ]
         forM_ columnNames $ \col -> do
             let fieldName = columnNameToFieldName col

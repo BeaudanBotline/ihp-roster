@@ -59,12 +59,16 @@ Enforce venue-scoped data access everywhere, then add the audit and export primi
   - Audit writes participate in the same transaction as business actions where feasible.
 
 ### A.8 Export job foundations
-- **Status:** [ ]
+- **Status:** [x]
 - **Goal:** Treat exports as controlled disclosures before exposing them to customers.
 - **Deliverables:**
   - Add `export_jobs` schema.
   - Add export service abstraction and scoped export metadata.
   - Add audit coverage for export generation and download.
+- **Completion notes:**
+  - `Application/Schema.sql` now defines `export_jobs` with requestor, venue, scope, delivery, generated-file, token, and expiry metadata for explicit export lifecycle tracking.
+  - `Application/Helper/Export.hs` centralizes approved-timesheet CSV generation, expiry handling, and audit emission; `Web/Controller/Exports.hs` plus `Web/View/Exports/Index.hs` add an admin-only export jobs page with generation and download flows.
+  - `Test/Controller/ExportsSpec.hs`, `Test/SchemaSpec.hs`, and shared test helpers cover generation, venue scoping, download auditing, and schema surfaces for export jobs.
 - **Acceptance checks:**
   - Exports are attributable to venue, actor and scope.
   - Export lifecycle is explicit rather than ad hoc controller output.

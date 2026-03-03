@@ -47,6 +47,12 @@ data LeaveRequestsController
     | DeleteLeaveRequestAction { leaveRequestId :: !(Id LeaveRequest) }
     deriving (Eq, Show, Data)
 
+data ExportsController
+    = ExportJobsAction
+    | CreateExportJobAction
+    | DownloadExportJobAction { exportJobId :: !(Id ExportJob) }
+    deriving (Eq, Show, Data)
+
 data AdminController
     = AdminAction
     deriving (Eq, Show, Data)

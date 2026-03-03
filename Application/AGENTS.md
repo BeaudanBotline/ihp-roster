@@ -38,6 +38,7 @@ psql -h "$PWD/build/db" app -c "\dt"
 - `Application/Helper/View.hs` — Functions available in all views
 - These are already imported via `Web.Controller.Prelude` and `Web.View.Prelude`
 - Keep durable audit writes centralized in `Application/Helper/Controller.hs`; prefer one append-only `audit_events` helper that stores structured `JSONB` payloads and call it inside the same `withTransaction` as the sensitive mutation.
+- Keep export generation/download flow centralized in `Application/Helper/Export.hs`; controllers should delegate venue-scoped export creation, expiry checks, and audit emission there instead of hand-rolling ad hoc CSV endpoints.
 - For request-scoped business context such as `currentVenue` / `currentVenueMembership`, resolve it once in `Web/FrontController.initContext` and store `Maybe ...` values via `putContext`; views can then read them safely with frozen-context helpers instead of re-querying.
 - Keep reusable overlay helpers in `Application/Helper/View.hs`:
   - shared dialog and toast mount ids

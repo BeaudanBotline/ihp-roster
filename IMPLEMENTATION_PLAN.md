@@ -79,10 +79,10 @@ These steps are globally ordered. Detailed task breakdowns live in the linked pi
 - **Progress:** A.2 and A.3 are complete. Public signup is now invite-only via `venue_invitations`, first-user auto-admin logic is removed, and operational auth resolves venue authority from active `venue_memberships`.
 
 ### Pipeline 10 — Venue Scoping, Audit, Exports
-- **Status:** [-]
+- **Status:** [x]
 - **File:** `plans/10-venue-scoping-audit-exports.md`
 - **Focus:** enforce venue-scoped queries everywhere, add audit primitives, and introduce export job infrastructure.
-- **Progress:** A.4, A.5, and 1.3 are complete. Core business controllers/helpers now scope reads and writes to `currentVenue`; `audit_events` plus shared audit helpers now cover timesheet approvals/unapproval/reset, leave approval/denial/deletion, and invitation-driven venue-role assignment; venue-isolation tests cover roster, leave, timesheet, and cross-venue side effects.
+- **Progress:** A.4, A.5, A.8, and 1.3 are complete. Core business controllers/helpers now scope reads and writes to `currentVenue`; `audit_events` plus shared audit helpers now cover timesheet approvals/unapproval/reset, leave approval/denial/deletion, invitation-driven venue-role assignment, and export generation/download; `export_jobs` plus a centralized export service now provide venue-scoped approved-timesheet CSV exports with expiring download tokens and admin UI/tests; venue-isolation tests cover roster, leave, timesheet, export, and cross-venue side effects.
 
 ### Pipeline 20 — Roster and Conflicts
 - **Status:** [-]

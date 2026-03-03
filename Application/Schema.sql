@@ -198,6 +198,33 @@ CREATE TABLE audit_events (
     FOREIGN KEY (venue_id) REFERENCES venues (id) ON DELETE CASCADE,
     FOREIGN KEY (actor_user_id) REFERENCES users (id) ON DELETE RESTRICT
 );
+CREATE TABLE export_jobs (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
+    venue_id UUID NOT NULL,
+    requested_by_user_id UUID NOT NULL,
+    export_type TEXT NOT NULL,
+    status TEXT DEFAULT 'pending' NOT NULL,
+    schema_version INT DEFAULT 1 NOT NULL,
+    pay_config_snapshot_version TEXT,
+    range_start DATE,
+    range_end DATE,
+    scope JSONB DEFAULT '{}'::JSONB NOT NULL,
+    delivery_method TEXT DEFAULT 'browser_download' NOT NULL,
+    destination_metadata JSONB DEFAULT '{}'::JSONB NOT NULL,
+    generated_file_id UUID DEFAULT uuid_generate_v4() NOT NULL,
+    file_name TEXT,
+    content_type TEXT,
+    file_contents TEXT,
+    download_token UUID DEFAULT uuid_generate_v4() NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    downloaded_at TIMESTAMP WITH TIME ZONE,
+    downloaded_by_user_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    FOREIGN KEY (venue_id) REFERENCES venues (id) ON DELETE CASCADE,
+    FOREIGN KEY (requested_by_user_id) REFERENCES users (id) ON DELETE RESTRICT,
+    FOREIGN KEY (downloaded_by_user_id) REFERENCES users (id) ON DELETE SET NULL
+);
 CREATE TABLE timesheet_entries (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
     venue_id UUID NOT NULL,
@@ -232,6 +259,9 @@ CREATE INDEX idx_leave_requests_venue_start_date ON leave_requests (venue_id, st
 CREATE INDEX idx_staff_availability_venue ON staff_availability (venue_id);
 CREATE INDEX idx_audit_events_venue_created_at ON audit_events (venue_id, created_at DESC);
 CREATE INDEX idx_audit_events_target ON audit_events (target_table, target_id);
+CREATE INDEX idx_export_jobs_venue_created_at ON export_jobs (venue_id, created_at DESC);
+CREATE UNIQUE INDEX idx_export_jobs_generated_file_id ON export_jobs (generated_file_id);
+CREATE UNIQUE INDEX idx_export_jobs_download_token ON export_jobs (download_token);
 
 CREATE OR REPLACE FUNCTION resolve_effective_pay_level(p_staff_id UUID, p_shift_type_id UUID, p_day_of_week INT)
 RETURNS UUID
