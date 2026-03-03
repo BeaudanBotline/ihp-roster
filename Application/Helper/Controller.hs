@@ -1,5 +1,6 @@
 module Application.Helper.Controller where
 
+import qualified Data.Aeson as Aeson
 import Data.Coerce (coerce)
 import Data.List (find, sortOn)
 import Data.Time.Calendar (Day, addDays, diffDays)
@@ -52,6 +53,24 @@ allVenueRoleValues = ["worker", "manager", "venue_admin", "venue_owner"]
 allLeaveRequestStatusValues :: [Text]
 allLeaveRequestStatusValues = ["pending", "approved", "denied"]
 
+allAuditEventTypeValues :: [Text]
+allAuditEventTypeValues =
+    [ "timesheet_approved"
+    , "timesheet_unapproved"
+    , "timesheet_approval_reset"
+    , "leave_approved"
+    , "leave_denied"
+    , "leave_deleted"
+    , "venue_role_assigned"
+    , "venue_role_changed"
+    , "export_generated"
+    , "export_downloaded"
+    , "support_access_granted"
+    ]
+
+allAuditSourceChannelValues :: [Text]
+allAuditSourceChannelValues = ["web", "htmx", "system"]
+
 parseUserRole :: Text -> Maybe UserRole
 parseUserRole "staff"   = Just StaffRole
 parseUserRole "manager" = Just ManagerRole
@@ -102,6 +121,7 @@ ensureProfileCompleted =
 
 currentVenueOrNothing :: (?context :: ControllerContext) => Maybe Venue
 currentVenueOrNothing = unsafePerformIO (join <$> maybeFromContext @(Maybe Venue))
+{-# NOINLINE currentVenueOrNothing #-}
 
 currentVenue :: (?context :: ControllerContext) => Venue
 currentVenue =
@@ -112,6 +132,7 @@ currentVenueId = get #id currentVenue
 
 currentVenueMembershipOrNothing :: (?context :: ControllerContext) => Maybe VenueMembership
 currentVenueMembershipOrNothing = unsafePerformIO (join <$> maybeFromContext @(Maybe VenueMembership))
+{-# NOINLINE currentVenueMembershipOrNothing #-}
 
 currentVenueMembership :: (?context :: ControllerContext) => VenueMembership
 currentVenueMembership =
@@ -119,6 +140,7 @@ currentVenueMembership =
 
 currentVenueRoleOrNothing :: (?context :: ControllerContext) => Maybe VenueRole
 currentVenueRoleOrNothing = unsafePerformIO (join <$> maybeFromContext @(Maybe VenueRole))
+{-# NOINLINE currentVenueRoleOrNothing #-}
 
 currentVenueRole :: (?context :: ControllerContext) => VenueRole
 currentVenueRole =
@@ -149,6 +171,50 @@ isHtmxRequest = getHeader "HX-Request" == Just "true"
 -- | Ask htmx to push a canonical URL after a fragment response.
 setHtmxPushUrl :: (?context :: ControllerContext) => Text -> IO ()
 setHtmxPushUrl url = setHeader ("HX-Push-Url", cs url)
+
+requestAuditSourceChannel :: (?context :: ControllerContext) => Text
+requestAuditSourceChannel =
+    if isHtmxRequest
+        then "htmx"
+        else "web"
+
+recordAuditEvent ::
+    (?modelContext :: ModelContext) =>
+    UUID ->
+    UUID ->
+    Text ->
+    Text ->
+    UUID ->
+    Aeson.Value ->
+    Text ->
+    IO AuditEvent
+recordAuditEvent venueId actorUserId eventType targetTable targetId payload sourceChannel =
+    newRecord @AuditEvent
+        |> set #venueId venueId
+        |> set #actorUserId actorUserId
+        |> set #eventType eventType
+        |> set #targetTable targetTable
+        |> set #targetId targetId
+        |> set #payload payload
+        |> set #sourceChannel sourceChannel
+        |> createRecord
+
+recordCurrentUserAuditEvent ::
+    (?context :: ControllerContext, ?modelContext :: ModelContext) =>
+    Text ->
+    Text ->
+    UUID ->
+    Aeson.Value ->
+    IO AuditEvent
+recordCurrentUserAuditEvent eventType targetTable targetId payload =
+    recordAuditEvent
+        (unpackId currentVenueId)
+        (unpackId (get #id currentUser))
+        eventType
+        targetTable
+        targetId
+        payload
+        requestAuditSourceChannel
 
 -- | Parse a HH:MM text value into a TimeOfDay.
 parseTimeParam :: Text -> Maybe TimeOfDay

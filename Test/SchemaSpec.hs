@@ -37,6 +37,7 @@ tests = describe "Schema" do
         let _ = (Nothing :: Maybe SlotName)
         let _ = (Nothing :: Maybe DayName)
         let _ = (Nothing :: Maybe PayLevelDayRule)
+        let _ = (Nothing :: Maybe AuditEvent)
         True `shouldBe` True
 
     it "generates venue and venue membership models" do
@@ -81,6 +82,20 @@ tests = describe "Schema" do
         allUserRoleValues `shouldBe` ["staff", "manager", "admin"]
         allVenueRoleValues `shouldBe` ["worker", "manager", "venue_admin", "venue_owner"]
         allLeaveRequestStatusValues `shouldBe` ["pending", "approved", "denied"]
+        allAuditEventTypeValues `shouldBe`
+            [ "timesheet_approved"
+            , "timesheet_unapproved"
+            , "timesheet_approval_reset"
+            , "leave_approved"
+            , "leave_denied"
+            , "leave_deleted"
+            , "venue_role_assigned"
+            , "venue_role_changed"
+            , "export_generated"
+            , "export_downloaded"
+            , "support_access_granted"
+            ]
+        allAuditSourceChannelValues `shouldBe` ["web", "htmx", "system"]
 
         parseUserRole "staff" `shouldBe` Just StaffRole
         parseUserRole "manager" `shouldBe` Just ManagerRole
@@ -295,6 +310,8 @@ tests = describe "Schema" do
                 , "start_date", "end_date", "status", "notes", "worked_on"
                 , "end_time", "had_break", "break_start_time", "break_end_time"
                 , "break_minutes", "is_approved", "approved_at", "approved_by_user_id"
+                , "actor_user_id", "event_type", "target_table", "target_id"
+                , "source_channel", "payload"
                 ]
         forM_ columnNames $ \col -> do
             let fieldName = columnNameToFieldName col

@@ -3,6 +3,8 @@ module Web.Controller.LeaveRequests where
 import Application.Helper.View (ToastOverlayConfig (..),
                                 ToastOverlayPosition (..),
                                 renderToastOverlayHostOob)
+import Control.Monad (void)
+import qualified Data.Aeson as Aeson
 import Data.Coerce (coerce)
 import Data.Time.Calendar (addDays)
 import Web.Controller.Prelude
@@ -76,6 +78,18 @@ instance Controller LeaveRequestsController where
                     |> updateRecord
             unless wasApproved do
                 triggerRosterConflictRecomputeForLeave updatedLeaveRequest
+            void $ recordCurrentUserAuditEvent
+                "leave_approved"
+                "leave_requests"
+                (unpackId (get #id leaveRequest))
+                (Aeson.object
+                    [ "staffId" Aeson..= leaveRequest.staffId
+                    , "startDate" Aeson..= leaveRequest.startDate
+                    , "endDate" Aeson..= leaveRequest.endDate
+                    , "previousStatus" Aeson..= leaveRequest.status
+                    , "newStatus" Aeson..= updatedLeaveRequest.status
+                    ]
+                )
         setSuccessMessage "Leave request approved"
         redirectTo LeaveRequestsAction
 
@@ -91,6 +105,18 @@ instance Controller LeaveRequestsController where
                     |> updateRecord
             when wasApproved do
                 triggerRosterConflictRecomputeForLeave updatedLeaveRequest
+            void $ recordCurrentUserAuditEvent
+                "leave_denied"
+                "leave_requests"
+                (unpackId (get #id leaveRequest))
+                (Aeson.object
+                    [ "staffId" Aeson..= leaveRequest.staffId
+                    , "startDate" Aeson..= leaveRequest.startDate
+                    , "endDate" Aeson..= leaveRequest.endDate
+                    , "previousStatus" Aeson..= leaveRequest.status
+                    , "newStatus" Aeson..= updatedLeaveRequest.status
+                    ]
+                )
         setSuccessMessage "Leave request denied"
         redirectTo LeaveRequestsAction
 
@@ -101,6 +127,17 @@ instance Controller LeaveRequestsController where
         withTransaction do
             when (parseLeaveRequestStatus leaveRequest.status == Just LeaveApproved) do
                 triggerRosterConflictRecomputeForLeave leaveRequest
+            void $ recordCurrentUserAuditEvent
+                "leave_deleted"
+                "leave_requests"
+                (unpackId (get #id leaveRequest))
+                (Aeson.object
+                    [ "staffId" Aeson..= leaveRequest.staffId
+                    , "startDate" Aeson..= leaveRequest.startDate
+                    , "endDate" Aeson..= leaveRequest.endDate
+                    , "deletedStatus" Aeson..= leaveRequest.status
+                    ]
+                )
             deleteRecord leaveRequest
         setSuccessMessage "Leave request deleted"
         redirectTo LeaveRequestsAction

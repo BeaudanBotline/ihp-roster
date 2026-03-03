@@ -185,6 +185,19 @@ CREATE TABLE leave_requests (
     FOREIGN KEY (venue_id) REFERENCES venues (id) ON DELETE CASCADE,
     FOREIGN KEY (staff_id) REFERENCES staff (id) ON DELETE CASCADE
 );
+CREATE TABLE audit_events (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
+    venue_id UUID NOT NULL,
+    actor_user_id UUID NOT NULL,
+    event_type TEXT NOT NULL,
+    target_table TEXT NOT NULL,
+    target_id UUID NOT NULL,
+    source_channel TEXT DEFAULT 'web' NOT NULL,
+    payload JSONB DEFAULT '{}'::JSONB NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    FOREIGN KEY (venue_id) REFERENCES venues (id) ON DELETE CASCADE,
+    FOREIGN KEY (actor_user_id) REFERENCES users (id) ON DELETE RESTRICT
+);
 CREATE TABLE timesheet_entries (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
     venue_id UUID NOT NULL,
@@ -217,6 +230,8 @@ CREATE INDEX idx_timesheet_entries_venue_worked_on ON timesheet_entries (venue_i
 CREATE INDEX idx_leave_requests_venue_staff ON leave_requests (venue_id, staff_id);
 CREATE INDEX idx_leave_requests_venue_start_date ON leave_requests (venue_id, start_date);
 CREATE INDEX idx_staff_availability_venue ON staff_availability (venue_id);
+CREATE INDEX idx_audit_events_venue_created_at ON audit_events (venue_id, created_at DESC);
+CREATE INDEX idx_audit_events_target ON audit_events (target_table, target_id);
 
 CREATE OR REPLACE FUNCTION resolve_effective_pay_level(p_staff_id UUID, p_shift_type_id UUID, p_day_of_week INT)
 RETURNS UUID

@@ -111,3 +111,10 @@ tests = beforeAll testContext do
                 user.userRole `shouldBe` "staff"
                 updatedInvitation.status `shouldBe` "accepted"
                 updatedInvitation.acceptedByUserId `shouldBe` Just (unpackId user.id)
+
+                auditEvent <- query @AuditEvent |> fetchOne
+                auditEvent.venueId `shouldBe` unpackId venue.id
+                auditEvent.actorUserId `shouldBe` unpackId user.id
+                auditEvent.eventType `shouldBe` "venue_role_assigned"
+                auditEvent.targetTable `shouldBe` "venue_memberships"
+                auditEvent.targetId `shouldBe` unpackId membership.id

@@ -48,7 +48,7 @@ withControllerTestContext action =
 resetDatabase :: (?modelContext :: ModelContext) => IO ()
 resetDatabase = do
     sqlExec
-        "TRUNCATE TABLE timesheet_entries, leave_requests, staff_availability, roster_slots, roster_days, roster_weeks, venue_config, day_names, slot_names, shift_types, pay_levels, staff, venue_invitations, venue_memberships, users, venues RESTART IDENTITY CASCADE"
+        "TRUNCATE TABLE audit_events, timesheet_entries, leave_requests, staff_availability, roster_slots, roster_days, roster_weeks, venue_config, day_names, slot_names, shift_types, pay_levels, staff, venue_invitations, venue_memberships, users, venues RESTART IDENTITY CASCADE"
         ()
     pure ()
 

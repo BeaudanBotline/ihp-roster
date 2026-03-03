@@ -176,8 +176,8 @@ renderEditActions entry canEdit weekOffset
     |]
     | otherwise = mempty
     where
-        editUrl = appendQueryParams (pathTo (EditTimesheetEntryAction entry.id)) [("weekOffset", tshow weekOffset)]
-        deleteUrl = appendQueryParams (pathTo (DeleteTimesheetEntryAction entry.id)) [("weekOffset", tshow weekOffset)]
+        editUrl = appendQueryParams (pathTo (EditTimesheetEntryAction (get #id entry))) [("weekOffset", tshow weekOffset)]
+        deleteUrl = appendQueryParams (pathTo (DeleteTimesheetEntryAction (get #id entry))) [("weekOffset", tshow weekOffset)]
 
 renderApprovalAction :: (?context :: ControllerContext) => TimesheetEntry -> Int -> Html
 renderApprovalAction entry weekOffset

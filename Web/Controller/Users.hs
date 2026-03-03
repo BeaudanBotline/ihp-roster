@@ -1,5 +1,7 @@
 module Web.Controller.Users where
 
+import Control.Monad (void)
+import qualified Data.Aeson as Aeson
 import Web.Controller.Prelude
 import Web.View.Users.New
 
@@ -53,7 +55,7 @@ instance Controller UsersController where
                                         user <- user
                                             |> set #passwordHash hashed
                                             |> createRecord
-                                        _ <- newRecord @VenueMembership
+                                        membership <- newRecord @VenueMembership
                                             |> set #venueId invitation.venueId
                                             |> set #userId (unpackId (get #id user))
                                             |> set #venueRole invitation.inviteRole
@@ -64,7 +66,19 @@ instance Controller UsersController where
                                             |> set #acceptedByUserId (Just (unpackId (get #id user)))
                                             |> set #acceptedAt (Just now)
                                             |> updateRecord
-                                        pure ()
+                                        void $ recordAuditEvent
+                                            invitation.venueId
+                                            (unpackId (get #id user))
+                                            "venue_role_assigned"
+                                            "venue_memberships"
+                                            (unpackId (get #id membership))
+                                            (Aeson.object
+                                                [ "email" Aeson..= user.email
+                                                , "assignedRole" Aeson..= membership.venueRole
+                                                , "invitationId" Aeson..= unpackId (get #id invitation)
+                                                ]
+                                            )
+                                            requestAuditSourceChannel
                                     setSuccessMessage "Account created from invitation. Please sign in."
                                     redirectTo NewSessionAction
                     _ -> do

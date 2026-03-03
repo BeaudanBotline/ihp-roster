@@ -69,3 +69,66 @@ tests = beforeAll testContext do
 
                 refreshedWeekA.updatedAt `shouldSatisfy` (> staleTimestamp)
                 refreshedWeekB.updatedAt `shouldBe` staleTimestamp
+
+        it "writes an audit event when approving a leave request" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Leave Venue"
+                manager <- createUserRecord "leave-approve@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue manager "manager"
+                staff <- createStaffRecord venue Nothing "Ava" "Leave"
+                leaveRequest <- createLeaveRequestRecord venue staff (fromGregorian 2025 1 8) (fromGregorian 2025 1 10) "pending"
+
+                response <- withUserAndCurrentVenue manager venue.id do
+                    callAction ApproveLeaveRequestAction { leaveRequestId = leaveRequest.id }
+
+                response `responseStatusShouldBe` status302
+
+                updatedLeaveRequest <- fetch leaveRequest.id
+                updatedLeaveRequest.status `shouldBe` "approved"
+
+                auditEvent <- query @AuditEvent |> fetchOne
+                auditEvent.venueId `shouldBe` unpackId venue.id
+                auditEvent.actorUserId `shouldBe` unpackId manager.id
+                auditEvent.eventType `shouldBe` "leave_approved"
+                auditEvent.targetTable `shouldBe` "leave_requests"
+                auditEvent.targetId `shouldBe` unpackId leaveRequest.id
+
+        it "writes an audit event when denying a leave request" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Leave Venue"
+                manager <- createUserRecord "leave-deny@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue manager "manager"
+                staff <- createStaffRecord venue Nothing "Dina" "Leave"
+                leaveRequest <- createLeaveRequestRecord venue staff (fromGregorian 2025 1 11) (fromGregorian 2025 1 12) "pending"
+
+                response <- withUserAndCurrentVenue manager venue.id do
+                    callAction DenyLeaveRequestAction { leaveRequestId = leaveRequest.id }
+
+                response `responseStatusShouldBe` status302
+
+                updatedLeaveRequest <- fetch leaveRequest.id
+                updatedLeaveRequest.status `shouldBe` "denied"
+
+                auditEvent <- query @AuditEvent |> fetchOne
+                auditEvent.eventType `shouldBe` "leave_denied"
+                auditEvent.targetId `shouldBe` unpackId leaveRequest.id
+
+        it "writes an audit event when deleting a leave request" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Leave Venue"
+                manager <- createUserRecord "leave-delete@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue manager "manager"
+                staff <- createStaffRecord venue Nothing "Del" "Leave"
+                leaveRequest <- createLeaveRequestRecord venue staff (fromGregorian 2025 1 13) (fromGregorian 2025 1 14) "approved"
+
+                response <- withUserAndCurrentVenue manager venue.id do
+                    callAction DeleteLeaveRequestAction { leaveRequestId = leaveRequest.id }
+
+                response `responseStatusShouldBe` status302
+
+                remainingCount <- query @LeaveRequest |> fetchCount
+                remainingCount `shouldBe` 0
+
+                auditEvent <- query @AuditEvent |> fetchOne
+                auditEvent.eventType `shouldBe` "leave_deleted"
+                auditEvent.targetId `shouldBe` unpackId leaveRequest.id

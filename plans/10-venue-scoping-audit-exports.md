@@ -44,12 +44,16 @@ Enforce venue-scoped data access everywhere, then add the audit and export primi
   - Venue-scoped tests exist for roster, leave and timesheet flows.
 
 ### A.5 Audit-event infrastructure for sensitive actions
-- **Status:** [ ]
+- **Status:** [x]
 - **Goal:** Add durable auditability before exports and broader commercial use.
 - **Deliverables:**
   - Add `audit_events` schema.
   - Add shared audit write helper/service.
   - Emit events for approvals, role changes, exports and support-sensitive actions.
+- **Completion notes:**
+  - `Application/Schema.sql` now defines append-only `audit_events` with venue, actor, target, source-channel, and JSONB payload fields, and `Application/Helper/Controller.hs` centralizes audit writes through shared helpers.
+  - `Web/Controller/Timesheets.hs`, `Web/Controller/LeaveRequests.hs`, and `Web/Controller/Users.hs` now write audit rows inside the same transaction as timesheet approval/unapproval/reset, leave approval/denial/deletion, and invitation-driven venue-role assignment.
+  - `Test/Controller/TimesheetsSpec.hs`, `Test/Controller/LeaveRequestsSpec.hs`, `Test/Controller/UsersSpec.hs`, and `Test/SchemaSpec.hs` cover the new audit behavior and generated schema surface.
 - **Acceptance checks:**
   - Sensitive actions create attributable audit records with venue and actor information.
   - Audit writes participate in the same transaction as business actions where feasible.

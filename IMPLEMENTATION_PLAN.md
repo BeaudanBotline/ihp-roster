@@ -82,7 +82,7 @@ These steps are globally ordered. Detailed task breakdowns live in the linked pi
 - **Status:** [-]
 - **File:** `plans/10-venue-scoping-audit-exports.md`
 - **Focus:** enforce venue-scoped queries everywhere, add audit primitives, and introduce export job infrastructure.
-- **Progress:** A.4 and 1.3 are complete. Core business controllers/helpers now scope reads and writes to `currentVenue`, and venue-isolation tests cover roster, leave, timesheet, and cross-venue side effects.
+- **Progress:** A.4, A.5, and 1.3 are complete. Core business controllers/helpers now scope reads and writes to `currentVenue`; `audit_events` plus shared audit helpers now cover timesheet approvals/unapproval/reset, leave approval/denial/deletion, and invitation-driven venue-role assignment; venue-isolation tests cover roster, leave, timesheet, and cross-venue side effects.
 
 ### Pipeline 20 — Roster and Conflicts
 - **Status:** [-]

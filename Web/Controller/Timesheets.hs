@@ -1,6 +1,8 @@
 module Web.Controller.Timesheets where
 
 import Application.Helper.Pay (fetchTimesheetPaySummariesForEntries)
+import Control.Monad (void)
+import qualified Data.Aeson as Aeson
 import Data.Coerce (coerce)
 import Data.Time.Calendar (Day, addDays, diffDays)
 import Data.Time.Clock (getCurrentTime, utctDay)
@@ -108,9 +110,22 @@ instance Controller TimesheetsController where
                         else render EditView { .. }
                 Right timesheetEntry -> do
                     ensureStaffAssignmentAllowed timesheetEntry.staffId
-                    _ <- timesheetEntry
-                        |> resetApprovalOnEdit wasApproved
-                        |> updateRecord
+                    withTransaction do
+                        _ <- timesheetEntry
+                            |> resetApprovalOnEdit wasApproved
+                            |> updateRecord
+                        when wasApproved do
+                            void $ recordCurrentUserAuditEvent
+                                "timesheet_approval_reset"
+                                "timesheet_entries"
+                                (unpackId (get #id timesheetEntry))
+                                (Aeson.object
+                                    [ "staffId" Aeson..= timesheetEntry.staffId
+                                    , "workedOn" Aeson..= timesheetEntry.workedOn
+                                    , "previousApprovedAt" Aeson..= timesheetEntry.approvedAt
+                                    , "previousApprovedByUserId" Aeson..= timesheetEntry.approvedByUserId
+                                    ]
+                                )
                     if isHtmxRequest
                         then respondWithTimesheetDaySection weekOffset timesheetEntry.workedOn
                         else do
@@ -138,11 +153,23 @@ instance Controller TimesheetsController where
         weekOffset <- weekOffsetFromParamOrEntry timesheetEntry.workedOn
 
         now <- getCurrentTime
-        timesheetEntry
-            |> set #isApproved True
-            |> set #approvedAt (Just now)
-            |> set #approvedByUserId (Just (unpackId (get #id currentUser)))
-            |> updateRecord
+        withTransaction do
+            _ <- timesheetEntry
+                |> set #isApproved True
+                |> set #approvedAt (Just now)
+                |> set #approvedByUserId (Just (unpackId (get #id currentUser)))
+                |> updateRecord
+            void $ recordCurrentUserAuditEvent
+                "timesheet_approved"
+                "timesheet_entries"
+                (unpackId (get #id timesheetEntry))
+                (Aeson.object
+                    [ "staffId" Aeson..= timesheetEntry.staffId
+                    , "workedOn" Aeson..= timesheetEntry.workedOn
+                    , "wasApproved" Aeson..= timesheetEntry.isApproved
+                    , "approvedAt" Aeson..= now
+                    ]
+                )
 
         setSuccessMessage "Timesheet entry approved"
         redirectTo ShowTimesheetWeekAction { weekOffset }
@@ -153,11 +180,24 @@ instance Controller TimesheetsController where
         ensureRecordInCurrentVenue timesheetEntry.venueId
         weekOffset <- weekOffsetFromParamOrEntry timesheetEntry.workedOn
 
-        timesheetEntry
-            |> set #isApproved False
-            |> set #approvedAt Nothing
-            |> set #approvedByUserId Nothing
-            |> updateRecord
+        withTransaction do
+            _ <- timesheetEntry
+                |> set #isApproved False
+                |> set #approvedAt Nothing
+                |> set #approvedByUserId Nothing
+                |> updateRecord
+            void $ recordCurrentUserAuditEvent
+                "timesheet_unapproved"
+                "timesheet_entries"
+                (unpackId (get #id timesheetEntry))
+                (Aeson.object
+                    [ "staffId" Aeson..= timesheetEntry.staffId
+                    , "workedOn" Aeson..= timesheetEntry.workedOn
+                    , "wasApproved" Aeson..= timesheetEntry.isApproved
+                    , "previousApprovedAt" Aeson..= timesheetEntry.approvedAt
+                    , "previousApprovedByUserId" Aeson..= timesheetEntry.approvedByUserId
+                    ]
+                )
 
         setSuccessMessage "Timesheet entry unapproved"
         redirectTo ShowTimesheetWeekAction { weekOffset }
