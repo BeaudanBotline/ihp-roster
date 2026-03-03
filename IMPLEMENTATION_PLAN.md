@@ -111,7 +111,7 @@ These steps are globally ordered. Detailed task breakdowns live in the linked pi
 - **File:** `plans/60-template-extraction.md`
 - **Focus:** extract reusable, project-agnostic infrastructure (dev automation, overlay system, dark theme, AGENTS.md, e2e helpers) from `roster` back to `master` so master serves as a powerful general-purpose IHP template.
 - **Note:** targets `master` branch only. No domain code crosses over. Can proceed independently of all other pipelines.
-- **Progress:** Phase 1.1 is complete on `master` via `138f3c2` plus compatibility follow-up `a266d95`; `flake.nix` now emits valid empty-string `GHC_RTS_FLAGS` for `typecheck`, `test`, and `ghci-app` on the current base.
+- **Progress:** Phase 1.1 is complete on `master` via `138f3c2` plus compatibility follow-up `a266d95`; `flake.nix` now emits valid empty-string `GHC_RTS_FLAGS` for `typecheck`, `test`, and `ghci-app` on the current base. Phase 1.2 is complete via `11af962`, adding `dev-start`, `dev-stop`, `dev-status`, and `dev-wait` to `flake.nix` and verifying the lifecycle flow end to end.
 
 ## Parallelism Rules
 

@@ -46,7 +46,7 @@ Work within a phase is sequential (each slice depends on the prior). Phases them
 - **Completion notes:** Landed on `master` as `138f3c2` with follow-up compatibility fix `a266d95`; current `master` needed `${"''"}` interpolation in `flake.nix` to generate a literal shell `''` without breaking the produced wrapper scripts.
 
 ### Slice 1.2: Dev-server lifecycle scripts
-- **Status:** [ ]
+- **Status:** [x]
 - **Source commits:** `ca2f48f`, `6ff3e85`
 - **Strategy:** Cherry-pick or extract from these commits. The scripts to add to `flake.nix` are:
   - `dev-start` — start IHP `start` in background, write pid/log to `.devenv/agent/`, fail fast on startup crash
@@ -56,6 +56,7 @@ Work within a phase is sequential (each slice depends on the prior). Phases them
 - **Files:**
   - `flake.nix` — add the four script blocks after the existing `e2e-report` script
 - **Verification:** Run `direnv exec . dev-start && direnv exec . dev-wait && direnv exec . dev-status && direnv exec . dev-stop` with `devenv up` active.
+- **Completion notes:** Landed on `master` as `11af962`. Verified with `direnv exec . typecheck`, then `dev-start`, `dev-wait 90`, `dev-status`, and `dev-stop`; the environment was already healthy when `dev-start` ran, and `dev-stop` shut the managed process down cleanly.
 
 ### Slice 1.3: hlint QuasiQuotes fix
 - **Status:** [ ]
