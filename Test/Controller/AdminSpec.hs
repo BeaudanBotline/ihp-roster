@@ -32,31 +32,36 @@ tests = beforeAll testContext do
                 _ <- createVenueMembershipRecord venueB admin "venue_admin"
 
                 payLevelA <- createPayLevelRecord venueA "Level A"
+                dayNameA <- createDayNameRecord venueA 1 "Monday"
+                _ <- createPayLevelDayRuleRecord payLevelA dayNameA 1.25
                 _ <- createShiftTypeRecord venueA payLevelA "Kitchen"
                 _ <- createSlotNameRecord venueA "Early"
-                _ <- createDayNameRecord venueA 1 "Monday"
                 _ <- createPayConfigSnapshotRecord venueA admin 1 (Aeson.object [])
                 _ <- createPayConfigSnapshotRecord venueA admin 2 (Aeson.object [])
 
                 payLevelB <- createPayLevelRecord venueB "Level B"
+                dayNameB <- createDayNameRecord venueB 2 "Tuesday"
+                _ <- createPayLevelDayRuleRecord payLevelB dayNameB 1.75
                 _ <- createShiftTypeRecord venueB payLevelB "Bar"
                 _ <- createSlotNameRecord venueB "Late"
-                _ <- createDayNameRecord venueB 2 "Tuesday"
 
                 response <- withUserAndCurrentVenue admin venueA.id do
                     callAction AdminAction
 
                 response `responseStatusShouldBe` status200
                 response `responseBodyShouldContain` "Pay Levels"
+                response `responseBodyShouldContain` "Pay Level Day Rules"
                 response `responseBodyShouldContain` "Shift Types"
                 response `responseBodyShouldContain` "Slot Names"
                 response `responseBodyShouldContain` "Day Names"
                 response `responseBodyShouldContain` "Level A"
+                response `responseBodyShouldContain` "Level A on Monday (Monday)"
                 response `responseBodyShouldContain` "Kitchen"
                 response `responseBodyShouldContain` "Early"
                 response `responseBodyShouldContain` "Monday"
                 response `responseBodyShouldContain` "Active snapshot: v2"
                 response `responseBodyShouldNotContain` "Level B"
+                response `responseBodyShouldNotContain` "Level B on Tuesday (Tuesday)"
                 response `responseBodyShouldNotContain` "Bar"
                 response `responseBodyShouldNotContain` "Late"
                 response `responseBodyShouldNotContain` "Tuesday"
@@ -66,6 +71,7 @@ tests = beforeAll testContext do
                 venue <- createVenueWithConfig "Admin Venue"
                 admin <- createUserRecord "admin-create@example.com" "staff" True
                 _ <- createVenueMembershipRecord venue admin "venue_admin"
+                dayName <- createDayNameRecord venue 1 "Monday"
 
                 payLevelResponse <- withUserAndCurrentVenue admin venue.id do
                     callActionWithParams CreatePayLevelAction
@@ -98,7 +104,16 @@ tests = beforeAll testContext do
                         ]
                 shiftTypeResponse `responseStatusShouldBe` status302
 
+                dayRuleResponse <- withUserAndCurrentVenue admin venue.id do
+                    callActionWithParams CreatePayLevelDayRuleAction
+                        [ ("payLevelId", idToParam payLevel.id)
+                        , ("dayNameId", idToParam dayName.id)
+                        , ("multiplier", "1.500")
+                        ]
+                dayRuleResponse `responseStatusShouldBe` status302
+
                 createdPayLevel <- query @PayLevel |> fetchOne
+                createdPayLevelDayRule <- query @PayLevelDayRule |> fetchOne
                 createdSlotName <- query @SlotName |> fetchOne
                 createdDayName <- query @DayName |> fetchOne
                 createdShiftType <- query @ShiftType |> fetchOne
@@ -111,6 +126,9 @@ tests = beforeAll testContext do
                 createdDayName.weekdayIndex `shouldBe` 3
                 createdDayName.name `shouldBe` "Midweek"
                 createdDayName.isActive `shouldBe` False
+                createdPayLevelDayRule.payLevelId `shouldBe` unpackId createdPayLevel.id
+                createdPayLevelDayRule.dayNameId `shouldBe` unpackId dayName.id
+                createdPayLevelDayRule.multiplier `shouldBe` 1.5
                 createdShiftType.name `shouldBe` "Supervisor"
                 createdShiftType.defaultPayLevelId `shouldBe` unpackId createdPayLevel.id
                 createdShiftType.isActive `shouldBe` True
@@ -126,6 +144,8 @@ tests = beforeAll testContext do
                 shiftType <- createShiftTypeRecord venue oldPayLevel "Kitchen"
                 slotName <- createSlotNameRecord venue "Early"
                 dayName <- createDayNameRecord venue 1 "Monday"
+                nextDayName <- createDayNameRecord venue 5 "Friday"
+                payLevelDayRule <- createPayLevelDayRuleRecord oldPayLevel dayName 1.25
 
                 payLevelResponse <- withUserAndCurrentVenue admin venue.id do
                     callActionWithParams (UpdatePayLevelAction oldPayLevel.id)
@@ -157,10 +177,19 @@ tests = beforeAll testContext do
                         ]
                 dayResponse `responseStatusShouldBe` status302
 
+                dayRuleResponse <- withUserAndCurrentVenue admin venue.id do
+                    callActionWithParams (UpdatePayLevelDayRuleAction payLevelDayRule.id)
+                        [ ("payLevelId", idToParam newPayLevel.id)
+                        , ("dayNameId", idToParam nextDayName.id)
+                        , ("multiplier", "2.000")
+                        ]
+                dayRuleResponse `responseStatusShouldBe` status302
+
                 updatedPayLevel <- fetch oldPayLevel.id
                 updatedShiftType <- fetch shiftType.id
                 updatedSlotName <- fetch slotName.id
                 updatedDayName <- fetch dayName.id
+                updatedPayLevelDayRule <- fetch payLevelDayRule.id
 
                 updatedPayLevel.name `shouldBe` "Level 1 Updated"
                 updatedPayLevel.isActive `shouldBe` False
@@ -172,6 +201,9 @@ tests = beforeAll testContext do
                 updatedDayName.weekdayIndex `shouldBe` 4
                 updatedDayName.name `shouldBe` "Thursday Updated"
                 updatedDayName.isActive `shouldBe` False
+                updatedPayLevelDayRule.payLevelId `shouldBe` unpackId newPayLevel.id
+                updatedPayLevelDayRule.dayNameId `shouldBe` unpackId nextDayName.id
+                updatedPayLevelDayRule.multiplier `shouldBe` 2.0
 
         it "rejects updates to config rows outside the current venue" $ withContext do
             withCleanDb do
@@ -193,6 +225,53 @@ tests = beforeAll testContext do
                 unchangedPayLevel <- fetch foreignPayLevel.id
                 unchangedPayLevel.name `shouldBe` "Foreign Level"
                 unchangedPayLevel.isActive `shouldBe` True
+
+        it "rejects pay level day rules that reference another venue or duplicate an existing weekday rule" $ withContext do
+            withCleanDb do
+                venueA <- createVenueWithConfig "Venue A"
+                venueB <- createVenueWithConfig "Venue B"
+                admin <- createUserRecord "admin-day-rule@example.com" "staff" True
+                _ <- createVenueMembershipRecord venueA admin "venue_admin"
+                _ <- createVenueMembershipRecord venueB admin "venue_admin"
+
+                payLevelA <- createPayLevelRecord venueA "Level A"
+                dayNameA <- createDayNameRecord venueA 1 "Monday"
+                existingRule <- createPayLevelDayRuleRecord payLevelA dayNameA 1.25
+
+                payLevelB <- createPayLevelRecord venueB "Level B"
+                dayNameB <- createDayNameRecord venueB 2 "Tuesday"
+
+                crossVenueResponse <- withUserAndCurrentVenue admin venueA.id do
+                    callActionWithParams CreatePayLevelDayRuleAction
+                        [ ("payLevelId", idToParam payLevelB.id)
+                        , ("dayNameId", idToParam dayNameA.id)
+                        , ("multiplier", "1.500")
+                        ]
+                crossVenueResponse `responseStatusShouldBe` status302
+
+                duplicateResponse <- withUserAndCurrentVenue admin venueA.id do
+                    callActionWithParams CreatePayLevelDayRuleAction
+                        [ ("payLevelId", idToParam payLevelA.id)
+                        , ("dayNameId", idToParam dayNameA.id)
+                        , ("multiplier", "1.500")
+                        ]
+                duplicateResponse `responseStatusShouldBe` status302
+
+                updateForeignRuleResponse <- withUserAndCurrentVenue admin venueA.id do
+                    callActionWithParams (UpdatePayLevelDayRuleAction existingRule.id)
+                        [ ("payLevelId", idToParam payLevelA.id)
+                        , ("dayNameId", idToParam dayNameB.id)
+                        , ("multiplier", "2.000")
+                        ]
+                updateForeignRuleResponse `responseStatusShouldBe` status302
+
+                payLevelDayRules <- query @PayLevelDayRule |> fetch
+                length payLevelDayRules `shouldBe` 1
+
+                unchangedRule <- fetch existingRule.id
+                unchangedRule.payLevelId `shouldBe` unpackId payLevelA.id
+                unchangedRule.dayNameId `shouldBe` unpackId dayNameA.id
+                unchangedRule.multiplier `shouldBe` 1.25
 
         it "creates a new pay/config snapshot version from the admin page" $ withContext do
             withCleanDb do

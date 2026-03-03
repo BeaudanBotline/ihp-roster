@@ -7,6 +7,7 @@ data IndexView = IndexView
     { latestSnapshot  :: Maybe PayConfigSnapshot
     , recentSnapshots :: [PayConfigSnapshot]
     , payLevels       :: [PayLevel]
+    , payLevelDayRules :: [PayLevelDayRule]
     , shiftTypes      :: [ShiftType]
     , slotNames       :: [SlotName]
     , dayNames        :: [DayName]
@@ -30,6 +31,9 @@ instance View IndexView where
                     </div>
                     <div class="col-12 col-lg-6">
                         {renderShiftTypesSection shiftTypes payLevels}
+                    </div>
+                    <div class="col-12 col-lg-6">
+                        {renderPayLevelDayRulesSection payLevelDayRules payLevels dayNames}
                     </div>
                     <div class="col-12 col-lg-6">
                         {renderSlotNamesSection slotNames}
@@ -88,6 +92,14 @@ renderShiftTypesSection shiftTypes payLevels =
         "Each shift type points to a default pay level used by pay resolution."
         (renderShiftTypeCreateForm payLevels)
         (if null shiftTypes then renderEmptyState "No shift types yet." else forEach shiftTypes (renderShiftTypeRow payLevels))
+
+renderPayLevelDayRulesSection :: [PayLevelDayRule] -> [PayLevel] -> [DayName] -> Html
+renderPayLevelDayRulesSection payLevelDayRules payLevels dayNames =
+    renderConfigSection
+        "Pay Level Day Rules"
+        "Override weekday multipliers for a pay level without changing the underlying day-name table."
+        (renderPayLevelDayRuleCreateForm payLevels dayNames)
+        (if null payLevelDayRules then renderEmptyState "No pay level day rules yet." else forEach payLevelDayRules (renderPayLevelDayRuleRow payLevels dayNames))
 
 renderSlotNamesSection :: [SlotName] -> Html
 renderSlotNamesSection slotNames =
@@ -225,6 +237,70 @@ renderShiftTypeRow payLevels shiftType = [hsx|
                     <option value="true" selected={shiftType.isActive}>Active</option>
                     <option value="false" selected={not shiftType.isActive}>Inactive</option>
                 </select>
+            </div>
+            <div class="col-12 col-md-2">
+                <button class="btn btn-outline-secondary w-100" type="submit">Update</button>
+            </div>
+        </div>
+    </form>
+|]
+
+renderPayLevelDayRuleCreateForm :: [PayLevel] -> [DayName] -> Html
+renderPayLevelDayRuleCreateForm payLevels dayNames
+    | null payLevels || null dayNames = [hsx|
+        <div class="alert alert-warning mb-0">
+            Add at least one pay level and one day name before creating pay level day rules.
+        </div>
+    |]
+    | otherwise = [hsx|
+        <form method="POST" action={CreatePayLevelDayRuleAction} class="border rounded p-3">
+            <div class="row g-2 align-items-end">
+                <div class="col-12 col-md-4">
+                    <label class="form-label" for="new-day-rule-pay-level">Pay Level</label>
+                    <select id="new-day-rule-pay-level" class="form-select" name="payLevelId">
+                        {forEach payLevels renderPayLevelOption}
+                    </select>
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label" for="new-day-rule-day-name">Day Name</label>
+                    <select id="new-day-rule-day-name" class="form-select" name="dayNameId">
+                        {forEach dayNames renderDayNameOption}
+                    </select>
+                </div>
+                <div class="col-12 col-md-2">
+                    <label class="form-label" for="new-day-rule-multiplier">Multiplier</label>
+                    <input id="new-day-rule-multiplier" class="form-control" type="number" name="multiplier" min="0.001" step="0.001" value="1.000" />
+                </div>
+                <div class="col-12 col-md-2">
+                    <button class="btn btn-outline-primary w-100" type="submit">Add</button>
+                </div>
+            </div>
+        </form>
+    |]
+
+renderPayLevelDayRuleRow :: [PayLevel] -> [DayName] -> PayLevelDayRule -> Html
+renderPayLevelDayRuleRow payLevels dayNames payLevelDayRule = [hsx|
+    <form method="POST" action={UpdatePayLevelDayRuleAction (get #id payLevelDayRule)} class="border rounded p-3 mb-2">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="fw-semibold">{renderPayLevelDayRuleHeading payLevels dayNames payLevelDayRule}</span>
+            <span class="badge text-bg-info">multiplier rule</span>
+        </div>
+        <div class="row g-2 align-items-end">
+            <div class="col-12 col-md-4">
+                <label class="form-label">Pay Level</label>
+                <select class="form-select" name="payLevelId">
+                    {forEach payLevels (renderSelectedPayLevelOption payLevelDayRule.payLevelId)}
+                </select>
+            </div>
+            <div class="col-12 col-md-4">
+                <label class="form-label">Day Name</label>
+                <select class="form-select" name="dayNameId">
+                    {forEach dayNames (renderSelectedDayNameOption payLevelDayRule.dayNameId)}
+                </select>
+            </div>
+            <div class="col-12 col-md-2">
+                <label class="form-label">Multiplier</label>
+                <input class="form-control" type="number" name="multiplier" min="0.001" step="0.001" value={tshow payLevelDayRule.multiplier} />
             </div>
             <div class="col-12 col-md-2">
                 <button class="btn btn-outline-secondary w-100" type="submit">Update</button>
@@ -403,11 +479,35 @@ renderSelectedWeekdayOption selectedWeekdayIndex (weekdayIndex, label) = [hsx|
     <option value={tshow weekdayIndex} selected={weekdayIndex == selectedWeekdayIndex}>{label}</option>
 |]
 
+renderDayNameOption :: DayName -> Html
+renderDayNameOption dayName = [hsx|
+    <option value={tshow (unpackId (get #id dayName))}>{renderDayNameLabel dayName}</option>
+|]
+
+renderSelectedDayNameOption :: UUID -> DayName -> Html
+renderSelectedDayNameOption selectedDayNameId dayName = [hsx|
+    <option value={tshow (unpackId (get #id dayName))} selected={unpackId (get #id dayName) == selectedDayNameId}>{renderDayNameLabel dayName}</option>
+|]
+
 renderPayLevelLabel :: PayLevel -> Text
 renderPayLevelLabel payLevel =
     if payLevel.isActive
         then payLevel.name
         else payLevel.name <> " (inactive)"
+
+renderDayNameLabel :: DayName -> Text
+renderDayNameLabel dayName =
+    let baseLabel = dayName.name <> " (" <> renderWeekdayName dayName.weekdayIndex <> ")"
+     in if dayName.isActive
+            then baseLabel
+            else baseLabel <> " (inactive)"
+
+renderPayLevelDayRuleHeading :: [PayLevel] -> [DayName] -> PayLevelDayRule -> Text
+renderPayLevelDayRuleHeading payLevels dayNames payLevelDayRule =
+    payLevelLabel <> " on " <> dayNameLabel
+    where
+        payLevelLabel = fromMaybe "Unknown pay level" (renderPayLevelLabel <$> find (\payLevel -> unpackId (get #id payLevel) == payLevelDayRule.payLevelId) payLevels)
+        dayNameLabel = fromMaybe "Unknown day name" (renderDayNameLabel <$> find (\dayName -> unpackId (get #id dayName) == payLevelDayRule.dayNameId) dayNames)
 
 renderActiveBadge :: Bool -> Html
 renderActiveBadge isActive =
@@ -428,6 +528,10 @@ weekdayOptions =
     , (5, "Friday")
     , (6, "Saturday")
     ]
+
+renderWeekdayName :: Int -> Text
+renderWeekdayName weekdayIndex =
+    fromMaybe ("Weekday " <> tshow weekdayIndex) (lookup weekdayIndex weekdayOptions)
 
 formatTimestamp :: UTCTime -> Text
 formatTimestamp = cs . formatTime defaultTimeLocale "%Y-%m-%d %H:%M UTC"

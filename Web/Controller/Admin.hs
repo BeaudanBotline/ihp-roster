@@ -1,7 +1,9 @@
 module Web.Controller.Admin where
 
 import Application.Helper.Pay
+import qualified Data.Scientific as Scientific
 import qualified Data.Text as Text
+import Text.Read (readMaybe)
 import Web.Controller.Prelude
 import Web.View.Admin.Index
 
@@ -15,6 +17,7 @@ instance Controller AdminController where
     action AdminAction = do
         recentSnapshots <- fetchCurrentVenuePayConfigSnapshots
         payLevels <- fetchCurrentVenuePayLevels
+        payLevelDayRules <- fetchCurrentVenuePayLevelDayRules
         shiftTypes <- fetchCurrentVenueShiftTypes
         slotNames <- fetchCurrentVenueSlotNames
         dayNames <- fetchCurrentVenueDayNames
@@ -53,6 +56,34 @@ instance Controller AdminController where
                     |> set #isActive isActive
                     |> updateRecord
                 setSuccessMessage "Pay level updated"
+                redirectTo AdminAction
+
+    action CreatePayLevelDayRuleAction = do
+        maybeRuleParams <- parsePayLevelDayRuleParams Nothing
+        case maybeRuleParams of
+            Nothing -> redirectTo AdminAction
+            Just (payLevelId, dayNameId, multiplier) -> do
+                _ <- newRecord @PayLevelDayRule
+                    |> set #payLevelId (unpackId payLevelId)
+                    |> set #dayNameId (unpackId dayNameId)
+                    |> set #multiplier multiplier
+                    |> createRecord
+                setSuccessMessage "Pay level day rule added"
+                redirectTo AdminAction
+
+    action UpdatePayLevelDayRuleAction { payLevelDayRuleId } = do
+        payLevelDayRule <- fetch payLevelDayRuleId
+        ensurePayLevelDayRuleInCurrentVenue payLevelDayRule
+        maybeRuleParams <- parsePayLevelDayRuleParams (Just payLevelDayRule)
+        case maybeRuleParams of
+            Nothing -> redirectTo AdminAction
+            Just (payLevelId, dayNameId, multiplier) -> do
+                _ <- payLevelDayRule
+                    |> set #payLevelId (unpackId payLevelId)
+                    |> set #dayNameId (unpackId dayNameId)
+                    |> set #multiplier multiplier
+                    |> updateRecord
+                setSuccessMessage "Pay level day rule updated"
                 redirectTo AdminAction
 
     action CreateShiftTypeAction = do
@@ -172,6 +203,18 @@ fetchCurrentVenueShiftTypes =
         |> orderByAsc #createdAt
         |> fetch
 
+fetchCurrentVenuePayLevelDayRules :: (?context :: ControllerContext, ?modelContext :: ModelContext) => IO [PayLevelDayRule]
+fetchCurrentVenuePayLevelDayRules = do
+    payLevels <- fetchCurrentVenuePayLevels
+    let payLevelIds = map (unpackId . get #id) payLevels
+    if null payLevelIds
+        then pure []
+        else
+            query @PayLevelDayRule
+                |> filterWhereIn (#payLevelId, payLevelIds)
+                |> orderByAsc #createdAt
+                |> fetch
+
 fetchCurrentVenueSlotNames :: (?context :: ControllerContext, ?modelContext :: ModelContext) => IO [SlotName]
 fetchCurrentVenueSlotNames =
     query @SlotName
@@ -249,3 +292,102 @@ parseDayNameParams existingDayName = do
                                 setErrorMessage "That weekday already has a configured day name for this venue."
                                 pure Nothing
                             else pure (Just (weekdayIndex, name, parseIsActiveParam))
+
+parsePayLevelDayRuleParams ::
+    (?context :: ControllerContext, ?modelContext :: ModelContext) =>
+    Maybe PayLevelDayRule ->
+    IO (Maybe (Id PayLevel, Id DayName, Scientific.Scientific))
+parsePayLevelDayRuleParams existingRule = do
+    maybePayLevelId <- parsePayLevelId "Choose a pay level from the current venue."
+    case maybePayLevelId of
+        Nothing -> pure Nothing
+        Just payLevelId -> do
+            maybeDayNameId <- parseDayNameId "Choose a day name from the current venue."
+            case maybeDayNameId of
+                Nothing -> pure Nothing
+                Just dayNameId -> do
+                    maybeMultiplier <- parseMultiplierParam
+                    case maybeMultiplier of
+                        Nothing -> pure Nothing
+                        Just multiplier -> do
+                            payLevelDayRules <- fetchCurrentVenuePayLevelDayRules
+                            let conflicts =
+                                    any
+                                        (\rule ->
+                                            rule.payLevelId == unpackId payLevelId
+                                                && rule.dayNameId == unpackId dayNameId
+                                                && maybe True (\existing -> get #id existing /= get #id rule) existingRule
+                                        )
+                                        payLevelDayRules
+                            if conflicts
+                                then do
+                                    setErrorMessage "That pay level already has a day rule for the selected weekday."
+                                    pure Nothing
+                                else pure (Just (payLevelId, dayNameId, multiplier))
+
+parsePayLevelId ::
+    (?context :: ControllerContext, ?modelContext :: ModelContext) =>
+    Text ->
+    IO (Maybe (Id PayLevel))
+parsePayLevelId errorMessage =
+    case paramOrNothing @(Id PayLevel) "payLevelId" of
+        Nothing -> do
+            setErrorMessage errorMessage
+            pure Nothing
+        Just payLevelId -> do
+            maybePayLevel <-
+                query @PayLevel
+                    |> filterWhere (#venueId, unpackId currentVenueId)
+                    |> filterWhere (#id, payLevelId)
+                    |> fetchOneOrNothing
+            case maybePayLevel of
+                Nothing -> do
+                    setErrorMessage errorMessage
+                    pure Nothing
+                Just _ ->
+                    pure (Just payLevelId)
+
+parseDayNameId ::
+    (?context :: ControllerContext, ?modelContext :: ModelContext) =>
+    Text ->
+    IO (Maybe (Id DayName))
+parseDayNameId errorMessage =
+    case paramOrNothing @(Id DayName) "dayNameId" of
+        Nothing -> do
+            setErrorMessage errorMessage
+            pure Nothing
+        Just dayNameId -> do
+            maybeDayName <-
+                query @DayName
+                    |> filterWhere (#venueId, unpackId currentVenueId)
+                    |> filterWhere (#id, dayNameId)
+                    |> fetchOneOrNothing
+            case maybeDayName of
+                Nothing -> do
+                    setErrorMessage errorMessage
+                    pure Nothing
+                Just _ ->
+                    pure (Just dayNameId)
+
+parseMultiplierParam :: (?context :: ControllerContext) => IO (Maybe Scientific.Scientific)
+parseMultiplierParam =
+    let rawValue = Text.strip (paramOrDefault "" "multiplier")
+     in case readMaybe (cs rawValue) of
+            Nothing -> do
+                setErrorMessage "Enter a numeric multiplier greater than 0."
+                pure Nothing
+            Just multiplier
+                | multiplier <= 0 -> do
+                    setErrorMessage "Multiplier must be greater than 0."
+                    pure Nothing
+                | otherwise -> pure (Just multiplier)
+
+ensurePayLevelDayRuleInCurrentVenue ::
+    (?context :: ControllerContext, ?modelContext :: ModelContext) =>
+    PayLevelDayRule ->
+    IO ()
+ensurePayLevelDayRuleInCurrentVenue payLevelDayRule = do
+    payLevel <- fetch (Id payLevelDayRule.payLevelId)
+    dayName <- fetch (Id payLevelDayRule.dayNameId)
+    ensureRecordInCurrentVenue payLevel.venueId
+    ensureRecordInCurrentVenue dayName.venueId

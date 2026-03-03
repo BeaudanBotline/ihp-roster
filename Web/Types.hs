@@ -58,6 +58,8 @@ data AdminController
     | CreatePayConfigSnapshotAction
     | CreatePayLevelAction
     | UpdatePayLevelAction { payLevelId :: !(Id PayLevel) }
+    | CreatePayLevelDayRuleAction
+    | UpdatePayLevelDayRuleAction { payLevelDayRuleId :: !(Id PayLevelDayRule) }
     | CreateShiftTypeAction
     | UpdateShiftTypeAction { shiftTypeId :: !(Id ShiftType) }
     | CreateSlotNameAction
