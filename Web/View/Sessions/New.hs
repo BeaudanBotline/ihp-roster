@@ -11,8 +11,8 @@ instance View (NewView User) where
                     {renderForm user}
                     <hr/>
                     <p class="text-center mb-0 app-muted small">
-                        Don't have an account?
-                        <a href={NewUserAction}>Create one</a>
+                        Need venue access?
+                        <a href={NewUserAction}>Request an invitation</a>
                     </p>
                 </div>
             </div>

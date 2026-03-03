@@ -75,10 +75,10 @@ These steps are globally ordered. Detailed task breakdowns live in the linked pi
 ## Active Pipelines
 
 ### Pipeline 00 — Auth, Bootstrap, Memberships
-- **Status:** [-]
+- **Status:** [x]
 - **File:** `plans/00-auth-bootstrap-memberships.md`
 - **Focus:** remove bootstrap-admin logic, resolve current venue membership on each request, and stop using `users` as the source of venue business authority.
-- **Progress:** A.2 is complete. Request init now resolves current venue/membership context from active `venue_memberships`, and operational controllers enforce venue-scoped role/access checks.
+- **Progress:** A.2 and A.3 are complete. Public signup is now invite-only via `venue_invitations`, first-user auto-admin logic is removed, and operational auth resolves venue authority from active `venue_memberships`.
 
 ### Pipeline 10 — Venue Scoping, Audit, Exports
 - **Status:** [ ]

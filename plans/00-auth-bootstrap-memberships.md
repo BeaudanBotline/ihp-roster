@@ -46,13 +46,18 @@ Make venue membership the canonical source of business authority and remove boot
   - Cross-venue access is denied by server-side guards.
 
 ### A.3 Remove bootstrap-admin and public-signup assumptions
-- **Status:** [ ]
+- **Status:** [x]
 - **Goal:** Replace internal-tool bootstrap logic with managed-service venue bootstrap.
 - **Deliverables:**
   - Remove or disable public self-registration as the default commercial path.
   - Remove first-user-admin bootstrap logic from registration.
   - Introduce founder-managed venue bootstrap and owner/admin invitation flow.
   - Remove tests and helpers that encode first-user auto-admin behavior.
+- **Completion notes:**
+  - `Application/Schema.sql` adds `venue_invitations` so founder-managed venue bootstrap can issue explicit owner/admin invitation records instead of relying on public self-registration.
+  - `Web/Controller/Users.hs` now rejects public account creation without an invitation, redeems pending invitations into `users` plus `venue_memberships`, and no longer assigns privileged roles from user-count bootstrap logic.
+  - `Web/View/Users/New.hs`, `Web/View/Static/Welcome.hs`, and `Web/View/Sessions/New.hs` now present invite-only onboarding copy and the invitation acceptance form instead of an open signup path.
+  - `Test/Controller/UsersSpec.hs`, `Test/Controller/StaticSpec.hs`, `Test/Controller/SessionsSpec.hs`, `Test/SchemaSpec.hs`, and `Test/Support.hs` now cover invite-only onboarding, invitation redemption, and removal of the bootstrap-admin helper assumptions.
 - **Acceptance checks:**
   - No fresh deployment grants privileged venue access through public signup.
   - Initial venue owner/admin creation is explicit and controlled.

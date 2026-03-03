@@ -82,11 +82,6 @@ venueRoleToText ManagerRole'   = "manager"
 venueRoleToText VenueAdminRole = "venue_admin"
 venueRoleToText VenueOwnerRole = "venue_owner"
 
-bootstrapRegistrationRole :: Int -> UserRole
-bootstrapRegistrationRole existingUserCount
-    | existingUserCount <= 0 = AdminRole
-    | otherwise = StaffRole
-
 leaveRequestStatusToText :: LeaveRequestStatus -> Text
 leaveRequestStatusToText LeavePending  = "pending"
 leaveRequestStatusToText LeaveApproved = "approved"

@@ -1,15 +1,36 @@
 module Web.View.Users.New where
+
 import Web.View.Prelude
 
-newtype NewView = NewView { user :: User }
+data NewView
+    = InviteOnlyView
+    | InvitationSignupView { user :: User, invitation :: VenueInvitation }
 
 instance View NewView where
-    html NewView { .. } = [hsx|
+    html InviteOnlyView = [hsx|
         <div class="app-page-auth">
             <div class="app-auth-card">
                 <div class="app-auth-body">
-                    <h4 class="card-title mb-4 text-center">Create Account</h4>
-                    {renderForm user}
+                    <h4 class="card-title mb-3 text-center">Invitation Required</h4>
+                    <p class="app-muted mb-4 text-center">
+                        New venues are bootstrapped manually. Ask the founder or support team for an invitation link before creating an account.
+                    </p>
+                    <div class="d-grid gap-3">
+                        <a href={NewSessionAction} class="btn btn-primary">Sign In</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    |]
+    html InvitationSignupView { .. } = [hsx|
+        <div class="app-page-auth">
+            <div class="app-auth-card">
+                <div class="app-auth-body">
+                    <h4 class="card-title mb-3 text-center">Accept Invitation</h4>
+                    <p class="app-muted mb-4 text-center">
+                        You have been invited to join this venue as {invitationRoleLabel invitation.inviteRole}.
+                    </p>
+                    {renderInvitationForm user invitation}
                     <hr/>
                     <p class="text-center mb-0 app-muted small">
                         Already have an account?
@@ -20,9 +41,19 @@ instance View NewView where
         </div>
     |]
 
-renderForm :: User -> Html
-renderForm user = formFor user [hsx|
-    {(textField #email) { fieldLabel = "Email address", placeholder = "you@example.com", autofocus = True }}
+renderInvitationForm :: User -> VenueInvitation -> Html
+renderInvitationForm user invitation = formFor user [hsx|
+    <input type="hidden" name="invitationId" value={tshow invitation.id} />
+    <div class="mb-3">
+        <label class="form-label" for="email">Email address</label>
+        <input
+            id="email"
+            type="email"
+            class="form-control"
+            value={invitation.email}
+            readonly="readonly"
+        />
+    </div>
     {(passwordField #passwordHash) { fieldLabel = "Password", placeholder = "••••••••", required = True }}
     {(passwordField #passwordHash)
         { fieldLabel = "Confirm Password"
@@ -35,3 +66,9 @@ renderForm user = formFor user [hsx|
         <button type="submit" class="btn btn-primary">Create Account</button>
     </div>
 |]
+
+invitationRoleLabel :: Text -> Text
+invitationRoleLabel "venue_owner" = "venue owner"
+invitationRoleLabel "venue_admin" = "venue admin"
+invitationRoleLabel "manager"     = "manager"
+invitationRoleLabel _             = "worker"

@@ -42,6 +42,7 @@ tests = describe "Schema" do
     it "generates venue and venue membership models" do
         let _ = (Nothing :: Maybe Venue)
         let _ = (Nothing :: Maybe VenueMembership)
+        let _ = (Nothing :: Maybe VenueInvitation)
         True `shouldBe` True
 
     it "exposes venue-scoped config fields on venue config" do
@@ -70,6 +71,11 @@ tests = describe "Schema" do
         let membership = newRecord @VenueMembership
         get #venueRole membership `shouldBe` "worker"
         get #isActive membership `shouldBe` True
+
+    it "venue invitations expose bootstrap role and status fields" do
+        let invitation = newRecord @VenueInvitation
+        get #inviteRole invitation `shouldBe` "worker"
+        get #status invitation `shouldBe` "pending"
 
     it "exposes normalized legacy user roles, venue roles, and leave statuses via shared helpers" do
         allUserRoleValues `shouldBe` ["staff", "manager", "admin"]
@@ -113,11 +119,6 @@ tests = describe "Schema" do
             affectedWeekOffsetsForDateRange epoch (fromGregorian 2025 1 12) (fromGregorian 2025 1 14) `shouldBe` [0, 1]
             affectedWeekOffsetsForDateRange epoch (fromGregorian 2025 1 20) (fromGregorian 2025 1 21) `shouldBe` [2]
             affectedWeekOffsetsForDateRange epoch (fromGregorian 2025 1 21) (fromGregorian 2025 1 20) `shouldBe` []
-
-    it "assigns bootstrap registration role from existing user count" do
-        bootstrapRegistrationRole 0 `shouldBe` AdminRole
-        bootstrapRegistrationRole 1 `shouldBe` StaffRole
-        bootstrapRegistrationRole 5 `shouldBe` StaffRole
 
     it "requires first and last name for profile completion" do
         requiredProfileFieldsCompleted "Taylor" "Smith" `shouldBe` True
@@ -283,7 +284,9 @@ tests = describe "Schema" do
                 , "created_at", "updated_at", "user_id", "first_name"
                 , "last_name", "is_active", "name", "default_pay_level_id"
                 , "weekday_index", "pay_level_id", "day_name_id", "multiplier"
-                , "venue_id", "venue_role", "timezone", "week_offset_epoch"
+                , "venue_id", "venue_role", "invited_by_user_id", "accepted_by_user_id"
+                , "invite_role", "accepted_at", "expires_at"
+                , "timezone", "week_offset_epoch"
                 , "late_to_early_min_start_gap_minutes"
                 , "staff_timesheet_edit_window_days", "week_offset"
                 , "is_live", "roster_week_id", "day_offset", "roster_day_id"

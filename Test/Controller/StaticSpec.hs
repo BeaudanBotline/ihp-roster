@@ -1,7 +1,7 @@
 module Test.Controller.StaticSpec where
 
-import Network.HTTP.Types.Status
 import qualified Network.HTTP.Types as HTTP
+import Network.HTTP.Types.Status
 
 import Config
 import IHP.FrameworkConfig
@@ -26,7 +26,7 @@ tests = beforeAll testContext do
             response <- callAction WelcomeAction
             response `responseStatusShouldBe` status200
             response `responseBodyShouldContain` "Sign In"
-            response `responseBodyShouldContain` "Create Account"
+            response `responseBodyShouldContain` "Request Access"
 
         it "redirects authenticated users to the roster week view" $ withContext do
             withCleanDb do

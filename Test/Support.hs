@@ -1,13 +1,13 @@
 module Test.Support where
 
 import Application.Helper.Controller (currentVenueSessionKey)
-import qualified Data.Map.Strict as Map
-import Data.IORef (IORef, modifyIORef', newIORef, readIORef)
 import Config
 import qualified Data.ByteString as ByteString
+import Data.IORef (IORef, modifyIORef', newIORef, readIORef)
+import qualified Data.Map.Strict as Map
+import qualified Data.Serialize as Serialize
 import Data.Time.Calendar (Day, fromGregorian)
 import Data.Time.LocalTime (TimeOfDay (..))
-import qualified Data.Serialize as Serialize
 import qualified Data.Vault.Lazy as Vault
 import Generated.Types
 import IHP.ApplicationContext (ApplicationContext)
@@ -48,7 +48,7 @@ withControllerTestContext action =
 resetDatabase :: (?modelContext :: ModelContext) => IO ()
 resetDatabase = do
     sqlExec
-        "TRUNCATE TABLE timesheet_entries, leave_requests, staff_availability, roster_slots, roster_days, roster_weeks, venue_config, day_names, slot_names, shift_types, pay_levels, staff, venue_memberships, users, venues RESTART IDENTITY CASCADE"
+        "TRUNCATE TABLE timesheet_entries, leave_requests, staff_availability, roster_slots, roster_days, roster_weeks, venue_config, day_names, slot_names, shift_types, pay_levels, staff, venue_invitations, venue_memberships, users, venues RESTART IDENTITY CASCADE"
         ()
     pure ()
 
@@ -83,6 +83,16 @@ createVenueMembershipRecord venue user venueRole =
         |> set #userId (unpackId (get #id user))
         |> set #venueRole venueRole
         |> set #isActive True
+        |> createRecord
+
+createVenueInvitationRecord :: (?modelContext :: ModelContext) => Venue -> Maybe User -> Text -> Text -> IO VenueInvitation
+createVenueInvitationRecord venue maybeInviter emailAddress inviteRole =
+    newRecord @VenueInvitation
+        |> set #venueId (unpackId (get #id venue))
+        |> set #invitedByUserId (fmap (unpackId . get #id) maybeInviter)
+        |> set #email emailAddress
+        |> set #inviteRole inviteRole
+        |> set #status "pending"
         |> createRecord
 
 createStaffRecord :: (?modelContext :: ModelContext) => Venue -> Maybe User -> Text -> Text -> IO Staff

@@ -31,6 +31,24 @@ CREATE TABLE venue_memberships (
     FOREIGN KEY (venue_id) REFERENCES venues (id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
+CREATE TABLE venue_invitations (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
+    venue_id UUID NOT NULL,
+    invited_by_user_id UUID,
+    accepted_by_user_id UUID,
+    email TEXT NOT NULL,
+    invite_role TEXT DEFAULT 'worker' NOT NULL,
+    status TEXT DEFAULT 'pending' NOT NULL,
+    accepted_at TIMESTAMP WITH TIME ZONE,
+    expires_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    CHECK (invite_role IN ('worker', 'manager', 'venue_admin', 'venue_owner')),
+    CHECK (status IN ('pending', 'accepted', 'revoked')),
+    FOREIGN KEY (venue_id) REFERENCES venues (id) ON DELETE CASCADE,
+    FOREIGN KEY (invited_by_user_id) REFERENCES users (id) ON DELETE SET NULL,
+    FOREIGN KEY (accepted_by_user_id) REFERENCES users (id) ON DELETE SET NULL
+);
 CREATE TABLE staff (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
     venue_id UUID NOT NULL,
@@ -190,6 +208,8 @@ CREATE TABLE timesheet_entries (
 
 -- Composite indexes for common venue-scoped access paths
 CREATE INDEX idx_venue_memberships_venue_user ON venue_memberships (venue_id, user_id);
+CREATE INDEX idx_venue_invitations_venue_status ON venue_invitations (venue_id, status);
+CREATE INDEX idx_venue_invitations_email_status ON venue_invitations (email, status);
 CREATE INDEX idx_staff_venue ON staff (venue_id);
 CREATE INDEX idx_roster_weeks_venue_offset ON roster_weeks (venue_id, week_offset);
 CREATE INDEX idx_timesheet_entries_venue_staff ON timesheet_entries (venue_id, staff_id);

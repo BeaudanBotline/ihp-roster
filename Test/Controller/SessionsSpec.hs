@@ -27,7 +27,7 @@ tests = beforeAll (mockContextNoDatabase WebApplication config) do
             response <- callAction NewSessionAction
             response `responseStatusShouldBe` status200
             response `responseBodyShouldContain` "Sign In"
-            response `responseBodyShouldContain` "Create one"
+            response `responseBodyShouldContain` "Request an invitation"
 
         it "redirects successful logins to the roster week flow" $ withContext do
             Sessions.afterLoginRedirectPath @User `shouldBe` pathTo RosterWeeksAction
