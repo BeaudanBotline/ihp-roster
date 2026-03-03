@@ -28,8 +28,11 @@ This corresponds to:
 4. Keep the admin flow focused on config-table screens rather than drifting into later slices unless necessary to complete `7.1`.
 5. Add or update tests that cover the changed behavior.
 6. Run the required verification commands from repo guidance.
-7. Update `IMPLEMENTATION_PLAN.md` with completion notes if and only if the slice is actually complete.
-8. Commit the changes.
+7. Work on branch `weaver/admin-config-tables`.
+8. If `weaver/admin-config-tables` does not exist yet, create it from `roster`.
+9. Update `IMPLEMENTATION_PLAN.md` with completion notes if and only if the slice is actually complete.
+10. Commit the changes when the slice or a coherent milestone is complete.
+11. Push `weaver/admin-config-tables` when the assigned work is complete.
 
 ## Constraints
 
@@ -37,6 +40,7 @@ This corresponds to:
 - Do not reintroduce global-role or cross-venue assumptions.
 - Do not rewrite the historical snapshot model.
 - If blocked by unclear product requirements, stop and ask targeted clarification questions instead of inventing policy.
+- Do not mark the slice complete unless implementation and verification actually support that claim.
 
 ## Output expectation
 
@@ -45,3 +49,4 @@ This corresponds to:
 - Tests covering the new behavior
 - Updated roadmap notes if the slice is completed
 - One commit
+- Pushed branch

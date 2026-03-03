@@ -6,6 +6,14 @@ You are implementing this application incrementally.
 
 Inspect `IMPLEMENTATION_PLAN.md`, identify the **next most important uncompleted task**, and deliver it end-to-end.
 
+## Required read order
+
+1. `AGENTS.md`
+2. `IMPLEMENTATION_PLAN.md`
+3. The most relevant plan file for the selected task
+4. The most relevant spec files under `specs/`
+5. Relevant subdirectory `AGENTS.md` files before editing files in those areas
+
 ## Required process
 
 1. Read `IMPLEMENTATION_PLAN.md` and choose one task:
@@ -22,7 +30,10 @@ Inspect `IMPLEMENTATION_PLAN.md`, identify the **next most important uncompleted
 6. Update `IMPLEMENTATION_PLAN.md`:
    - mark the task as complete,
    - add brief completion notes (files touched, tests added).
-7. Commit the changes.
+7. Work on the assigned branch when one is provided.
+8. If the assigned work branch does not yet exist, create it from the instructed base branch.
+9. Commit the changes when the selected task or a coherent milestone is complete.
+10. Push the work branch when the task is complete.
 
 ## Constraints
 
@@ -30,6 +41,8 @@ Inspect `IMPLEMENTATION_PLAN.md`, identify the **next most important uncompleted
 - Keep changes focused on the selected task; avoid unrelated refactors.
 - If requirements are ambiguous, stop and ask targeted clarification questions.
 - Never skip tests for newly added logic.
+- Do not mark a plan task as complete unless the implementation and verification actually support that claim.
+- Do not rewrite history unless explicitly instructed.
 
 ## Output expectation per cycle
 
@@ -37,3 +50,4 @@ Inspect `IMPLEMENTATION_PLAN.md`, identify the **next most important uncompleted
 - Passing verification for changed scope.
 - Updated `IMPLEMENTATION_PLAN.md`.
 - One commit.
+- Pushed branch.
