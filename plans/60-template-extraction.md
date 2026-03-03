@@ -204,6 +204,15 @@ Work within a phase is sequential (each slice depends on the prior). Phases them
 - **Verification:** `direnv exec . typecheck`
 - **Completion notes:** Landed on `master` as part of `3faa95c`. `defaultLayout` now uses the dark shell, restores inline flash messages for pre-overlay Phase 2, includes the placeholder `dialog-overlay-mount`, and renders a generic authenticated header with just the brand link and logout button.
 
+### Slice 2.4: Normalize auth-facing template views to semantic dark-theme classes
+- **Status:** [ ]
+- **Strategy:** Update the template-facing auth pages to use the new semantic dark-theme wrappers instead of hardcoded light utilities and inline sizing. Replace `bg-light`, `text-muted`, and ad-hoc width styles with `app-page-auth`, `app-auth-card`, `app-auth-body`, `app-panel`, `app-panel-body`, `app-form-width`, and `app-muted` where appropriate.
+- **Files:**
+  - `Web/View/Sessions/New.hs`
+  - `Web/View/Users/New.hs`
+  - `Web/View/Static/Welcome.hs`
+- **Verification:** `direnv exec . typecheck` and visual check with `devenv up` running.
+
 ---
 
 ## Phase 3 — Overlay System
@@ -211,7 +220,7 @@ Work within a phase is sequential (each slice depends on the prior). Phases them
 Depends on Phase 2 (Layout must have the dark-mode shell and mount points).
 
 ### Slice 3.1: Overlay config types and renderers in Helper/View.hs
-- **Status:** [ ]
+- **Status:** [x]
 - **Strategy:** Add the generic overlay infrastructure to `Application/Helper/View.hs`. Copy from the roster branch but **exclude** all project-specific helpers (anything referencing `Staff`, `TimesheetEntry`, `RosterWeek`, `LeaveRequest`, `Venue`).
 - **Add these types and functions:**
   - `dialogOverlayMountId`, `htmxModalMountId`, `toastOverlayMountId` — mount ID constants
@@ -243,9 +252,10 @@ Depends on Phase 2 (Layout must have the dark-mode shell and mount points).
 - **Files:**
   - `Application/Helper/View.hs`
 - **Verification:** `direnv exec . typecheck`
+- **Completion notes:** Landed on `master` as part of `c72d2a3`. Added the generic overlay mount ids, config records, footer/button helpers, partial-navigation helper, and toast renderers while excluding all roster/time-picker/domain-specific helpers.
 
 ### Slice 3.2: Dialog overlay and toast JavaScript
-- **Status:** [ ]
+- **Status:** [x]
 - **Strategy:** Replace the stub `static/app.js` with the generic overlay JS from the roster branch. Include:
   - Turbolinks + HTMX re-process hook (line 1-6 of roster app.js)
   - `enableDialogOverlayMount` IIFE — full dialog open/close/escape/focus/backdrop/body-lock behavior
@@ -255,9 +265,10 @@ Depends on Phase 2 (Layout must have the dark-mode shell and mount points).
 - **Files:**
   - `static/app.js`
 - **Verification:** Visual check — dialog mount should exist in DOM, no JS console errors.
+- **Completion notes:** Landed on `master` as part of `c72d2a3`. Replaced the stub template JS with the generic Turbolinks+HTMX reprocess hook plus dialog-overlay and toast-host behavior only.
 
 ### Slice 3.3: Wire overlay mounts into Layout.hs
-- **Status:** [ ]
+- **Status:** [x]
 - **Strategy:** Update `Web/View/Layout.hs` `defaultLayout` to include:
   - `<div id={dialogOverlayMountId}></div>` (already added as placeholder in 2.3 — update to use the imported constant)
   - `{renderFlashOverlayToasts}` — a function that converts IHP flash messages into toast overlays
@@ -289,6 +300,7 @@ Depends on Phase 2 (Layout must have the dark-mode shell and mount points).
 - **Files:**
   - `Web/View/Layout.hs`
 - **Verification:** `direnv exec . typecheck`. Visual: trigger a flash message and confirm it renders as a bottom-center toast.
+- **Completion notes:** Landed on `master` as part of `c72d2a3`. `Web/View/Layout.hs` now uses `dialogOverlayMountId`, replaces inline flash alerts with `renderFlashOverlayToasts`, and was verified with `typecheck` plus a browser check that found the dialog mount, toast host, and an error toast after an invalid login.
 
 ---
 
