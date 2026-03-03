@@ -1,0 +1,28 @@
+import { test, expect } from '@playwright/test';
+import { gotoWhenReady } from './test-helpers';
+
+async function login(page) {
+    await gotoWhenReady(page, '/NewSession', '#email');
+    await page.fill('#email', 'e2e-test@example.com');
+    await page.fill('#password', 'test-password-123');
+    await page.click('button[type="submit"]');
+    await expect(page).toHaveURL(/(RosterWeeks|ShowRosterWeek)/, { timeout: 60000 });
+    await expect(page.locator('#roster-content')).toBeVisible({ timeout: 60000 });
+}
+
+test.describe('Venue-scoped navigation', () => {
+    test('login resolves the current venue and scopes roster, timesheets, and leave views', async ({ page }) => {
+        await login(page);
+
+        await expect(page.locator('#roster-content')).toContainText('Crew, Alpha');
+        await expect(page.locator('#roster-content')).not.toContainText('Crew, Beta');
+
+        await gotoWhenReady(page, '/Timesheets', '#timesheet-week-shell');
+        await expect(page.locator('#timesheet-week-shell')).toContainText('Alpha Crew');
+        await expect(page.locator('#timesheet-week-shell')).not.toContainText('Beta Crew');
+
+        await gotoWhenReady(page, '/LeaveRequests', '#leave-requests-content');
+        await expect(page.locator('#leave-requests-content')).toContainText('Alpha Crew');
+        await expect(page.locator('#leave-requests-content')).not.toContainText('Beta Crew');
+    });
+});

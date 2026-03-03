@@ -32,6 +32,13 @@ direnv exec . e2e-report
 - `devenv up` must be running (provides the app server on `:8000` and the database)
 - `make db` must have been run at least once (so the database schema exists)
 - Test data is seeded automatically via `global-setup.ts` before tests run
+- Before blaming Playwright, verify the app is actually serving the expected page:
+
+```bash
+curl -s http://localhost:8000/NewSession | rg 'id="email"|Is compiling'
+```
+
+If you see `Is compiling`, wait for the reload to finish or restart the managed dev server before rerunning tests.
 
 ## Writing New Tests
 
@@ -53,19 +60,31 @@ test.describe('My Feature', () => {
 });
 ```
 
+For pages that can briefly show the IHP compile screen during reloads, prefer the shared helper:
+
+```typescript
+import { gotoWhenReady } from './test-helpers';
+
+await gotoWhenReady(page, '/NewSession', '#email');
+```
+
+`gotoWhenReady` retries the navigation until the expected selector appears instead of failing on the temporary `Is compiling` page.
+
 ### UI behavior expectations worth covering
 - For HTMX week pagers, assert both the shell swap and that no full page navigation occurred by preserving a `window` marker across clicks.
 - For roster sidebar layout, prefer checking computed CSS (`position: sticky`, capped height, internal scroll container) over brittle pixel-perfect comparisons against neighboring panels.
 
 ### Logging in within a test
 ```typescript
+import { gotoWhenReady } from './test-helpers';
+
 test('authenticated feature', async ({ page }) => {
     // Login with the seeded test user
-    await page.goto('/NewSession');
+    await gotoWhenReady(page, '/NewSession', '#email');
     await page.fill('#email', 'e2e-test@example.com');
     await page.fill('#password', 'test-password-123');
     await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(/Dashboard/);
+    await expect(page).toHaveURL(/(RosterWeeks|ShowRosterWeek)/, { timeout: 60000 });
 
     // Now navigate to the authenticated page
     await page.goto('/MyProtectedPage');
@@ -77,9 +96,35 @@ test('authenticated feature', async ({ page }) => {
 
 - All e2e test data uses the **`e2e-` prefix** on emails and identifiers
 - The seeded test user is `e2e-test@example.com` with password `test-password-123`
+- Auth now also requires seeded `venues`, `venue_config`, and `venue_memberships` for the login user. A bare user row is not enough.
 - `global-teardown.ts` deletes all users with `email LIKE 'e2e-%'` after tests complete
 - To add more fixture data, add SQL to `e2e/fixtures/seed.sql` using the `e2e-` prefix
 - Use `ON CONFLICT DO UPDATE` for idempotency
+- Prefer fixed UUIDs plus `ON CONFLICT DO UPDATE` so reruns stay deterministic
+- Treat `e2e/fixtures/seed.sql` as durable fixture state: fixed-id venue rows can persist across runs, while teardown mainly cleans dynamic `e2e-%` users created during tests
+
+## Assertion Style
+
+- Prefer stable shell selectors such as `#roster-content`, `#timesheet-week-shell`, and `#leave-requests-content`
+- Match the actual rendered copy, not seed helper names. Example: the roster grid renders staff as `Last, First`, while leave/timesheet views render `First Last`
+- After login, wait for the destination shell selector as well as the URL because the post-login flow now resolves venue context before landing on roster pages
+
+## Operational Notes
+
+- `dev-status` reporting `http_ok=true` only means something answered on `:8000`; it does not guarantee the app is past the IHP compile screen
+- If Playwright keeps seeing stale compile output, check what owns port `8000`:
+
+```bash
+ss -ltnp '( sport = :8000 )'
+```
+
+- If a stale `RunDevServer` is occupying the port, stop it and restart the managed server:
+
+```bash
+direnv exec . dev-stop
+direnv exec . dev-start
+direnv exec . dev-wait
+```
 
 ## Authenticated Screenshot Helper
 

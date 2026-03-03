@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { gotoWhenReady } from './test-helpers';
 
 test.describe('Authentication', () => {
-    test('login flow: sign in, view dashboard, logout', async ({ page }) => {
+    test('login flow: sign in, view the roster, logout', async ({ page }) => {
         // Navigate to login page
-        await page.goto('/NewSession');
+        await gotoWhenReady(page, '/NewSession', '#email');
         await expect(page.locator('body')).toContainText('Sign In');
 
         // Fill in credentials
@@ -11,27 +12,29 @@ test.describe('Authentication', () => {
         await page.fill('#password', 'test-password-123');
         await page.click('button[type="submit"]');
 
-        // Should redirect to dashboard
-        await expect(page).toHaveURL(/Dashboard/);
-        await expect(page.locator('body')).toContainText('e2e-test@example.com');
+        // Should redirect to the roster flow for the current venue
+        await expect(page).toHaveURL(/(RosterWeeks|ShowRosterWeek)/, { timeout: 60000 });
+        await expect(page.locator('#roster-content')).toBeVisible({ timeout: 60000 });
+        await expect(page.locator('body')).toContainText('Roster');
 
         // Logout
         await page.click('a:has-text("Logout"), button:has-text("Logout")');
 
         // Should redirect to login page
-        await expect(page).toHaveURL(/NewSession/);
+        await expect(page).toHaveURL(/NewSession/, { timeout: 60000 });
+        await expect(page.locator('#email')).toBeVisible({ timeout: 60000 });
     });
 
-    test('dashboard requires authentication', async ({ page }) => {
-        // Try to access dashboard without being logged in
-        await page.goto('/Dashboard');
+    test('roster requires authentication', async ({ page }) => {
+        // Try to access roster without being logged in
+        await gotoWhenReady(page, '/RosterWeeks', '#email');
 
         // Should redirect to login page
         await expect(page).toHaveURL(/NewSession/);
     });
 
     test('login with wrong password shows error', async ({ page }) => {
-        await page.goto('/NewSession');
+        await gotoWhenReady(page, '/NewSession', '#email');
         await page.fill('#email', 'e2e-test@example.com');
         await page.fill('#password', 'wrong-password');
         await page.click('button[type="submit"]');
