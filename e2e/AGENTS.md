@@ -2,38 +2,53 @@
 
 ## Running Tests
 
-All commands require `direnv exec .` unless you are already inside an activated direnv shell.
+All commands require `direnv exec .` prefix (or an active direnv shell).
 
 ```bash
+# Run all e2e tests (requires devenv up)
 direnv exec . e2e
+
+# Run a specific test file
 direnv exec . e2e e2e/auth.spec.ts
+
+# Run in headed mode (visible browser)
 direnv exec . e2e --headed
+
+# Run with Playwright UI
 direnv exec . e2e --ui
-direnv exec . screenshot http://localhost:8000/MyPage output.png
-direnv exec . screenshot-page /SomePage output.png
+
+# Take a screenshot of a page
+direnv exec . screenshot http://localhost:8000/Dashboard dash.png
+
+# Take a screenshot of a protected page with reusable login flow
+direnv exec . screenshot-page /RosterWeeks roster.png --selector 'table.roster-grid'
+
+# View the last test report
 direnv exec . e2e-report
 ```
 
 ## Prerequisites
-- `devenv up` or the managed dev server must be running
-- `make db` must have been run at least once
-- Seed data is prepared by `global-setup.ts`
 
-Before debugging Playwright, confirm the app is serving the expected page:
+- `devenv up` must be running (provides the app server on `:8000` and the database)
+- `make db` must have been run at least once (so the database schema exists)
+- Test data is seeded automatically via `global-setup.ts` before tests run
+- Before blaming Playwright, verify the app is actually serving the expected page:
 
 ```bash
 curl -s http://localhost:8000/NewSession | rg 'id="email"|Is compiling'
 ```
 
-If you see `Is compiling`, wait or restart the managed server.
+If you see `Is compiling`, wait for the reload to finish or restart the managed dev server before rerunning tests.
 
 ## Writing New Tests
 
 ### File naming
-Place tests in `e2e/` with the `.spec.ts` suffix.
+Place test files in `e2e/` with the `.spec.ts` extension:
+```
+e2e/my-feature.spec.ts
+```
 
 ### Basic template
-
 ```typescript
 import { test, expect } from '@playwright/test';
 
@@ -45,34 +60,65 @@ test.describe('My Feature', () => {
 });
 ```
 
-If a page may briefly show the IHP compile screen, prefer the shared `gotoWhenReady` helper when available.
-
-### Logging in within a test
+For pages that can briefly show the IHP compile screen during reloads, prefer the shared helper:
 
 ```typescript
+import { gotoWhenReady } from './test-helpers';
+
+await gotoWhenReady(page, '/NewSession', '#email');
+```
+
+`gotoWhenReady` retries the navigation until the expected selector appears instead of failing on the temporary `Is compiling` page.
+
+### UI behavior expectations worth covering
+- For HTMX week pagers, assert both the shell swap and that no full page navigation occurred by preserving a `window` marker across clicks.
+- For roster sidebar layout, prefer checking computed CSS (`position: sticky`, capped height, internal scroll container) over brittle pixel-perfect comparisons against neighboring panels.
+
+### Logging in within a test
+```typescript
+import { gotoWhenReady } from './test-helpers';
+
 test('authenticated feature', async ({ page }) => {
-    await page.goto('/NewSession');
+    // Login with the seeded test user
+    await gotoWhenReady(page, '/NewSession', '#email');
     await page.fill('#email', 'e2e-test@example.com');
     await page.fill('#password', 'test-password-123');
     await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(/(Dashboard|MyPage|Show)/);
+    await expect(page).toHaveURL(/(RosterWeeks|ShowRosterWeek)/, { timeout: 60000 });
+
+    // Now navigate to the authenticated page
+    await page.goto('/MyProtectedPage');
+    // ...assertions...
 });
 ```
 
 ## Test Data Convention
-- Use the `e2e-` prefix for durable test data
-- The seeded test user is `e2e-test@example.com` / `test-password-123`
-- `global-teardown.ts` deletes rows associated with `e2e-` users after runs
-- Prefer fixed identifiers plus `ON CONFLICT DO UPDATE` in seed SQL for deterministic reruns
+
+- All e2e test data uses the **`e2e-` prefix** on emails and identifiers
+- The seeded test user is `e2e-test@example.com` with password `test-password-123`
+- Auth now also requires seeded `venues`, `venue_config`, and `venue_memberships` for the login user. A bare user row is not enough.
+- `global-teardown.ts` deletes all users with `email LIKE 'e2e-%'` after tests complete
+- To add more fixture data, add SQL to `e2e/fixtures/seed.sql` using the `e2e-` prefix
+- Use `ON CONFLICT DO UPDATE` for idempotency
+- Prefer fixed UUIDs plus `ON CONFLICT DO UPDATE` so reruns stay deterministic
+- Treat `e2e/fixtures/seed.sql` as durable fixture state: fixed-id venue rows can persist across runs, while teardown mainly cleans dynamic `e2e-%` users created during tests
 
 ## Assertion Style
-- Prefer stable shell selectors over brittle visual assumptions
-- Match the rendered copy rather than helper names
-- After login, wait for both the destination URL and a page-specific selector when the flow includes redirects or setup steps
+
+- Prefer stable shell selectors such as `#roster-content`, `#timesheet-week-shell`, and `#leave-requests-content`
+- Match the actual rendered copy, not seed helper names. Example: the roster grid renders staff as `Last, First`, while leave/timesheet views render `First Last`
+- After login, wait for the destination shell selector as well as the URL because the post-login flow now resolves venue context before landing on roster pages
 
 ## Operational Notes
-- `dev-status` only proves something is answering on the dev port; it does not guarantee the app is past the compile screen
-- If tests keep seeing stale output, stop and restart the managed server with:
+
+- `dev-status` reporting `http_ok=true` only means something answered on `:8000`; it does not guarantee the app is past the IHP compile screen
+- If Playwright keeps seeing stale compile output, check what owns port `8000`:
+
+```bash
+ss -ltnp '( sport = :8000 )'
+```
+
+- If a stale `RunDevServer` is occupying the port, stop it and restart the managed server:
 
 ```bash
 direnv exec . dev-stop
@@ -81,35 +127,58 @@ direnv exec . dev-wait
 ```
 
 ## Authenticated Screenshot Helper
-Use `screenshot-page` for pages that require login or setup before rendering:
+
+Use `screenshot-page` when a page requires login/profile completion before rendering:
 
 ```bash
-direnv exec . screenshot-page /SomeProtectedPage test-results/page.png
+direnv exec . screenshot-page /RosterWeeks test-results/roster.png --selector 'table.roster-grid'
 ```
 
 Useful options:
-- `--email`
-- `--password`
-- `--no-login`
-- `--base-url`
-- `--selector`
-- `--wait-ms`
 
-## Common Selectors
-- Submit button: `button[type="submit"]`
-- Flash message: `.alert`
-- Toast: `.app-toast`
-- Delete/logout button: `.js-delete`
-- Login email: `#email`
-- Login password: `#password`
+- `--email` and `--password` to change credentials
+- `--no-login` for public pages
+- `--base-url` to target a non-default host
+- `--wait-ms` for delayed UI states
 
-For `formFor`-generated forms, prefer `[name="fieldName"]` selectors.
+## Common Selectors for IHP/Bootstrap Forms
+
+| Element | Selector |
+|---------|----------|
+| Submit button | `button[type="submit"]` |
+| Flash message | `.alert` |
+| Flash success | `.alert-success` |
+| Flash error | `.alert-danger` |
+| Navigation link | `a:has-text("Link Text")` |
+| Delete/logout button | `.js-delete` or `a:has-text("Logout")` |
+
+### Form field selectors
+
+**Manually-specified IDs** (login form `Sessions/New.hs`):
+
+| Field | Selector |
+|-------|----------|
+| Email | `#email` |
+| Password | `#password` |
+
+**`formFor`-generated IDs** follow the pattern `modelName_fieldName` (camelCase). For example, `formFor @User` with `textField #email` renders `id="user_email"`. Prefer selecting by `name` attribute to avoid ambiguity when multiple fields share a model:
+
+| Field | Selector |
+|-------|----------|
+| Email (Users form) | `[name="email"]` |
+| Password (Users form) | `[name="passwordHash"]` |
+| Confirm password | `[name="passwordConfirmation"]` |
 
 ## Debugging
 
 ```bash
+# Run with debug logging
 DEBUG=pw:api direnv exec . e2e
+
+# Run headed + slow motion
 direnv exec . e2e --headed --slow-mo=500
+
+# Generate and open a trace
 direnv exec . e2e --trace on
 npx playwright show-trace test-results/*/trace.zip
 ```
