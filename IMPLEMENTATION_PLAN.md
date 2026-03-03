@@ -97,9 +97,10 @@ These steps are globally ordered. Detailed task breakdowns live in the linked pi
 - **Progress:** 5.1, 5.2, 5.3, 5.4, and A.6 are complete. Timesheet mutations now append `timesheet_entry_versions`, leave lifecycle transitions append `leave_request_events`, invitation assignment plus role changes append `venue_membership_role_events`, and reviewed payroll-adjacent records are no longer silently deleted; coverage was added in timesheet, leave, user, and schema specs.
 
 ### Pipeline 40 — Pay Config and Admin
-- **Status:** [ ]
+- **Status:** [-]
 - **File:** `plans/40-pay-config-and-admin.md`
 - **Focus:** SQL pay engine, immutable pay/config snapshot versions, and the venue admin bulk-edit/save workflow.
+- **Progress:** A.7 is complete. The app now stores immutable `pay_config_snapshots`, binds approved timesheets to snapshot versions, carries snapshot version metadata on exports, exposes a minimal admin snapshot-save flow, and keeps approved pay calculations stable after later config changes. Admin config-table editing and wage/hour summaries remain open.
 
 ### Pipeline 50 — Release Readiness
 - **Status:** [ ]

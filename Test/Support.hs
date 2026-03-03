@@ -2,9 +2,11 @@ module Test.Support where
 
 import Application.Helper.Controller (currentVenueSessionKey)
 import Config
+import qualified Data.Aeson as Aeson
 import qualified Data.ByteString as ByteString
 import Data.IORef (IORef, modifyIORef', newIORef, readIORef)
 import qualified Data.Map.Strict as Map
+import Data.Scientific (Scientific)
 import qualified Data.Serialize as Serialize
 import Data.Time.Calendar (Day, fromGregorian)
 import Data.Time.LocalTime (TimeOfDay (..))
@@ -48,7 +50,7 @@ withControllerTestContext action =
 resetDatabase :: (?modelContext :: ModelContext) => IO ()
 resetDatabase = do
     sqlExec
-        "TRUNCATE TABLE export_jobs, audit_events, venue_membership_role_events, timesheet_entry_versions, timesheet_entries, leave_request_events, leave_requests, staff_availability, roster_slots, roster_days, roster_weeks, venue_config, day_names, slot_names, shift_types, pay_levels, staff, venue_invitations, venue_memberships, users, venues RESTART IDENTITY CASCADE"
+        "TRUNCATE TABLE export_jobs, audit_events, venue_membership_role_events, timesheet_entry_versions, timesheet_entries, leave_request_events, leave_requests, staff_availability, roster_slots, roster_days, roster_weeks, pay_config_snapshots, venue_config, day_names, slot_names, shift_types, pay_levels, staff, venue_invitations, venue_memberships, users, venues RESTART IDENTITY CASCADE"
         ()
     pure ()
 
@@ -159,6 +161,50 @@ createLeaveRequestRecord venue staff startDate endDate leaveStatus =
         |> set #startDate startDate
         |> set #endDate endDate
         |> set #status leaveStatus
+        |> createRecord
+
+createPayLevelRecord :: (?modelContext :: ModelContext) => Venue -> Text -> IO PayLevel
+createPayLevelRecord venue levelName =
+    newRecord @PayLevel
+        |> set #venueId (unpackId (get #id venue))
+        |> set #name levelName
+        |> set #isActive True
+        |> createRecord
+
+createShiftTypeRecord :: (?modelContext :: ModelContext) => Venue -> PayLevel -> Text -> IO ShiftType
+createShiftTypeRecord venue payLevel shiftTypeName =
+    newRecord @ShiftType
+        |> set #venueId (unpackId (get #id venue))
+        |> set #name shiftTypeName
+        |> set #defaultPayLevelId (unpackId (get #id payLevel))
+        |> set #isActive True
+        |> createRecord
+
+createDayNameRecord :: (?modelContext :: ModelContext) => Venue -> Int -> Text -> IO DayName
+createDayNameRecord venue weekdayIndex dayName =
+    newRecord @DayName
+        |> set #venueId (unpackId (get #id venue))
+        |> set #weekdayIndex weekdayIndex
+        |> set #name dayName
+        |> set #isActive True
+        |> createRecord
+
+createPayLevelDayRuleRecord :: (?modelContext :: ModelContext) => PayLevel -> DayName -> Scientific -> IO PayLevelDayRule
+createPayLevelDayRuleRecord payLevel dayName multiplier =
+    newRecord @PayLevelDayRule
+        |> set #payLevelId (unpackId (get #id payLevel))
+        |> set #dayNameId (unpackId (get #id dayName))
+        |> set #multiplier multiplier
+        |> createRecord
+
+createPayConfigSnapshotRecord :: (?modelContext :: ModelContext) => Venue -> User -> Int -> Aeson.Value -> IO PayConfigSnapshot
+createPayConfigSnapshotRecord venue user versionNumber snapshot =
+    newRecord @PayConfigSnapshot
+        |> set #venueId (unpackId (get #id venue))
+        |> set #versionNumber versionNumber
+        |> set #versionLabel ("v" <> tshow versionNumber)
+        |> set #createdByUserId (unpackId (get #id user))
+        |> set #snapshot snapshot
         |> createRecord
 
 withUserAndCurrentVenue ::

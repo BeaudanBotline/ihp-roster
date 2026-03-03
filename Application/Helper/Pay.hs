@@ -1,5 +1,6 @@
 module Application.Helper.Pay where
 
+import Application.Helper.Controller
 import Data.Aeson ((.:), (.:?))
 import qualified Data.Aeson as Aeson
 import qualified Data.Map.Strict as Map
@@ -9,6 +10,7 @@ import Data.Text.Encoding (encodeUtf8)
 import Data.Time.Calendar (Day)
 import qualified Database.PostgreSQL.Simple as PG
 import Generated.Types
+import IHP.ControllerPrelude
 import IHP.ModelSupport (ModelContext, sqlQueryScalar, unpackId)
 import IHP.Prelude
 
@@ -43,9 +45,11 @@ instance Aeson.FromJSON PayTotals where
             <*> obj .: "totalAmount"
 
 data TimesheetPayResult = TimesheetPayResult
-    { entryId  :: !Text
-    , segments :: ![PaySegment]
-    , totals   :: !PayTotals
+    { entryId                  :: !Text
+    , payConfigSnapshotId      :: !(Maybe UUID)
+    , payConfigSnapshotVersion :: !(Maybe Text)
+    , segments                 :: ![PaySegment]
+    , totals                   :: !PayTotals
     }
     deriving (Eq, Show)
 
@@ -53,6 +57,8 @@ instance Aeson.FromJSON TimesheetPayResult where
     parseJSON = Aeson.withObject "TimesheetPayResult" \obj ->
         TimesheetPayResult
             <$> obj .: "entryId"
+            <*> obj .:? "payConfigSnapshotId"
+            <*> obj .:? "payConfigSnapshotVersion"
             <*> obj .: "segments"
             <*> obj .: "totals"
 
@@ -96,6 +102,110 @@ buildTimesheetPaySummary result =
 buildTimesheetPaySummariesByEntryId :: [TimesheetPayResult] -> Map.Map Text TimesheetPaySummary
 buildTimesheetPaySummariesByEntryId results =
     Map.fromList (map (\result -> (result.entryId, buildTimesheetPaySummary result)) results)
+
+snapshotVersionLabel :: Int -> Text
+snapshotVersionLabel versionNumber = "v" <> tshow versionNumber
+
+fetchCurrentVenuePayConfigSnapshots ::
+    (?context :: ControllerContext, ?modelContext :: ModelContext) =>
+    IO [PayConfigSnapshot]
+fetchCurrentVenuePayConfigSnapshots =
+    query @PayConfigSnapshot
+        |> filterWhere (#venueId, unpackId currentVenueId)
+        |> orderByDesc #versionNumber
+        |> fetch
+
+fetchLatestCurrentVenuePayConfigSnapshot ::
+    (?context :: ControllerContext, ?modelContext :: ModelContext) =>
+    IO (Maybe PayConfigSnapshot)
+fetchLatestCurrentVenuePayConfigSnapshot =
+    query @PayConfigSnapshot
+        |> filterWhere (#venueId, unpackId currentVenueId)
+        |> orderByDesc #versionNumber
+        |> fetchOneOrNothing
+
+createCurrentVenuePayConfigSnapshot ::
+    (?context :: ControllerContext, ?modelContext :: ModelContext) =>
+    IO PayConfigSnapshot
+createCurrentVenuePayConfigSnapshot = withTransaction do
+    latestSnapshot <- fetchLatestCurrentVenuePayConfigSnapshot
+    snapshotPayload <- buildCurrentVenuePayConfigSnapshotPayload
+    let versionNumber = maybe 1 ((+ 1) . (.versionNumber)) latestSnapshot
+    newRecord @PayConfigSnapshot
+        |> set #venueId (unpackId currentVenueId)
+        |> set #versionNumber versionNumber
+        |> set #versionLabel (snapshotVersionLabel versionNumber)
+        |> set #createdByUserId (unpackId (get #id currentUser))
+        |> set #snapshot snapshotPayload
+        |> createRecord
+
+ensureCurrentVenuePayConfigSnapshot ::
+    (?context :: ControllerContext, ?modelContext :: ModelContext) =>
+    IO PayConfigSnapshot
+ensureCurrentVenuePayConfigSnapshot =
+    fetchLatestCurrentVenuePayConfigSnapshot >>= \case
+        Just snapshot -> pure snapshot
+        Nothing -> createCurrentVenuePayConfigSnapshot
+
+buildCurrentVenuePayConfigSnapshotPayload ::
+    (?context :: ControllerContext, ?modelContext :: ModelContext) =>
+    IO Aeson.Value
+buildCurrentVenuePayConfigSnapshotPayload = do
+    venueConfig <- fetchVenueConfig
+    payLevels <- query @PayLevel |> filterWhere (#venueId, unpackId currentVenueId) |> orderByAsc #createdAt |> fetch
+    shiftTypes <- query @ShiftType |> filterWhere (#venueId, unpackId currentVenueId) |> orderByAsc #createdAt |> fetch
+    dayNames <- query @DayName |> filterWhere (#venueId, unpackId currentVenueId) |> orderByAsc #weekdayIndex |> fetch
+    let payLevelIds = map (unpackId . get #id) payLevels
+    payLevelDayRules <-
+        if null payLevelIds
+            then pure []
+            else query @PayLevelDayRule |> filterWhereIn (#payLevelId, payLevelIds) |> orderByAsc #createdAt |> fetch
+
+    pure $
+        Aeson.object
+            [ "venueConfig" Aeson..= Aeson.object
+                [ "id" Aeson..= unpackId (get #id venueConfig)
+                , "timezone" Aeson..= venueConfig.timezone
+                , "weekOffsetEpoch" Aeson..= venueConfig.weekOffsetEpoch
+                , "lateToEarlyMinStartGapMinutes" Aeson..= venueConfig.lateToEarlyMinStartGapMinutes
+                , "staffTimesheetEditWindowDays" Aeson..= venueConfig.staffTimesheetEditWindowDays
+                ]
+            , "payLevels" Aeson..= map serializePayLevel payLevels
+            , "shiftTypes" Aeson..= map serializeShiftType shiftTypes
+            , "dayNames" Aeson..= map serializeDayName dayNames
+            , "payLevelDayRules" Aeson..= map serializePayLevelDayRule payLevelDayRules
+            ]
+    where
+        serializePayLevel payLevel =
+            Aeson.object
+                [ "id" Aeson..= unpackId (get #id payLevel)
+                , "name" Aeson..= payLevel.name
+                , "isActive" Aeson..= payLevel.isActive
+                ]
+
+        serializeShiftType shiftType =
+            Aeson.object
+                [ "id" Aeson..= unpackId (get #id shiftType)
+                , "name" Aeson..= shiftType.name
+                , "defaultPayLevelId" Aeson..= shiftType.defaultPayLevelId
+                , "isActive" Aeson..= shiftType.isActive
+                ]
+
+        serializeDayName dayName =
+            Aeson.object
+                [ "id" Aeson..= unpackId (get #id dayName)
+                , "weekdayIndex" Aeson..= dayName.weekdayIndex
+                , "name" Aeson..= dayName.name
+                , "isActive" Aeson..= dayName.isActive
+                ]
+
+        serializePayLevelDayRule rule =
+            Aeson.object
+                [ "id" Aeson..= unpackId (get #id rule)
+                , "payLevelId" Aeson..= rule.payLevelId
+                , "dayNameId" Aeson..= rule.dayNameId
+                , "multiplier" Aeson..= rule.multiplier
+                ]
 
 fetchTimesheetPay :: (?modelContext :: ModelContext) => Id TimesheetEntry -> IO (Either Text TimesheetPayResult)
 fetchTimesheetPay entryId = do

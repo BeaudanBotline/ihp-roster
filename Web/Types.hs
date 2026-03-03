@@ -55,6 +55,7 @@ data ExportsController
 
 data AdminController
     = AdminAction
+    | CreatePayConfigSnapshotAction
     deriving (Eq, Show, Data)
 
 data StaffController

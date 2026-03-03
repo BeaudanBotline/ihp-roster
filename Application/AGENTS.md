@@ -41,6 +41,7 @@ psql -h "$PWD/build/db" app -c "\dt"
 - Keep export generation/download flow centralized in `Application/Helper/Export.hs`; controllers should delegate venue-scoped export creation, expiry checks, and audit emission there instead of hand-rolling ad hoc CSV endpoints.
 - For request-scoped business context such as `currentVenue` / `currentVenueMembership`, resolve it once in `Web/FrontController.initContext` and store `Maybe ...` values via `putContext`; views can then read them safely with frozen-context helpers instead of re-querying.
 - For payroll-adjacent mutations, append provenance rows from shared helpers instead of scattering ad hoc JSON snapshots across controllers. Timesheet corrections use `timesheet_entry_versions`; leave lifecycle transitions use `leave_request_events`; venue-role assignment/change uses `venue_membership_role_events`.
+- Keep pay/config reproducibility centralized in `Application/Helper/Pay.hs`: venue-admin snapshot creation should serialize the current venue-owned config tables into `pay_config_snapshots`, and payroll-adjacent workflows should bind approved rows/exports to those immutable snapshot versions instead of trusting mutable current config.
 - Keep reusable overlay helpers in `Application/Helper/View.hs`:
   - shared dialog and toast mount ids
   - declarative overlay config/button types

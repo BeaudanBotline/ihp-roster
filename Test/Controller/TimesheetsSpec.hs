@@ -63,11 +63,16 @@ tests = beforeAll testContext do
                 updatedEntry <- fetch entry.id
                 updatedEntry.isApproved `shouldBe` True
                 updatedEntry.approvedByUserId `shouldBe` Just (unpackId manager.id)
+                updatedEntry.payConfigSnapshotId `shouldSatisfy` isJust
 
                 version <- query @TimesheetEntryVersion |> fetchOne
                 version.versionAction `shouldBe` "approved"
                 version.timesheetEntryId `shouldBe` unpackId entry.id
                 version.actorUserId `shouldBe` unpackId manager.id
+
+                snapshot <- query @PayConfigSnapshot |> fetchOne
+                updatedEntry.payConfigSnapshotId `shouldBe` Just (unpackId snapshot.id)
+                snapshot.versionLabel `shouldBe` "v1"
 
                 auditEvent <- query @AuditEvent |> fetchOne
                 auditEvent.venueId `shouldBe` unpackId venue.id
@@ -96,6 +101,7 @@ tests = beforeAll testContext do
                 updatedEntry <- fetch entry.id
                 updatedEntry.isApproved `shouldBe` False
                 updatedEntry.approvedByUserId `shouldBe` Nothing
+                updatedEntry.payConfigSnapshotId `shouldBe` Nothing
 
                 version <- query @TimesheetEntryVersion |> fetchOne
                 version.versionAction `shouldBe` "unapproved"

@@ -1,6 +1,7 @@
 module Web.Controller.Timesheets where
 
-import Application.Helper.Pay (fetchTimesheetPaySummariesForEntries)
+import Application.Helper.Pay (ensureCurrentVenuePayConfigSnapshot,
+                               fetchTimesheetPaySummariesForEntries)
 import Control.Monad (void)
 import qualified Data.Aeson as Aeson
 import Data.Coerce (coerce)
@@ -174,9 +175,11 @@ instance Controller TimesheetsController where
         weekOffset <- weekOffsetFromParamOrEntry timesheetEntry.workedOn
 
         now <- getCurrentTime
+        snapshot <- ensureCurrentVenuePayConfigSnapshot
         withTransaction do
             updatedEntry <- timesheetEntry
                 |> set #isApproved True
+                |> set #payConfigSnapshotId (Just (unpackId (get #id snapshot)))
                 |> set #approvedAt (Just now)
                 |> set #approvedByUserId (Just (unpackId (get #id currentUser)))
                 |> updateRecord
@@ -196,6 +199,7 @@ instance Controller TimesheetsController where
                     [ "staffId" Aeson..= timesheetEntry.staffId
                     , "workedOn" Aeson..= timesheetEntry.workedOn
                     , "wasApproved" Aeson..= timesheetEntry.isApproved
+                    , "payConfigSnapshotVersion" Aeson..= snapshot.versionLabel
                     , "approvedAt" Aeson..= now
                     ]
                 )
@@ -212,6 +216,7 @@ instance Controller TimesheetsController where
         withTransaction do
             updatedEntry <- timesheetEntry
                 |> set #isApproved False
+                |> set #payConfigSnapshotId Nothing
                 |> set #approvedAt Nothing
                 |> set #approvedByUserId Nothing
                 |> updateRecord
@@ -341,6 +346,7 @@ resetApprovalOnEdit wasApproved entry
     | wasApproved =
         entry
             |> set #isApproved False
+            |> set #payConfigSnapshotId Nothing
             |> set #approvedAt Nothing
             |> set #approvedByUserId Nothing
     | otherwise = entry

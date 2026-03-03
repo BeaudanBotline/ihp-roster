@@ -125,6 +125,19 @@ CREATE TABLE venue_config (
     UNIQUE(venue_id),
     FOREIGN KEY (venue_id) REFERENCES venues (id) ON DELETE CASCADE
 );
+CREATE TABLE pay_config_snapshots (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
+    venue_id UUID NOT NULL,
+    version_number INT NOT NULL,
+    version_label TEXT NOT NULL,
+    created_by_user_id UUID NOT NULL,
+    snapshot JSONB DEFAULT '{}'::JSONB NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    UNIQUE(venue_id, version_number),
+    UNIQUE(venue_id, version_label),
+    FOREIGN KEY (venue_id) REFERENCES venues (id) ON DELETE CASCADE,
+    FOREIGN KEY (created_by_user_id) REFERENCES users (id) ON DELETE RESTRICT
+);
 CREATE TABLE roster_weeks (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
     venue_id UUID NOT NULL,
@@ -250,6 +263,7 @@ CREATE TABLE timesheet_entries (
     break_start_time TIME,
     break_end_time TIME,
     break_minutes INT DEFAULT 0 NOT NULL,
+    pay_config_snapshot_id UUID,
     is_approved BOOLEAN DEFAULT FALSE NOT NULL,
     approved_at TIMESTAMP WITH TIME ZONE,
     approved_by_user_id UUID,
@@ -257,6 +271,7 @@ CREATE TABLE timesheet_entries (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     FOREIGN KEY (venue_id) REFERENCES venues (id) ON DELETE CASCADE,
     FOREIGN KEY (staff_id) REFERENCES staff (id) ON DELETE CASCADE,
+    FOREIGN KEY (pay_config_snapshot_id) REFERENCES pay_config_snapshots (id) ON DELETE RESTRICT,
     FOREIGN KEY (approved_by_user_id) REFERENCES users (id) ON DELETE SET NULL
 );
 CREATE TABLE timesheet_entry_versions (
@@ -293,8 +308,10 @@ CREATE INDEX idx_venue_invitations_venue_status ON venue_invitations (venue_id, 
 CREATE INDEX idx_venue_invitations_email_status ON venue_invitations (email, status);
 CREATE INDEX idx_staff_venue ON staff (venue_id);
 CREATE INDEX idx_roster_weeks_venue_offset ON roster_weeks (venue_id, week_offset);
+CREATE INDEX idx_pay_config_snapshots_venue_version ON pay_config_snapshots (venue_id, version_number DESC);
 CREATE INDEX idx_timesheet_entries_venue_staff ON timesheet_entries (venue_id, staff_id);
 CREATE INDEX idx_timesheet_entries_venue_worked_on ON timesheet_entries (venue_id, worked_on);
+CREATE INDEX idx_timesheet_entries_snapshot ON timesheet_entries (pay_config_snapshot_id);
 CREATE INDEX idx_timesheet_entry_versions_entry_created_at ON timesheet_entry_versions (timesheet_entry_id, created_at DESC);
 CREATE INDEX idx_leave_requests_venue_staff ON leave_requests (venue_id, staff_id);
 CREATE INDEX idx_leave_requests_venue_start_date ON leave_requests (venue_id, start_date);
@@ -330,20 +347,63 @@ AS $$
         );
 $$ LANGUAGE SQL;
 
+CREATE OR REPLACE FUNCTION resolve_effective_pay_level_snapshot(p_snapshot JSONB, p_shift_type_id UUID, p_day_of_week INT)
+RETURNS UUID
+AS $$
+    SELECT
+        COALESCE(
+            (
+                SELECT COALESCE(
+                    (
+                        SELECT (rule ->> 'payLevelId')::UUID
+                        FROM jsonb_array_elements(COALESCE(p_snapshot -> 'payLevelDayRules', '[]'::JSONB)) rule
+                        JOIN jsonb_array_elements(COALESCE(p_snapshot -> 'dayNames', '[]'::JSONB)) day_name
+                            ON (rule ->> 'dayNameId') = (day_name ->> 'id')
+                        WHERE (rule ->> 'payLevelId')::UUID = (shift_type ->> 'defaultPayLevelId')::UUID
+                            AND (day_name ->> 'weekdayIndex')::INT = p_day_of_week
+                        LIMIT 1
+                    ),
+                    (shift_type ->> 'defaultPayLevelId')::UUID
+                )
+                FROM jsonb_array_elements(COALESCE(p_snapshot -> 'shiftTypes', '[]'::JSONB)) shift_type
+                WHERE (shift_type ->> 'id')::UUID = p_shift_type_id
+                LIMIT 1
+            ),
+            p_shift_type_id
+        );
+$$ LANGUAGE SQL;
+
 CREATE OR REPLACE FUNCTION calculate_timesheet_pay(p_entry_id UUID)
 RETURNS JSONB
 AS $$
     WITH entry_data AS (
-        SELECT te.*
+        SELECT
+            te.*,
+            pcs.version_label AS pay_config_snapshot_version,
+            pcs.snapshot AS pay_config_snapshot
         FROM timesheet_entries te
+        LEFT JOIN pay_config_snapshots pcs ON pcs.id = te.pay_config_snapshot_id
         WHERE te.id = p_entry_id
         LIMIT 1
     ),
     first_shift_type AS (
-        SELECT st.id AS shift_type_id
-        FROM shift_types st
-        WHERE st.is_active = TRUE
-        ORDER BY st.created_at ASC, st.id ASC
+        SELECT
+            CASE
+                WHEN e.pay_config_snapshot_id IS NOT NULL THEN (
+                    SELECT (shift_type ->> 'id')::UUID
+                    FROM jsonb_array_elements(COALESCE(e.pay_config_snapshot -> 'shiftTypes', '[]'::JSONB)) shift_type
+                    WHERE COALESCE((shift_type ->> 'isActive')::BOOLEAN, TRUE) = TRUE
+                    LIMIT 1
+                )
+                ELSE (
+                    SELECT st.id
+                    FROM shift_types st
+                    WHERE st.is_active = TRUE
+                    ORDER BY st.created_at ASC, st.id ASC
+                    LIMIT 1
+                )
+            END AS shift_type_id
+        FROM entry_data e
         LIMIT 1
     ),
     resolved AS (
@@ -354,6 +414,9 @@ AS $$
             e.start_time,
             e.end_time,
             e.break_minutes,
+            e.pay_config_snapshot_id,
+            e.pay_config_snapshot_version,
+            e.pay_config_snapshot,
             (EXTRACT(EPOCH FROM e.start_time) / 60)::INT AS start_minute_of_day,
             (
                 CASE
@@ -372,11 +435,20 @@ AS $$
                 ) - (EXTRACT(EPOCH FROM e.start_time) / 60)::INT - e.break_minutes,
                 0
             ) AS paid_minutes,
-            resolve_effective_pay_level(
-                e.staff_id,
-                (SELECT shift_type_id FROM first_shift_type),
-                EXTRACT(DOW FROM e.worked_on)::INT
-            ) AS pay_level_id
+            CASE
+                WHEN e.pay_config_snapshot_id IS NOT NULL THEN
+                    resolve_effective_pay_level_snapshot(
+                        e.pay_config_snapshot,
+                        (SELECT shift_type_id FROM first_shift_type),
+                        EXTRACT(DOW FROM e.worked_on)::INT
+                    )
+                ELSE
+                    resolve_effective_pay_level(
+                        e.staff_id,
+                        (SELECT shift_type_id FROM first_shift_type),
+                        EXTRACT(DOW FROM e.worked_on)::INT
+                    )
+            END AS pay_level_id
         FROM entry_data e
     ),
     paid_window AS (
@@ -402,15 +474,31 @@ AS $$
             pw.break_minutes,
             pw.paid_minutes,
             pw.pay_level_id,
+            pw.pay_config_snapshot_id,
+            pw.pay_config_snapshot_version,
+            pw.pay_config_snapshot,
             sw.segment_name,
-            COALESCE((
-                SELECT pldr.multiplier
-                FROM pay_level_day_rules pldr
-                JOIN day_names dn ON dn.id = pldr.day_name_id
-                WHERE pldr.pay_level_id = pw.pay_level_id
-                    AND dn.weekday_index = EXTRACT(DOW FROM pw.worked_on)::INT
-                LIMIT 1
-            ), 1.0)::NUMERIC(10,3) AS day_rule_multiplier,
+            CASE
+                WHEN pw.pay_config_snapshot_id IS NOT NULL THEN
+                    COALESCE((
+                        SELECT (rule ->> 'multiplier')::NUMERIC(10,3)
+                        FROM jsonb_array_elements(COALESCE(pw.pay_config_snapshot -> 'payLevelDayRules', '[]'::JSONB)) rule
+                        JOIN jsonb_array_elements(COALESCE(pw.pay_config_snapshot -> 'dayNames', '[]'::JSONB)) day_name
+                            ON (rule ->> 'dayNameId') = (day_name ->> 'id')
+                        WHERE (rule ->> 'payLevelId')::UUID = pw.pay_level_id
+                            AND (day_name ->> 'weekdayIndex')::INT = EXTRACT(DOW FROM pw.worked_on)::INT
+                        LIMIT 1
+                    ), 1.0)::NUMERIC(10,3)
+                ELSE
+                    COALESCE((
+                        SELECT pldr.multiplier
+                        FROM pay_level_day_rules pldr
+                        JOIN day_names dn ON dn.id = pldr.day_name_id
+                        WHERE pldr.pay_level_id = pw.pay_level_id
+                            AND dn.weekday_index = EXTRACT(DOW FROM pw.worked_on)::INT
+                        LIMIT 1
+                    ), 1.0)::NUMERIC(10,3)
+            END AS day_rule_multiplier,
             CASE
                 WHEN EXTRACT(DOW FROM pw.worked_on)::INT IN (0, 6) THEN 1.5::NUMERIC(10,3)
                 ELSE 1.0::NUMERIC(10,3)
@@ -451,6 +539,8 @@ AS $$
             'entryId', pw.id,
             'staffId', pw.staff_id,
             'workedOn', pw.worked_on,
+            'payConfigSnapshotId', pw.pay_config_snapshot_id,
+            'payConfigSnapshotVersion', pw.pay_config_snapshot_version,
             'breakMinutes', pw.break_minutes,
             'paidMinutes', pw.paid_minutes,
             'segments', sj.segments,

@@ -45,8 +45,10 @@ tests = beforeAll testContext do
                 admin <- createUserRecord "exports-admin@example.com" "staff" True
                 _ <- createVenueMembershipRecord venue admin "venue_admin"
                 staff <- createStaffRecord venue Nothing "Ava" "Hours"
+                snapshot <- createPayConfigSnapshotRecord venue admin 1 (Aeson.object [])
                 _ <- createTimesheetEntryRecord venue staff (fromGregorian 2025 1 10)
                     >>= updateRecord
+                        . set #payConfigSnapshotId (Just (unpackId snapshot.id))
                         . set #isApproved True
                         . set #approvedAt (Just approvedAt)
                         . set #approvedByUserId (Just (unpackId admin.id))
@@ -67,11 +69,13 @@ tests = beforeAll testContext do
                 exportJob.status `shouldBe` exportJobStatusToText ExportReady
                 exportJob.rangeStart `shouldBe` Just (fromGregorian 2025 1 6)
                 exportJob.rangeEnd `shouldBe` Just (fromGregorian 2025 1 12)
+                exportJob.payConfigSnapshotVersion `shouldBe` Just "v1"
                 exportJob.fileName `shouldBe` Just "approved-timesheets-2025-01-06-to-2025-01-12.csv"
                 exportJob.fileContents `shouldSatisfy` isJust
                 fromMaybe "" exportJob.fileContents `shouldSatisfy`
-                    Text.isInfixOf "worked_on,staff_name,start_time,end_time,break_minutes,approved_at,approved_by_email"
+                    Text.isInfixOf "worked_on,staff_name,start_time,end_time,break_minutes,pay_config_snapshot_version,approved_at,approved_by_email"
                 fromMaybe "" exportJob.fileContents `shouldSatisfy` Text.isInfixOf "2025-01-10"
+                fromMaybe "" exportJob.fileContents `shouldSatisfy` Text.isInfixOf ",v1,"
                 fromMaybe "" exportJob.fileContents `shouldSatisfy` (not . Text.isInfixOf "2025-01-11")
 
                 auditEvent <- query @AuditEvent |> fetchOne
@@ -85,8 +89,10 @@ tests = beforeAll testContext do
                 admin <- createUserRecord "exports-download@example.com" "staff" True
                 _ <- createVenueMembershipRecord venue admin "venue_admin"
                 staff <- createStaffRecord venue Nothing "Bea" "Hours"
+                snapshot <- createPayConfigSnapshotRecord venue admin 1 (Aeson.object [])
                 _ <- createTimesheetEntryRecord venue staff (fromGregorian 2025 1 10)
                     >>= updateRecord
+                        . set #payConfigSnapshotId (Just (unpackId snapshot.id))
                         . set #isApproved True
                         . set #approvedAt (Just (UTCTime (fromGregorian 2025 1 10) (secondsToDiffTime 0)))
                         . set #approvedByUserId (Just (unpackId admin.id))

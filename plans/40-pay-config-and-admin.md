@@ -33,7 +33,7 @@ The selected historical model is:
 ## Slices
 
 ### A.7 Historical pay/config stability
-- **Status:** [ ]
+- **Status:** [x]
 - **Goal:** Ensure old pay results and exports remain explainable after later configuration changes.
 - **Deliverables:**
   - Add venue-admin-created pay/config snapshot versions.
@@ -43,6 +43,7 @@ The selected historical model is:
 - **Acceptance checks:**
   - Historical periods remain reproducible after later pay/config changes.
   - Exports carry enough metadata to explain which rule set produced them.
+- **Completion notes:** Added `pay_config_snapshots` plus `timesheet_entries.pay_config_snapshot_id` in `Application/Schema.sql`; extended `Application/Helper/Pay.hs` and SQL pay functions so approved entries resolve against stored snapshot context while draft entries continue using current config; updated admin, timesheet approval, and export flows to create/bind immutable snapshot versions and carry snapshot metadata; added coverage in `Test/PaySpec.hs`, `Test/Controller/AdminSpec.hs`, `Test/Controller/ExportsSpec.hs`, `Test/Controller/TimesheetsSpec.hs`, `Test/SchemaSpec.hs`, and `Test/Support.hs`.
 
 ### 6.1 SQL function scaffolding for canonical pay math
 - **Status:** [x]

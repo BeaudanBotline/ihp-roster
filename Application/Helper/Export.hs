@@ -1,6 +1,7 @@
 module Application.Helper.Export where
 
 import Application.Helper.Controller
+import Application.Helper.Pay (ensureCurrentVenuePayConfigSnapshot)
 import Control.Monad (void)
 import qualified Data.Aeson as Aeson
 import Data.Coerce (coerce)
@@ -66,6 +67,7 @@ requestApprovedTimesheetsCsvExport rangeStart rangeEnd = withTransaction do
     now <- getCurrentTime
     let expiresAt = addUTCTime exportExpirySeconds now
     let exportType = exportJobTypeToText ApprovedTimesheetsCsv
+    _ <- ensureCurrentVenuePayConfigSnapshot
     let initialScope =
             Aeson.object
                 [ "rangeStart" Aeson..= rangeStart
@@ -90,7 +92,14 @@ requestApprovedTimesheetsCsvExport rangeStart rangeEnd = withTransaction do
     entries <- fetchApprovedTimesheetEntries rangeStart rangeEnd
     staffById <- fetchStaffMap entries
     approversById <- fetchApproverMap entries
-    let csvContents = renderApprovedTimesheetCsv entries staffById approversById
+    snapshotVersionsByEntryId <- fetchSnapshotVersionsForEntries entries
+    let snapshotVersions = List.sort (List.nub (Map.elems snapshotVersionsByEntryId))
+    let exportSnapshotVersion =
+            case snapshotVersions of
+                []             -> Nothing
+                [versionLabel] -> Just versionLabel
+                _              -> Just "mixed"
+    let csvContents = renderApprovedTimesheetCsv entries staffById approversById snapshotVersionsByEntryId
     let fileName = buildApprovedTimesheetExportFileName rangeStart rangeEnd
     let finalScope =
             Aeson.object
@@ -98,10 +107,12 @@ requestApprovedTimesheetsCsvExport rangeStart rangeEnd = withTransaction do
                 , "rangeEnd" Aeson..= rangeEnd
                 , "approvedOnly" Aeson..= True
                 , "entryCount" Aeson..= length entries
+                , "snapshotVersions" Aeson..= snapshotVersions
                 ]
     exportJob <-
         exportJob
             |> set #status (exportJobStatusToText ExportReady)
+            |> set #payConfigSnapshotVersion exportSnapshotVersion
             |> set #scope finalScope
             |> set #fileName (Just fileName)
             |> set #contentType (Just "text/csv; charset=utf-8")
@@ -117,6 +128,7 @@ requestApprovedTimesheetsCsvExport rangeStart rangeEnd = withTransaction do
             , "rangeStart" Aeson..= rangeStart
             , "rangeEnd" Aeson..= rangeEnd
             , "entryCount" Aeson..= length entries
+            , "payConfigSnapshotVersion" Aeson..= exportSnapshotVersion
             , "deliveryMethod" Aeson..= exportJob.deliveryMethod
             ]
         )
@@ -198,8 +210,9 @@ renderApprovedTimesheetCsv ::
     [TimesheetEntry] ->
     Map.Map UUID Staff ->
     Map.Map UUID User ->
+    Map.Map UUID Text ->
     Text
-renderApprovedTimesheetCsv entries staffById approversById =
+renderApprovedTimesheetCsv entries staffById approversById snapshotVersionsByEntryId =
     Text.unlines (csvHeader : map renderRow entries)
     where
         csvHeader =
@@ -209,6 +222,7 @@ renderApprovedTimesheetCsv entries staffById approversById =
                 , "start_time"
                 , "end_time"
                 , "break_minutes"
+                , "pay_config_snapshot_version"
                 , "approved_at"
                 , "approved_by_email"
                 ]
@@ -220,6 +234,7 @@ renderApprovedTimesheetCsv entries staffById approversById =
                 , csvCell (formatTimeOfDay entry.startTime)
                 , csvCell (formatTimeOfDay entry.endTime)
                 , csvCell (tshow entry.breakMinutes)
+                , csvCell (fromMaybe "" (entry.payConfigSnapshotId >>= (`Map.lookup` snapshotVersionsByEntryId)))
                 , csvCell (maybe "" formatUtc entry.approvedAt)
                 , csvCell (maybe "" (.email) (entry.approvedByUserId >>= (`Map.lookup` approversById)))
                 ]
@@ -262,6 +277,16 @@ fetchApproverMap entries =
             pure (Map.fromList (map (\user -> (coerce (get #id user), user)) users))
     where
         approverIds = List.nub (mapMaybe (.approvedByUserId) entries)
+
+fetchSnapshotVersionsForEntries :: (?modelContext :: ModelContext) => [TimesheetEntry] -> IO (Map.Map UUID Text)
+fetchSnapshotVersionsForEntries entries =
+    if null snapshotIds
+        then pure Map.empty
+        else do
+            snapshots <- query @PayConfigSnapshot |> filterWhereIn (#id, map Id snapshotIds) |> fetch
+            pure (Map.fromList (map (\snapshot -> (coerce (get #id snapshot), snapshot.versionLabel)) snapshots))
+    where
+        snapshotIds = List.nub (mapMaybe (.payConfigSnapshotId) entries)
 
 shouldExpireExportJob :: UTCTime -> ExportJob -> Bool
 shouldExpireExportJob now exportJob =
