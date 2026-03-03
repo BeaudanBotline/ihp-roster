@@ -7,11 +7,13 @@ import Web.View.Staff.Edit
 instance Controller StaffController where
     beforeAction = do
         ensureIsUser
+        ensureCurrentVenue
         ensureProfileCompleted
         ensureManagerRole
 
     action EditStaffAction { staffId } = do
         staff <- fetch staffId
+        ensureRecordInCurrentVenue staff.venueId
         let weekOffset = paramOrDefault @Int 0 "weekOffset"
         if isHtmxRequest
             then respondHtml (renderStaffEditModalFragment staff weekOffset)
@@ -19,6 +21,7 @@ instance Controller StaffController where
 
     action UpdateStaffAction { staffId } = do
         staff <- fetch staffId
+        ensureRecordInCurrentVenue staff.venueId
         let weekOffset = paramOrDefault @Int 0 "weekOffset"
         staff
             |> buildStaff

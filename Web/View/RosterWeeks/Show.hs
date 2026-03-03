@@ -32,7 +32,7 @@ rosterWeekShellId :: Text
 rosterWeekShellId = "roster-week-shell"
 
 instance View ShowView where
-    html showView = renderRosterWeekShell showView
+    html = renderRosterWeekShell
 
 renderRosterWeekShell :: ShowView -> Html
 renderRosterWeekShell ShowView { .. } = [hsx|

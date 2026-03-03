@@ -1,6 +1,6 @@
 module Application.Helper.View where
 
-import Application.Helper.Controller (UserRole (..), hasRole, parseUserRole)
+import Application.Helper.Controller (VenueRole (..), hasRole)
 import Data.List (sortBy)
 import qualified Data.Text as Text
 import Data.Time.Calendar (Day)
@@ -17,12 +17,12 @@ import Web.Types
 -- | True when the current user has at least manager privileges.
 -- Use in views for conditional rendering of management UI.
 currentUserIsManager :: (?context :: ControllerContext) => Bool
-currentUserIsManager = hasRole ManagerRole
+currentUserIsManager = hasRole ManagerRole'
 
 -- | True when the current user is an admin.
 -- Use in views for conditional rendering of admin-only UI.
 currentUserIsAdmin :: (?context :: ControllerContext) => Bool
-currentUserIsAdmin = hasRole AdminRole
+currentUserIsAdmin = hasRole VenueAdminRole
 
 -- | True when a staff record is a trial placeholder (no linked user account).
 isTrialStaff :: Staff -> Bool

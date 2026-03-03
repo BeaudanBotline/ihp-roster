@@ -28,13 +28,18 @@ Make venue membership the canonical source of business authority and remove boot
 ## Slices
 
 ### A.2 Current venue resolution and venue-scoped auth helpers
-- **Status:** [ ]
+- **Status:** [x]
 - **Goal:** Ensure every authenticated request operates inside an explicit venue context and resolves business authority from membership data.
 - **Deliverables:**
   - Add current-venue and current-membership helpers in shared controller code.
   - Resolve venue context after login.
   - Add venue-scoped role checks based on `venue_memberships`.
   - Remove controller/helper reliance on global business roles on `users`.
+- **Completion notes:**
+  - `Application/Helper/Controller.hs` now resolves active venue context into controller/view context, provides membership-based role helpers, and scopes shared config/staff helpers to the current venue.
+  - `Web/FrontController.hs` initializes venue context after authentication, and `Web/Controller/Sessions.hs` persists the current venue in session on login/logout.
+  - Operational controllers now require a current venue, scope core queries by `venue_id`, and reject cross-venue record access.
+  - `Test/SchemaSpec.hs` covers venue-role parsing/hierarchy, current venue membership selection, and the rule that `users.user_role` does not grant venue authority.
 - **Acceptance checks:**
   - Authenticated controller actions can resolve venue context without ad hoc query logic.
   - Business role checks no longer rely on global user-role assumptions alone.

@@ -24,6 +24,7 @@ import Web.View.RosterWeeks.Show (RosterStaffPanelEntry (..), ShowView (..),
 instance Controller RosterWeeksController where
     beforeAction = do
         ensureIsUser
+        ensureCurrentVenue
         ensureProfileCompleted
 
     action RosterWeeksAction = do
@@ -50,18 +51,23 @@ instance Controller RosterWeeksController where
         ensureManagerRole
 
         -- Make sure it doesn't already exist
-        existing <- query @RosterWeek |> filterWhere (#weekOffset, weekOffset) |> fetchOneOrNothing
+        existing <- query @RosterWeek
+            |> filterWhere (#venueId, unpackId currentVenueId)
+            |> filterWhere (#weekOffset, weekOffset)
+            |> fetchOneOrNothing
         case existing of
             Just week -> do
                 redirectTo ShowRosterWeekAction { weekOffset = week.weekOffset }
             Nothing -> do
                 slotNames <- query @SlotName
+                    |> filterWhere (#venueId, unpackId currentVenueId)
                     |> filterWhere (#isActive, True)
                     |> fetch
                 let orderedSlotNames = sortBy (comparing (slotNameOrder . (.name))) slotNames
 
                 -- Create the roster week
                 rosterWeek <- newRecord @RosterWeek
+                    |> set #venueId (unpackId currentVenueId)
                     |> set #weekOffset weekOffset
                     |> set #isLive False
                     |> createRecord
@@ -88,13 +94,19 @@ instance Controller RosterWeeksController where
         ensureManagerRole
 
         -- Make sure target doesn't already exist
-        existingTarget <- query @RosterWeek |> filterWhere (#weekOffset, targetWeekOffset) |> fetchOneOrNothing
+        existingTarget <- query @RosterWeek
+            |> filterWhere (#venueId, unpackId currentVenueId)
+            |> filterWhere (#weekOffset, targetWeekOffset)
+            |> fetchOneOrNothing
         case existingTarget of
             Just week -> do
                 setErrorMessage "Target week already exists."
                 redirectTo ShowRosterWeekAction { weekOffset = targetWeekOffset }
             Nothing -> do
-                sourceWeekOrNothing <- query @RosterWeek |> filterWhere (#weekOffset, sourceWeekOffset) |> fetchOneOrNothing
+                sourceWeekOrNothing <- query @RosterWeek
+                    |> filterWhere (#venueId, unpackId currentVenueId)
+                    |> filterWhere (#weekOffset, sourceWeekOffset)
+                    |> fetchOneOrNothing
                 case sourceWeekOrNothing of
                     Nothing -> do
                         setErrorMessage "Source week not found. Cannot copy."
@@ -102,6 +114,7 @@ instance Controller RosterWeeksController where
                     Just sourceWeek -> do
                         -- Create the target roster week
                         targetWeek <- newRecord @RosterWeek
+                            |> set #venueId (unpackId currentVenueId)
                             |> set #weekOffset targetWeekOffset
                             |> set #isLive False
                             |> createRecord
@@ -139,6 +152,7 @@ instance Controller RosterWeeksController where
     action PublishRosterWeekAction { rosterWeekId } = do
         ensureManagerRole
         rosterWeek <- fetch rosterWeekId
+        ensureRecordInCurrentVenue rosterWeek.venueId
         rosterWeek
             |> set #isLive True
             |> updateRecord
@@ -149,12 +163,20 @@ instance Controller RosterWeeksController where
     action AddRosterRowAction { rosterDayId } = do
         ensureManagerRole
 
+        rosterDay <- fetch rosterDayId
+        let rosterWeekId = (coerce rosterDay.rosterWeekId :: Id RosterWeek)
+        rosterWeek <- fetch rosterWeekId
+        ensureRecordInCurrentVenue rosterWeek.venueId
+
         -- Find the current max row index for this day
         existingSlots <- query @RosterSlot |> filterWhere (#rosterDayId, coerce rosterDayId) |> fetch
         let nextRowIndex = if null existingSlots then 0 else maximum (map (.rowIndex) existingSlots) + 1
 
         -- Get slot names for Early, Mid, Late
-        slotNames <- query @SlotName |> filterWhere (#isActive, True) |> fetch
+        slotNames <- query @SlotName
+            |> filterWhere (#venueId, unpackId currentVenueId)
+            |> filterWhere (#isActive, True)
+            |> fetch
         let orderedSlotNames = sortBy (comparing (slotNameOrder . (.name))) slotNames
 
         -- Create a slot for each slot name (column)
@@ -165,13 +187,15 @@ instance Controller RosterWeeksController where
                 |> set #rowIndex nextRowIndex
                 |> createRecord
 
-        rosterDay <- fetch rosterDayId
-        let rosterWeekId = (coerce rosterDay.rosterWeekId :: Id RosterWeek)
-        rosterWeek <- fetch rosterWeekId
         respondWithRosterContent rosterWeek.weekOffset
 
     action RemoveRosterRowAction { rosterDayId } = do
         ensureManagerRole
+
+        rosterDay <- fetch rosterDayId
+        let rosterWeekId = (coerce rosterDay.rosterWeekId :: Id RosterWeek)
+        rosterWeek <- fetch rosterWeekId
+        ensureRecordInCurrentVenue rosterWeek.venueId
 
         existingSlots <- query @RosterSlot
             |> filterWhere (#rosterDayId, coerce rosterDayId)
@@ -194,9 +218,6 @@ instance Controller RosterWeeksController where
 
         deleteRecords slotsToDelete
 
-        rosterDay <- fetch rosterDayId
-        let rosterWeekId = (coerce rosterDay.rosterWeekId :: Id RosterWeek)
-        rosterWeek <- fetch rosterWeekId
         respondWithRosterContent rosterWeek.weekOffset
 
     action UpdateRosterSlotAction { rosterSlotId } = do
@@ -208,6 +229,7 @@ instance Controller RosterWeeksController where
         rosterDay <- fetch rosterDayId
         let rosterWeekId = (coerce rosterDay.rosterWeekId :: Id RosterWeek)
         rosterWeek <- fetch rosterWeekId
+        ensureRecordInCurrentVenue rosterWeek.venueId
 
         let maybeStaffParam = paramOrNothing @Text "staffId"
         let maybeStartTimeParam = paramOrNothing @Text "startTime"
@@ -219,6 +241,7 @@ instance Controller RosterWeeksController where
                     |> applyOptionalField #startTime (parseOptionalTime maybeStartTimeParam) maybeStartTimeParam
                     |> applyOptionalField #note (normalizeOptionalText maybeNoteParam) maybeNoteParam
 
+        ensureOptionalStaffInCurrentVenue updatedSlot.staffId
         _ <- updatedSlot |> updateRecord
 
         relatedSlots <- fetchRelatedSlotsForStaffIds (catMaybes [previousStaffId, updatedSlot.staffId])
@@ -345,10 +368,11 @@ renderRosterWeekPage weekOffset = do
     let weekEndDate = Calendar.addDays 6 weekStartDate
 
     rosterWeekOrNothing <- query @RosterWeek
+        |> filterWhere (#venueId, unpackId currentVenueId)
         |> filterWhere (#weekOffset, weekOffset)
         |> fetchOneOrNothing
 
-    let isManager = hasRole ManagerRole
+    let isManager = hasRole ManagerRole'
     let visibleRosterWeek = case rosterWeekOrNothing of
             Just rw -> if not rw.isLive && not isManager then Nothing else Just rw
             Nothing -> Nothing
@@ -365,6 +389,7 @@ renderRosterWeekPage weekOffset = do
                 |> fetch
 
             staffMembers <- query @Staff
+                |> filterWhere (#venueId, unpackId currentVenueId)
                 |> filterWhere (#isActive, True)
                 |> orderBy #lastName
                 |> fetch
@@ -372,6 +397,7 @@ renderRosterWeekPage weekOffset = do
             panelStaff <- fetchRosterStaffPanelEntries staffMembers allSlots
 
             slotNames <- query @SlotName
+                |> filterWhere (#venueId, unpackId currentVenueId)
                 |> filterWhere (#isActive, True)
                 |> fetch
 
@@ -431,13 +457,14 @@ data RosterRenderData = RosterRenderData
     , slotConflicts    :: [(Id RosterSlot, [RosterConflict])]
     }
 
-fetchRosterRenderData :: (?modelContext :: ModelContext) => Int -> IO (Maybe RosterRenderData)
+fetchRosterRenderData :: (?context :: ControllerContext, ?modelContext :: ModelContext) => Int -> IO (Maybe RosterRenderData)
 fetchRosterRenderData weekOffset = do
     venueConfig <- fetchVenueConfig
     let epoch = venueConfig.weekOffsetEpoch
     let weekStartDate = Calendar.addDays (toInteger (weekOffset * 7)) epoch
 
     rosterWeekOrNothing <- query @RosterWeek
+        |> filterWhere (#venueId, unpackId currentVenueId)
         |> filterWhere (#weekOffset, weekOffset)
         |> fetchOneOrNothing
 
@@ -454,6 +481,7 @@ fetchRosterRenderData weekOffset = do
                 |> fetch
 
             staffMembers <- query @Staff
+                |> filterWhere (#venueId, unpackId currentVenueId)
                 |> filterWhere (#isActive, True)
                 |> orderBy #lastName
                 |> fetch
@@ -461,6 +489,7 @@ fetchRosterRenderData weekOffset = do
             panelStaff <- fetchRosterStaffPanelEntries staffMembers allSlots
 
             slotNames <- query @SlotName
+                |> filterWhere (#venueId, unpackId currentVenueId)
                 |> filterWhere (#isActive, True)
                 |> fetch
 
@@ -468,25 +497,27 @@ fetchRosterRenderData weekOffset = do
             slotConflicts <- buildSlotConflicts venueConfig.lateToEarlyMinStartGapMinutes weekStartDate rosterDays allSlots staffMembers
             pure (Just RosterRenderData { rosterWeek, rosterDays, weekStartDate, staffMembers, panelStaff, orderedSlotNames, allSlots, slotConflicts })
 
-fetchRosterStaffPanelEntries :: (?modelContext :: ModelContext) => [Staff] -> [RosterSlot] -> IO [RosterStaffPanelEntry]
+fetchRosterStaffPanelEntries :: (?context :: ControllerContext, ?modelContext :: ModelContext) => [Staff] -> [RosterSlot] -> IO [RosterStaffPanelEntry]
 fetchRosterStaffPanelEntries staffMembers allSlots = do
     let linkedStaff = linkedActiveStaffForRosterPanel staffMembers
     let linkedUserIds = mapMaybe (.userId) linkedStaff
 
-    users <-
+    memberships <-
         if null linkedUserIds
             then pure []
-            else query @User
-                |> filterWhereIn (#id, map Id linkedUserIds)
+            else query @VenueMembership
+                |> filterWhere (#venueId, unpackId currentVenueId)
+                |> filterWhereIn (#userId, linkedUserIds)
+                |> filterWhere (#isActive, True)
                 |> fetch
 
-    pure (map (buildPanelEntry users) linkedStaff)
+    pure (map (buildPanelEntry memberships) linkedStaff)
     where
-        buildPanelEntry users staff =
+        buildPanelEntry memberships staff =
             let assignedShiftCount = length (filter (\slot -> slot.staffId == Just (coerce (get #id staff))) allSlots)
-                roleText = case staff.userId >>= \userId -> find (\user -> coerce (get #id user) == userId) users of
-                    Just user -> user.userRole
-                    Nothing   -> "staff"
+                roleText = case staff.userId >>= \userId -> find (\membership -> membership.userId == userId) memberships of
+                    Just membership -> membership.venueRole
+                    Nothing         -> venueRoleToText WorkerRole
              in RosterStaffPanelEntry
                     { staff
                     , assignedShiftCount

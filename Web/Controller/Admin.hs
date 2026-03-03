@@ -6,6 +6,7 @@ import Web.View.Admin.Index
 instance Controller AdminController where
     beforeAction = do
         ensureIsUser
+        ensureCurrentVenue
         ensureProfileCompleted
         ensureAdminRole
 

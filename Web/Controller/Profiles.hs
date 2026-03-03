@@ -4,7 +4,9 @@ import Web.Controller.Prelude
 import Web.View.Profiles.Edit
 
 instance Controller ProfilesController where
-    beforeAction = ensureIsUser
+    beforeAction = do
+        ensureIsUser
+        ensureCurrentVenue
 
     action EditProfileAction = do
         staff <- fetchCurrentUserStaffOrNew
@@ -32,20 +34,17 @@ instance Controller ProfilesController where
 
 fetchCurrentUserStaffOrNew :: (?modelContext :: ModelContext, ?context :: ControllerContext) => IO Staff
 fetchCurrentUserStaffOrNew = do
-    maybeStaff <- query @Staff
-        |> filterWhere (#userId, Just (unpackId (get #id currentUser)))
-        |> fetchOneOrNothing
+    maybeStaff <- fetchCurrentUserStaff
     pure case maybeStaff of
         Just staff -> staff
         Nothing ->
             newRecord @Staff
+                |> set #venueId (unpackId currentVenueId)
                 |> set #userId (Just (unpackId (get #id currentUser)))
 
 upsertCurrentUserStaff :: (?modelContext :: ModelContext, ?context :: ControllerContext) => Staff -> IO Staff
 upsertCurrentUserStaff staff = do
-    existingStaff <- query @Staff
-        |> filterWhere (#userId, Just (unpackId (get #id currentUser)))
-        |> fetchOneOrNothing
+    existingStaff <- fetchCurrentUserStaff
 
     case existingStaff of
         Just existing ->
@@ -55,5 +54,6 @@ upsertCurrentUserStaff staff = do
                 |> updateRecord
         Nothing ->
             staff
+                |> set #venueId (unpackId currentVenueId)
                 |> set #userId (Just (unpackId (get #id currentUser)))
                 |> createRecord

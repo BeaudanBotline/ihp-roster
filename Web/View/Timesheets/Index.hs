@@ -23,7 +23,7 @@ timesheetWeekShellId :: Text
 timesheetWeekShellId = "timesheet-week-shell"
 
 instance View IndexView where
-    html indexView = renderTimesheetWeekShell indexView
+    html = renderTimesheetWeekShell
 
 renderTimesheetWeekShell :: IndexView -> Html
 renderTimesheetWeekShell IndexView { .. } = [hsx|

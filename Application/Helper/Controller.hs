@@ -1,24 +1,40 @@
 module Application.Helper.Controller where
 
+import Data.Coerce (coerce)
+import Data.List (find, sortOn)
 import Data.Time.Calendar (Day, addDays, diffDays)
 import Data.Time.Clock (UTCTime (..), getCurrentTime)
 import Data.Time.Format (defaultTimeLocale, parseTimeM)
 import Data.Time.LocalTime (TimeOfDay (..))
 import Generated.Types
+import IHP.Controller.Context (fromFrozenContext, putContext)
 import IHP.ControllerPrelude
 import Web.Routes ()
 import Web.Types (ProfilesController (EditProfileAction))
 
 -- Here you can add functions which are available in all your controllers
 
-fetchVenueConfig :: (?modelContext :: ModelContext) => IO VenueConfig
-fetchVenueConfig = query @VenueConfig |> fetchOne
+currentVenueSessionKey :: ByteString
+currentVenueSessionKey = "currentVenueId"
+
+fetchVenueConfig :: (?context :: ControllerContext, ?modelContext :: ModelContext) => IO VenueConfig
+fetchVenueConfig =
+    query @VenueConfig
+        |> filterWhere (#venueId, unpackId currentVenueId)
+        |> fetchOne
 
 data UserRole
     = StaffRole
     | ManagerRole
     | AdminRole
     deriving (Eq, Show)
+
+data VenueRole
+    = WorkerRole
+    | ManagerRole'
+    | VenueAdminRole
+    | VenueOwnerRole
+    deriving (Eq, Ord, Show, Enum, Bounded)
 
 data LeaveRequestStatus
     = LeavePending
@@ -29,6 +45,9 @@ data LeaveRequestStatus
 allUserRoleValues :: [Text]
 allUserRoleValues = ["staff", "manager", "admin"]
 
+allVenueRoleValues :: [Text]
+allVenueRoleValues = ["worker", "manager", "venue_admin", "venue_owner"]
+
 allLeaveRequestStatusValues :: [Text]
 allLeaveRequestStatusValues = ["pending", "approved", "denied"]
 
@@ -37,6 +56,13 @@ parseUserRole "staff"   = Just StaffRole
 parseUserRole "manager" = Just ManagerRole
 parseUserRole "admin"   = Just AdminRole
 parseUserRole _         = Nothing
+
+parseVenueRole :: Text -> Maybe VenueRole
+parseVenueRole "worker"      = Just WorkerRole
+parseVenueRole "manager"     = Just ManagerRole'
+parseVenueRole "venue_admin" = Just VenueAdminRole
+parseVenueRole "venue_owner" = Just VenueOwnerRole
+parseVenueRole _             = Nothing
 
 parseLeaveRequestStatus :: Text -> Maybe LeaveRequestStatus
 parseLeaveRequestStatus "pending"  = Just LeavePending
@@ -48,6 +74,12 @@ userRoleToText :: UserRole -> Text
 userRoleToText StaffRole   = "staff"
 userRoleToText ManagerRole = "manager"
 userRoleToText AdminRole   = "admin"
+
+venueRoleToText :: VenueRole -> Text
+venueRoleToText WorkerRole     = "worker"
+venueRoleToText ManagerRole'   = "manager"
+venueRoleToText VenueAdminRole = "venue_admin"
+venueRoleToText VenueOwnerRole = "venue_owner"
 
 bootstrapRegistrationRole :: Int -> UserRole
 bootstrapRegistrationRole existingUserCount
@@ -72,26 +104,47 @@ ensureProfileCompleted =
         setErrorMessage "Please complete your profile to continue."
         redirectTo EditProfileAction
 
--- | Returns the parsed role of the current logged-in user.
-currentUserRole :: (?context :: ControllerContext) => UserRole
-currentUserRole = fromMaybe StaffRole (parseUserRole currentUser.userRole)
+currentVenueOrNothing :: (?context :: ControllerContext) => Maybe Venue
+currentVenueOrNothing = fromFrozenContext @(Maybe Venue)
 
--- | True when the current user's role is at least the given minimum.
-hasRole :: (?context :: ControllerContext) => UserRole -> Bool
-hasRole minimumRole = roleLevel currentUserRole >= roleLevel minimumRole
-    where
-        roleLevel :: UserRole -> Int
-        roleLevel StaffRole   = 0
-        roleLevel ManagerRole = 1
-        roleLevel AdminRole   = 2
+currentVenue :: (?context :: ControllerContext) => Venue
+currentVenue =
+    fromMaybe (error "currentVenue: no active venue in controller context") currentVenueOrNothing
+
+currentVenueId :: (?context :: ControllerContext) => Id Venue
+currentVenueId = get #id currentVenue
+
+currentVenueMembershipOrNothing :: (?context :: ControllerContext) => Maybe VenueMembership
+currentVenueMembershipOrNothing = fromFrozenContext @(Maybe VenueMembership)
+
+currentVenueMembership :: (?context :: ControllerContext) => VenueMembership
+currentVenueMembership =
+    fromMaybe (error "currentVenueMembership: no active venue membership in controller context") currentVenueMembershipOrNothing
+
+currentVenueRoleOrNothing :: (?context :: ControllerContext) => Maybe VenueRole
+currentVenueRoleOrNothing = fromFrozenContext @(Maybe VenueRole)
+
+currentVenueRole :: (?context :: ControllerContext) => VenueRole
+currentVenueRole =
+    fromMaybe (error "currentVenueRole: no active venue role in controller context") currentVenueRoleOrNothing
+
+hasVenueRole :: VenueRole -> VenueRole -> Bool
+hasVenueRole actualRole minimumRole = actualRole >= minimumRole
+
+hasRole :: (?context :: ControllerContext) => VenueRole -> Bool
+hasRole minimumRole =
+    maybe False (`hasVenueRole` minimumRole) currentVenueRoleOrNothing
+
+ensureCurrentVenue :: (?context :: ControllerContext) => IO ()
+ensureCurrentVenue = accessDeniedUnless (isJust currentVenueMembershipOrNothing)
 
 -- | Deny access (403) unless the current user is a manager or admin.
 ensureManagerRole :: (?context :: ControllerContext) => IO ()
-ensureManagerRole = accessDeniedUnless (hasRole ManagerRole)
+ensureManagerRole = accessDeniedUnless (hasRole ManagerRole')
 
 -- | Deny access (403) unless the current user is an admin.
 ensureAdminRole :: (?context :: ControllerContext) => IO ()
-ensureAdminRole = accessDeniedUnless (hasRole AdminRole)
+ensureAdminRole = accessDeniedUnless (hasRole VenueAdminRole)
 
 -- | True when the current request came from htmx.
 isHtmxRequest :: (?context :: ControllerContext) => Bool
@@ -138,7 +191,7 @@ isWithinEditWindow today workedOn windowDays =
 -- Manager/admin roles bypass the restriction entirely.
 ensureEditWindowOrManager :: (?context :: ControllerContext, ?modelContext :: ModelContext) => Day -> IO ()
 ensureEditWindowOrManager workedOn =
-    unless (hasRole ManagerRole) do
+    unless (hasRole ManagerRole') do
         config <- fetchVenueConfig
         today <- utctDay <$> getCurrentTime
         accessDeniedUnless (isWithinEditWindow today workedOn config.staffTimesheetEditWindowDays)
@@ -160,7 +213,7 @@ affectedWeekOffsetsForDateRange epoch startDate endDate
         endOffset = toWeekOffset leaveLastDate
 
 -- | Touch affected roster weeks so roster pages auto-refresh and recompute conflicts.
-triggerRosterConflictRecomputeForLeave :: (?modelContext :: ModelContext) => LeaveRequest -> IO ()
+triggerRosterConflictRecomputeForLeave :: (?context :: ControllerContext, ?modelContext :: ModelContext) => LeaveRequest -> IO ()
 triggerRosterConflictRecomputeForLeave leaveRequest = do
     venueConfig <- fetchVenueConfig
     let affectedOffsets =
@@ -179,3 +232,77 @@ triggerRosterConflictRecomputeForLeave leaveRequest = do
             rosterWeek
                 |> set #updatedAt now
                 |> updateRecordDiscardResult
+
+fetchCurrentUserStaff :: (?context :: ControllerContext, ?modelContext :: ModelContext) => IO (Maybe Staff)
+fetchCurrentUserStaff =
+    query @Staff
+        |> filterWhere (#venueId, unpackId currentVenueId)
+        |> filterWhere (#userId, Just (coerce (get #id currentUser)))
+        |> fetchOneOrNothing
+
+staffInCurrentVenueOrNothing :: (?context :: ControllerContext, ?modelContext :: ModelContext) => UUID -> IO (Maybe Staff)
+staffInCurrentVenueOrNothing staffId =
+    query @Staff
+        |> filterWhere (#venueId, unpackId currentVenueId)
+        |> filterWhere (#id, Id staffId)
+        |> fetchOneOrNothing
+
+ensureOptionalStaffInCurrentVenue :: (?context :: ControllerContext, ?modelContext :: ModelContext) => Maybe UUID -> IO ()
+ensureOptionalStaffInCurrentVenue maybeStaffId =
+    forM_ maybeStaffId \staffId -> do
+        maybeStaff <- staffInCurrentVenueOrNothing staffId
+        accessDeniedUnless (isJust maybeStaff)
+
+ensureRecordInCurrentVenue :: (?context :: ControllerContext) => UUID -> IO ()
+ensureRecordInCurrentVenue venueId =
+    accessDeniedUnless (venueId == unpackId currentVenueId)
+
+selectCurrentVenueMembership :: Maybe (Id Venue) -> [VenueMembership] -> Maybe VenueMembership
+selectCurrentVenueMembership sessionVenueId memberships =
+    let orderedMemberships = sortOn (.createdAt) memberships
+     in case sessionVenueId >>= \venueId -> find (\membership -> membership.venueId == coerce venueId) orderedMemberships of
+            Just membership -> Just membership
+            Nothing         -> listToMaybe orderedMemberships
+
+initCurrentVenueContext :: (?context :: ControllerContext, ?modelContext :: ModelContext) => IO ()
+initCurrentVenueContext = do
+    putContext (Nothing :: Maybe Venue)
+    putContext (Nothing :: Maybe VenueMembership)
+    putContext (Nothing :: Maybe VenueRole)
+
+    forM_ currentUserOrNothing \user -> do
+        sessionVenueId <- getSession @(Id Venue) currentVenueSessionKey
+        maybeVenueContext <- resolveVenueContextForUser sessionVenueId (get #id user)
+        case maybeVenueContext of
+            Nothing -> deleteSession currentVenueSessionKey
+            Just (membership, venue, role) -> do
+                putContext (Just venue)
+                putContext (Just membership)
+                putContext (Just role)
+                setSession currentVenueSessionKey (get #id venue)
+
+resolveVenueContextForUser :: (?modelContext :: ModelContext) => Maybe (Id Venue) -> Id User -> IO (Maybe (VenueMembership, Venue, VenueRole))
+resolveVenueContextForUser sessionVenueId userId = do
+    memberships <- query @VenueMembership
+        |> filterWhere (#userId, unpackId userId)
+        |> filterWhere (#isActive, True)
+        |> orderByAsc #createdAt
+        |> fetch
+
+    let venueIds = map (Id . (.venueId)) memberships
+    venues <-
+        if null venueIds
+            then pure []
+            else query @Venue
+                |> filterWhereIn (#id, venueIds)
+                |> filterWhere (#status, "active")
+                |> fetch
+
+    let activeVenueIds = map (coerce . (.id)) venues
+    let activeMemberships = filter (\membership -> membership.venueId `elem` activeVenueIds) memberships
+
+    pure do
+        membership <- selectCurrentVenueMembership sessionVenueId activeMemberships
+        venue <- find (\candidate -> coerce (get #id candidate) == membership.venueId) venues
+        role <- parseVenueRole membership.venueRole
+        pure (membership, venue, role)

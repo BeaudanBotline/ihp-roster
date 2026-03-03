@@ -12,10 +12,11 @@ import Web.View.LeaveRequests.New
 instance Controller LeaveRequestsController where
     beforeAction = do
         ensureIsUser
+        ensureCurrentVenue
         ensureProfileCompleted
 
     action LeaveRequestsAction = do
-        staffMembers <- query @Staff |> orderByAsc #lastName |> fetch
+        staffMembers <- query @Staff |> filterWhere (#venueId, unpackId currentVenueId) |> orderByAsc #lastName |> fetch
         leaveRequests <- fetchVisibleLeaveRequests
         render IndexView { .. }
 
@@ -44,6 +45,7 @@ instance Controller LeaveRequestsController where
             Just staff -> do
                 let leaveRequest =
                         newRecord @LeaveRequest
+                            |> set #venueId (unpackId currentVenueId)
                             |> set #staffId (coerce (get #id staff))
                             |> set #status (leaveRequestStatusToText LeavePending)
                             |> buildLeaveRequest
@@ -65,6 +67,7 @@ instance Controller LeaveRequestsController where
     action ApproveLeaveRequestAction { leaveRequestId } = do
         ensureManagerRole
         leaveRequest <- fetch leaveRequestId
+        ensureRecordInCurrentVenue leaveRequest.venueId
         withTransaction do
             let wasApproved = parseLeaveRequestStatus leaveRequest.status == Just LeaveApproved
             updatedLeaveRequest <-
@@ -79,6 +82,7 @@ instance Controller LeaveRequestsController where
     action DenyLeaveRequestAction { leaveRequestId } = do
         ensureManagerRole
         leaveRequest <- fetch leaveRequestId
+        ensureRecordInCurrentVenue leaveRequest.venueId
         withTransaction do
             let wasApproved = parseLeaveRequestStatus leaveRequest.status == Just LeaveApproved
             updatedLeaveRequest <-
@@ -92,6 +96,7 @@ instance Controller LeaveRequestsController where
 
     action DeleteLeaveRequestAction { leaveRequestId } = do
         leaveRequest <- fetch leaveRequestId
+        ensureRecordInCurrentVenue leaveRequest.venueId
         ensureLeaveDeleteAllowed leaveRequest
         withTransaction do
             when (parseLeaveRequestStatus leaveRequest.status == Just LeaveApproved) do
@@ -100,26 +105,28 @@ instance Controller LeaveRequestsController where
         setSuccessMessage "Leave request deleted"
         redirectTo LeaveRequestsAction
 
-fetchCurrentUserStaff :: (?modelContext :: ModelContext, ?context :: ControllerContext) => IO (Maybe Staff)
-fetchCurrentUserStaff =
-    query @Staff
-        |> filterWhere (#userId, Just (coerce (get #id currentUser)))
-        |> fetchOneOrNothing
-
 fetchVisibleLeaveRequests :: (?modelContext :: ModelContext, ?context :: ControllerContext) => IO [LeaveRequest]
 fetchVisibleLeaveRequests = do
-    maybeStaff <- fetchCurrentUserStaff
-    case maybeStaff of
-        Nothing -> pure []
-        Just staff ->
+    if hasRole ManagerRole'
+        then
             query @LeaveRequest
-                |> filterWhere (#staffId, coerce (get #id staff))
+                |> filterWhere (#venueId, unpackId currentVenueId)
                 |> orderByDesc #startDate
                 |> fetch
+        else do
+            maybeStaff <- fetchCurrentUserStaff
+            case maybeStaff of
+                Nothing -> pure []
+                Just staff ->
+                    query @LeaveRequest
+                        |> filterWhere (#venueId, unpackId currentVenueId)
+                        |> filterWhere (#staffId, coerce (get #id staff))
+                        |> orderByDesc #startDate
+                        |> fetch
 
 respondWithLeaveRequestsContent :: (?modelContext :: ModelContext, ?context :: ControllerContext) => IO ()
 respondWithLeaveRequestsContent = do
-    staffMembers <- query @Staff |> orderByAsc #lastName |> fetch
+    staffMembers <- query @Staff |> filterWhere (#venueId, unpackId currentVenueId) |> orderByAsc #lastName |> fetch
     leaveRequests <- fetchVisibleLeaveRequests
     respondHtml $
         mconcat
@@ -136,7 +143,7 @@ respondWithLeaveRequestsContent = do
 
 ensureLeaveDeleteAllowed :: (?context :: ControllerContext, ?modelContext :: ModelContext) => LeaveRequest -> IO ()
 ensureLeaveDeleteAllowed leaveRequest =
-    if hasRole ManagerRole
+    if hasRole ManagerRole'
         then pure ()
         else do
             maybeStaff <- fetchCurrentUserStaff

@@ -37,6 +37,7 @@ psql -h "$PWD/build/db" app -c "\dt"
 - `Application/Helper/Controller.hs` — Functions available in all controllers
 - `Application/Helper/View.hs` — Functions available in all views
 - These are already imported via `Web.Controller.Prelude` and `Web.View.Prelude`
+- For request-scoped business context such as `currentVenue` / `currentVenueMembership`, resolve it once in `Web/FrontController.initContext` and store `Maybe ...` values via `putContext`; views can then read them safely with frozen-context helpers instead of re-querying.
 - Keep reusable overlay helpers in `Application/Helper/View.hs`:
   - shared dialog and toast mount ids
   - declarative overlay config/button types

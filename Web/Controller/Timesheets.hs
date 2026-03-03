@@ -12,6 +12,7 @@ import Web.View.Timesheets.New
 instance Controller TimesheetsController where
     beforeAction = do
         ensureIsUser
+        ensureCurrentVenue
         ensureProfileCompleted
 
     action TimesheetsAction = do
@@ -42,6 +43,7 @@ instance Controller TimesheetsController where
             (_, Just workedOn) -> do
                 let timesheetEntry =
                         newRecord @TimesheetEntry
+                            |> set #venueId (unpackId currentVenueId)
                             |> (\entry -> maybe entry (\staff -> set #staffId (unpackId (get #id staff)) entry) currentUserStaff)
                             |> set #workedOn workedOn
                             |> set #hadBreak False
@@ -57,6 +59,7 @@ instance Controller TimesheetsController where
         staffMembers <- fetchStaffForForm
         let timesheetEntry =
                 newRecord @TimesheetEntry
+                    |> set #venueId (unpackId currentVenueId)
                     |> buildTimesheetEntry
 
         timesheetEntry
@@ -76,6 +79,7 @@ instance Controller TimesheetsController where
 
     action EditTimesheetEntryAction { timesheetEntryId } = do
         timesheetEntry <- fetch timesheetEntryId
+        ensureRecordInCurrentVenue timesheetEntry.venueId
         ensureTimesheetVisibility timesheetEntry
         ensureEditWindowOrManager timesheetEntry.workedOn
 
@@ -87,6 +91,7 @@ instance Controller TimesheetsController where
 
     action UpdateTimesheetEntryAction { timesheetEntryId } = do
         timesheetEntry <- fetch timesheetEntryId
+        ensureRecordInCurrentVenue timesheetEntry.venueId
         ensureTimesheetVisibility timesheetEntry
         ensureEditWindowOrManager timesheetEntry.workedOn
 
@@ -117,6 +122,7 @@ instance Controller TimesheetsController where
 
     action DeleteTimesheetEntryAction { timesheetEntryId } = do
         timesheetEntry <- fetch timesheetEntryId
+        ensureRecordInCurrentVenue timesheetEntry.venueId
         ensureTimesheetVisibility timesheetEntry
         ensureEditWindowOrManager timesheetEntry.workedOn
 
@@ -128,6 +134,7 @@ instance Controller TimesheetsController where
     action ApproveTimesheetEntryAction { timesheetEntryId } = do
         ensureManagerRole
         timesheetEntry <- fetch timesheetEntryId
+        ensureRecordInCurrentVenue timesheetEntry.venueId
         weekOffset <- weekOffsetFromParamOrEntry timesheetEntry.workedOn
 
         now <- getCurrentTime
@@ -143,6 +150,7 @@ instance Controller TimesheetsController where
     action UnapproveTimesheetEntryAction { timesheetEntryId } = do
         ensureManagerRole
         timesheetEntry <- fetch timesheetEntryId
+        ensureRecordInCurrentVenue timesheetEntry.venueId
         weekOffset <- weekOffsetFromParamOrEntry timesheetEntry.workedOn
 
         timesheetEntry
@@ -156,14 +164,15 @@ instance Controller TimesheetsController where
 
 fetchTimesheetDataForWeek :: (?modelContext :: ModelContext, ?context :: ControllerContext) => Day -> Day -> IO ([TimesheetEntry], [Staff])
 fetchTimesheetDataForWeek weekStartDate weekEndDate = do
-    staffMembers <- query @Staff |> orderByAsc #lastName |> fetch
+    staffMembers <- query @Staff |> filterWhere (#venueId, unpackId currentVenueId) |> orderByAsc #lastName |> fetch
 
     let weekDays = [weekStartDate .. weekEndDate]
 
     entries <-
-        if hasRole ManagerRole
+        if hasRole ManagerRole'
             then
                 query @TimesheetEntry
+                    |> filterWhere (#venueId, unpackId currentVenueId)
                     |> filterWhereIn (#workedOn, weekDays)
                     |> orderByAsc #workedOn
                     |> orderByAsc #startTime
@@ -174,6 +183,7 @@ fetchTimesheetDataForWeek weekStartDate weekEndDate = do
                     Nothing -> pure []
                     Just staff ->
                         query @TimesheetEntry
+                            |> filterWhere (#venueId, unpackId currentVenueId)
                             |> filterWhere (#staffId, unpackId (get #id staff))
                             |> filterWhereIn (#workedOn, weekDays)
                             |> orderByAsc #workedOn
@@ -184,15 +194,9 @@ fetchTimesheetDataForWeek weekStartDate weekEndDate = do
 
 fetchStaffForForm :: (?modelContext :: ModelContext, ?context :: ControllerContext) => IO [Staff]
 fetchStaffForForm =
-    if hasRole ManagerRole
-        then query @Staff |> filterWhere (#isActive, True) |> orderByAsc #lastName |> fetch
+    if hasRole ManagerRole'
+        then query @Staff |> filterWhere (#venueId, unpackId currentVenueId) |> filterWhere (#isActive, True) |> orderByAsc #lastName |> fetch
         else maybeToList <$> fetchCurrentUserStaff
-
-fetchCurrentUserStaff :: (?modelContext :: ModelContext, ?context :: ControllerContext) => IO (Maybe Staff)
-fetchCurrentUserStaff =
-    query @Staff
-        |> filterWhere (#userId, Just (coerce (get #id currentUser)))
-        |> fetchOneOrNothing
 
 respondWithTimesheetDaySection :: (?context :: ControllerContext, ?modelContext :: ModelContext) => Int -> Day -> IO ()
 respondWithTimesheetDaySection weekOffset workedOn = do
@@ -241,17 +245,19 @@ respondWithTimesheetWeekView indexView =
 
 ensureTimesheetVisibility :: (?context :: ControllerContext, ?modelContext :: ModelContext) => TimesheetEntry -> IO ()
 ensureTimesheetVisibility entry =
-    unless (hasRole ManagerRole) do
+    unless (hasRole ManagerRole') do
         maybeStaff <- fetchCurrentUserStaff
         let ownsEntry = maybe False (\staff -> unpackId (get #id staff) == entry.staffId) maybeStaff
         accessDeniedUnless ownsEntry
 
 ensureStaffAssignmentAllowed :: (?context :: ControllerContext, ?modelContext :: ModelContext) => UUID -> IO ()
 ensureStaffAssignmentAllowed staffId =
-    unless (hasRole ManagerRole) do
-        maybeStaff <- fetchCurrentUserStaff
-        let isOwnStaff = maybe False (\staff -> unpackId (get #id staff) == staffId) maybeStaff
-        accessDeniedUnless isOwnStaff
+    do
+        ensureOptionalStaffInCurrentVenue (Just staffId)
+        unless (hasRole ManagerRole') do
+            maybeStaff <- fetchCurrentUserStaff
+            let isOwnStaff = maybe False (\staff -> unpackId (get #id staff) == staffId) maybeStaff
+            accessDeniedUnless isOwnStaff
 
 resetApprovalOnEdit :: Bool -> TimesheetEntry -> TimesheetEntry
 resetApprovalOnEdit wasApproved entry
@@ -318,13 +324,12 @@ buildTimesheetEntry entry =
                     record
                         |> set #breakStartTime (Just tod)
                         |> validateField #breakStartTime
-                            (\value ->
-                                case value of
-                                    Just t ->
-                                        if isQuarterHourTime t
-                                            then Success
-                                            else Failure "Break start must be on a 15-minute increment"
-                                    Nothing -> Failure "Please select a break start time"
+                            (\case
+                                Just t ->
+                                    if isQuarterHourTime t
+                                        then Success
+                                        else Failure "Break start must be on a 15-minute increment"
+                                Nothing -> Failure "Please select a break start time"
                             )
                 Nothing ->
                     record
@@ -337,13 +342,12 @@ buildTimesheetEntry entry =
                     record
                         |> set #breakEndTime (Just tod)
                         |> validateField #breakEndTime
-                            (\value ->
-                                case value of
-                                    Just t ->
-                                        if isQuarterHourTime t
-                                            then Success
-                                            else Failure "Break end must be on a 15-minute increment"
-                                    Nothing -> Failure "Please select a break end time"
+                            (\case
+                                Just t ->
+                                    if isQuarterHourTime t
+                                        then Success
+                                        else Failure "Break end must be on a 15-minute increment"
+                                Nothing -> Failure "Please select a break end time"
                             )
                 Nothing ->
                     record
@@ -406,7 +410,7 @@ weekOffsetFromParamOrEntry workedOnDate = do
     let entryOffset = weekOffsetForDay venueConfig.weekOffsetEpoch workedOnDate
     pure (paramOrDefault entryOffset "weekOffset")
 
-currentTimesheetWeekOffset :: (?modelContext :: ModelContext) => IO Int
+currentTimesheetWeekOffset :: (?context :: ControllerContext, ?modelContext :: ModelContext) => IO Int
 currentTimesheetWeekOffset = do
     venueConfig <- fetchVenueConfig
     today <- utctDay <$> getCurrentTime

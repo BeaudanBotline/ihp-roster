@@ -12,3 +12,12 @@ instance Controller SessionsController where
 instance Sessions.SessionsControllerConfig User where
     -- Redirect to the current roster week after a successful login
     afterLoginRedirectPath = "/RosterWeeks"
+
+    beforeLogin user = do
+        maybeVenueContext <- resolveVenueContextForUser Nothing (get #id user)
+        case maybeVenueContext of
+            Just (_, venue, _) -> setSession currentVenueSessionKey (get #id venue)
+            Nothing -> deleteSession currentVenueSessionKey
+
+    beforeLogout _ =
+        deleteSession currentVenueSessionKey

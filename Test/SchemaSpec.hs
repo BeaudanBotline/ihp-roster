@@ -9,10 +9,13 @@ import Application.Helper.View (appendQueryParams, formatDateDisplay,
 import qualified Data.Text as Text
 import qualified Data.Text.IO as TextIO
 import Data.Time.Calendar (fromGregorian)
+import Data.Time.Clock (UTCTime (..), secondsToDiffTime)
 import Data.Time.LocalTime (TimeOfDay (..))
+import Data.UUID (UUID)
 import Generated.Types
-import IHP.ControllerPrelude (newRecord)
+import IHP.ControllerPrelude (Id, newRecord)
 import IHP.HaskellSupport (set)
+import IHP.ModelSupport (textToId)
 import IHP.NameSupport (columnNameToFieldName, fieldNameToColumnName)
 import IHP.Prelude
 import Test.Hspec
@@ -68,8 +71,9 @@ tests = describe "Schema" do
         get #venueRole membership `shouldBe` "worker"
         get #isActive membership `shouldBe` True
 
-    it "exposes normalized user roles and leave statuses via shared helpers" do
+    it "exposes normalized legacy user roles, venue roles, and leave statuses via shared helpers" do
         allUserRoleValues `shouldBe` ["staff", "manager", "admin"]
+        allVenueRoleValues `shouldBe` ["worker", "manager", "venue_admin", "venue_owner"]
         allLeaveRequestStatusValues `shouldBe` ["pending", "approved", "denied"]
 
         parseUserRole "staff" `shouldBe` Just StaffRole
@@ -77,12 +81,19 @@ tests = describe "Schema" do
         parseUserRole "admin" `shouldBe` Just AdminRole
         parseUserRole "owner" `shouldBe` Nothing
 
+        parseVenueRole "worker" `shouldBe` Just WorkerRole
+        parseVenueRole "manager" `shouldBe` Just ManagerRole'
+        parseVenueRole "venue_admin" `shouldBe` Just VenueAdminRole
+        parseVenueRole "venue_owner" `shouldBe` Just VenueOwnerRole
+        parseVenueRole "admin" `shouldBe` Nothing
+
         parseLeaveRequestStatus "pending" `shouldBe` Just LeavePending
         parseLeaveRequestStatus "approved" `shouldBe` Just LeaveApproved
         parseLeaveRequestStatus "denied" `shouldBe` Just LeaveDenied
         parseLeaveRequestStatus "cancelled" `shouldBe` Nothing
 
         map userRoleToText [StaffRole, ManagerRole, AdminRole] `shouldBe` allUserRoleValues
+        map venueRoleToText [WorkerRole, ManagerRole', VenueAdminRole, VenueOwnerRole] `shouldBe` allVenueRoleValues
         map leaveRequestStatusToText [LeavePending, LeaveApproved, LeaveDenied] `shouldBe` allLeaveRequestStatusValues
 
     describe "Leave request helpers" do
@@ -125,52 +136,66 @@ tests = describe "Schema" do
         isOperationallyActive incompleteUser `shouldBe` False
         isOperationallyActive completeUser `shouldBe` True
 
-    describe "Role-based authorization helpers" do
-        it "parses user role from text" do
-            parseUserRole "staff" `shouldBe` Just StaffRole
-            parseUserRole "manager" `shouldBe` Just ManagerRole
-            parseUserRole "admin" `shouldBe` Just AdminRole
-            parseUserRole "superadmin" `shouldBe` Nothing
+    describe "Venue-scoped authorization helpers" do
+        it "uses venue role hierarchy worker < manager < venue_admin < venue_owner" do
+            WorkerRole `shouldSatisfy` (< ManagerRole')
+            ManagerRole' `shouldSatisfy` (< VenueAdminRole)
+            VenueAdminRole `shouldSatisfy` (< VenueOwnerRole)
 
-        it "role hierarchy is staff < manager < admin" do
-            let roleLevel StaffRole   = 0 :: Int
-                roleLevel ManagerRole = 1
-                roleLevel AdminRole   = 2
-            roleLevel StaffRole `shouldSatisfy` (< roleLevel ManagerRole)
-            roleLevel ManagerRole `shouldSatisfy` (< roleLevel AdminRole)
-            roleLevel StaffRole `shouldSatisfy` (< roleLevel AdminRole)
+        it "checks minimum venue role correctly" do
+            hasVenueRole WorkerRole WorkerRole `shouldBe` True
+            hasVenueRole WorkerRole ManagerRole' `shouldBe` False
+            hasVenueRole ManagerRole' WorkerRole `shouldBe` True
+            hasVenueRole ManagerRole' VenueAdminRole `shouldBe` False
+            hasVenueRole VenueAdminRole ManagerRole' `shouldBe` True
+            hasVenueRole VenueOwnerRole VenueAdminRole `shouldBe` True
 
-        it "hasRole checks minimum role level correctly" do
-            let checkRole currentRoleText minimumRole =
-                    let currentRole = case parseUserRole currentRoleText of
-                            Just r  -> r
-                            Nothing -> StaffRole
-                        roleLevel StaffRole   = 0 :: Int
-                        roleLevel ManagerRole = 1
-                        roleLevel AdminRole   = 2
-                    in roleLevel currentRole >= roleLevel minimumRole
+        it "selects the session venue when it matches an active membership" do
+            let venueUuidA = fromString "00000000-0000-0000-0000-000000000001" :: UUID
+            let venueUuidB = fromString "00000000-0000-0000-0000-000000000002" :: UUID
+            let venueIdB = textToId ("00000000-0000-0000-0000-000000000002" :: Text) :: Id Venue
+            let membershipA =
+                    newRecord @VenueMembership
+                        |> set #venueId venueUuidA
+                        |> set #createdAt (UTCTime (fromGregorian 2025 1 1) (secondsToDiffTime 0))
+            let membershipB =
+                    newRecord @VenueMembership
+                        |> set #venueId venueUuidB
+                        |> set #createdAt (UTCTime (fromGregorian 2025 1 2) (secondsToDiffTime 0))
 
-            -- Staff can access staff-level
-            checkRole "staff" StaffRole `shouldBe` True
-            -- Staff cannot access manager-level
-            checkRole "staff" ManagerRole `shouldBe` False
-            -- Staff cannot access admin-level
-            checkRole "staff" AdminRole `shouldBe` False
+            fmap (.venueId) (selectCurrentVenueMembership (Just venueIdB) [membershipA, membershipB])
+                `shouldBe` Just venueUuidB
 
-            -- Manager can access staff and manager level
-            checkRole "manager" StaffRole `shouldBe` True
-            checkRole "manager" ManagerRole `shouldBe` True
-            -- Manager cannot access admin-level
-            checkRole "manager" AdminRole `shouldBe` False
+        it "falls back to the earliest active membership when the session venue is missing or stale" do
+            let venueUuidA = fromString "00000000-0000-0000-0000-000000000001" :: UUID
+            let venueUuidB = fromString "00000000-0000-0000-0000-000000000002" :: UUID
+            let staleVenueId = textToId ("00000000-0000-0000-0000-000000000099" :: Text) :: Id Venue
+            let membershipA =
+                    newRecord @VenueMembership
+                        |> set #venueId venueUuidA
+                        |> set #createdAt (UTCTime (fromGregorian 2025 1 1) (secondsToDiffTime 0))
+            let membershipB =
+                    newRecord @VenueMembership
+                        |> set #venueId venueUuidB
+                        |> set #createdAt (UTCTime (fromGregorian 2025 1 2) (secondsToDiffTime 0))
 
-            -- Admin can access all levels
-            checkRole "admin" StaffRole `shouldBe` True
-            checkRole "admin" ManagerRole `shouldBe` True
-            checkRole "admin" AdminRole `shouldBe` True
+            fmap (.venueId) (selectCurrentVenueMembership Nothing [membershipB, membershipA])
+                `shouldBe` Just venueUuidA
+            fmap (.venueId) (selectCurrentVenueMembership (Just staleVenueId) [membershipB, membershipA])
+                `shouldBe` Just venueUuidA
 
-            -- Unknown role falls back to staff
-            checkRole "unknown" StaffRole `shouldBe` True
-            checkRole "unknown" ManagerRole `shouldBe` False
+        it "does not treat users.user_role as venue authority" do
+            let user =
+                    newRecord @User
+                        |> set #userRole "admin"
+            let membership =
+                    newRecord @VenueMembership
+                        |> set #venueRole "worker"
+
+            parseUserRole user.userRole `shouldBe` Just AdminRole
+            parseVenueRole membership.venueRole `shouldBe` Just WorkerRole
+            maybe False (`hasVenueRole` VenueAdminRole) (parseVenueRole membership.venueRole)
+                `shouldBe` False
 
     describe "Trial staff" do
         it "identifies trial staff by missing user_id" do
