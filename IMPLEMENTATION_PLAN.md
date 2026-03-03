@@ -107,10 +107,11 @@ These steps are globally ordered. Detailed task breakdowns live in the linked pi
 - **Focus:** testing coverage, UI polish, reporting, security hardening, and release acceptance.
 
 ### Pipeline 60 — Template Extraction
-- **Status:** [ ]
+- **Status:** [-]
 - **File:** `plans/60-template-extraction.md`
 - **Focus:** extract reusable, project-agnostic infrastructure (dev automation, overlay system, dark theme, AGENTS.md, e2e helpers) from `roster` back to `master` so master serves as a powerful general-purpose IHP template.
 - **Note:** targets `master` branch only. No domain code crosses over. Can proceed independently of all other pipelines.
+- **Progress:** Phase 1.1 is complete on `master` via `138f3c2` plus compatibility follow-up `a266d95`; `flake.nix` now emits valid empty-string `GHC_RTS_FLAGS` for `typecheck`, `test`, and `ghci-app` on the current base.
 
 ## Parallelism Rules
 

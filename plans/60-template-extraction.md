@@ -37,12 +37,13 @@ Work within a phase is sequential (each slice depends on the prior). Phases them
 ## Phase 1 — Dev Automation and Build Fixes
 
 ### Slice 1.1: Nix string escaping fix
-- **Status:** [ ]
+- **Status:** [x]
 - **Source commit:** `b30edf4`
 - **Strategy:** Cherry-pick directly onto `master`.
 - **Files:**
   - `flake.nix`
 - **Verification:** `direnv exec . typecheck`
+- **Completion notes:** Landed on `master` as `138f3c2` with follow-up compatibility fix `a266d95`; current `master` needed `${"''"}` interpolation in `flake.nix` to generate a literal shell `''` without breaking the produced wrapper scripts.
 
 ### Slice 1.2: Dev-server lifecycle scripts
 - **Status:** [ ]
