@@ -26,14 +26,17 @@ Inspect `IMPLEMENTATION_PLAN.md`, identify the **next most important uncompleted
    - testing conventions: `e2e/AGENTS.md` (when relevant)
 3. Implement the feature completely (schema/types/routes/controllers/views/helpers as needed).
 4. Add or update tests that fully cover the behavior introduced.
-5. Run required verification commands defined by project guidance.
+5. Run the required verification commands defined by project guidance.
+   - At minimum, run `direnv exec . typecheck`.
+   - Run `direnv exec . test` when controller or backend behavior changes.
+   - Run relevant end-to-end checks when UI or workflow behavior changes.
 6. Update `IMPLEMENTATION_PLAN.md`:
    - mark the task as complete,
    - add brief completion notes (files touched, tests added).
 7. Work on the assigned branch when one is provided.
 8. If the assigned work branch does not yet exist, create it from the instructed base branch.
 9. Commit the changes when the selected task or a coherent milestone is complete.
-10. Push the work branch when the task is complete.
+10. Push the work branch when the task is complete and verification has passed for the changed scope.
 
 ## Constraints
 

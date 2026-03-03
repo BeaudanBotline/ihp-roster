@@ -28,11 +28,14 @@ This corresponds to:
 4. Keep the admin flow focused on config-table screens rather than drifting into later slices unless necessary to complete `7.1`.
 5. Add or update tests that cover the changed behavior.
 6. Run the required verification commands from repo guidance.
+   - At minimum, run `direnv exec . typecheck`.
+   - Run `direnv exec . test` for backend, controller, or schema changes.
+   - Run any relevant admin or end-to-end coverage for the changed workflow if the slice touches UI flows.
 7. Work on branch `weaver/admin-config-tables`.
 8. If `weaver/admin-config-tables` does not exist yet, create it from `roster`.
 9. Update `IMPLEMENTATION_PLAN.md` with completion notes if and only if the slice is actually complete.
 10. Commit the changes when the slice or a coherent milestone is complete.
-11. Push `weaver/admin-config-tables` when the assigned work is complete.
+11. Push `weaver/admin-config-tables` when the assigned work is complete and verification has passed for the changed scope.
 
 ## Constraints
 
