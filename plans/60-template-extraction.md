@@ -205,13 +205,14 @@ Work within a phase is sequential (each slice depends on the prior). Phases them
 - **Completion notes:** Landed on `master` as part of `3faa95c`. `defaultLayout` now uses the dark shell, restores inline flash messages for pre-overlay Phase 2, includes the placeholder `dialog-overlay-mount`, and renders a generic authenticated header with just the brand link and logout button.
 
 ### Slice 2.4: Normalize auth-facing template views to semantic dark-theme classes
-- **Status:** [ ]
+- **Status:** [x]
 - **Strategy:** Update the template-facing auth pages to use the new semantic dark-theme wrappers instead of hardcoded light utilities and inline sizing. Replace `bg-light`, `text-muted`, and ad-hoc width styles with `app-page-auth`, `app-auth-card`, `app-auth-body`, `app-panel`, `app-panel-body`, `app-form-width`, and `app-muted` where appropriate.
 - **Files:**
   - `Web/View/Sessions/New.hs`
   - `Web/View/Users/New.hs`
   - `Web/View/Static/Welcome.hs`
 - **Verification:** `direnv exec . typecheck` and visual check with `devenv up` running.
+- **Completion notes:** Landed on `master` as `f23d928`. Verified with `direnv exec . typecheck` and a screenshot of the welcome page after starting the app; the auth-facing template views now use the semantic dark-theme wrappers instead of light-mode utility classes and inline width styling.
 
 ---
 
