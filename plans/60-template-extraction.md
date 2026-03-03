@@ -377,7 +377,7 @@ No code dependencies — can proceed after Phase 1 or in parallel with Phases 2-
 ## Phase 5 — Generic Controller and View Utilities
 
 ### Slice 5.1: HTMX controller helpers
-- **Status:** [ ]
+- **Status:** [x]
 - **Strategy:** Add generic HTMX helpers to `Application/Helper/Controller.hs`:
   ```haskell
   -- | True when the current request came from htmx.
@@ -395,9 +395,10 @@ No code dependencies — can proceed after Phase 1 or in parallel with Phases 2-
 - **Files:**
   - `Application/Helper/Controller.hs`
 - **Verification:** `direnv exec . typecheck`
+- **Completion notes:** Landed on `master` as part of `9634255`. Added `isHtmxRequest` and `setHtmxPushUrl` to `Application/Helper/Controller.hs`.
 
 ### Slice 5.2: Profile completion gate pattern
-- **Status:** [ ]
+- **Status:** [x]
 - **Strategy:** Add the `ensureProfileCompleted` pattern to `Application/Helper/Controller.hs` as a documented but optional pattern. The template's `users` table does not have `is_profile_completed`, so provide a stub that projects can fill in:
   ```haskell
   -- | Redirect to profile edit if required fields are incomplete.
@@ -409,9 +410,10 @@ No code dependencies — can proceed after Phase 1 or in parallel with Phases 2-
 - **Files:**
   - `Application/Helper/Controller.hs`
 - **Verification:** `direnv exec . typecheck`
+- **Completion notes:** Landed on `master` as part of `9634255`. Added the documented `ensureProfileCompleted` stub comment only, leaving implementation to downstream projects with matching schema support.
 
 ### Slice 5.3: Time parsing utilities
-- **Status:** [ ]
+- **Status:** [x]
 - **Strategy:** Add generic time utilities to `Application/Helper/Controller.hs`:
   ```haskell
   import Data.Time.Format (defaultTimeLocale, parseTimeM)
@@ -432,6 +434,7 @@ No code dependencies — can proceed after Phase 1 or in parallel with Phases 2-
 - **Files:**
   - `Application/Helper/Controller.hs`
 - **Verification:** `direnv exec . typecheck`
+- **Completion notes:** Landed on `master` as part of `9634255`. Added `parseTimeParam`, `isQuarterHourTime`, and `timeOfDayToMinutes` with the required `Data.Time` imports.
 
 ---
 
