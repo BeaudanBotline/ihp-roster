@@ -35,3 +35,18 @@ This file preserves completed or superseded detail that no longer belongs in the
 - **Status:** [!]
 - Implemented historically, but superseded by founder-managed venue bootstrap.
 - Remove this behavior from live code and tests as part of pipeline 00.
+
+## Completed Cross-Branch Work
+
+### 60.1 Template extraction backport to `master`
+- **Status:** [x]
+- The template-extraction pipeline is complete and has been archived out of the active roadmap.
+- This work backported reusable infrastructure from `roster` to `master` only; no roster domain code crossed over.
+- Landed on `master` in these commits:
+  - Phase 1 tooling/build fixes: `138f3c2`, `a266d95`, `11af962`, `21c5f38`, `43ffa4b`
+  - Phase 2 theme/layout foundation: `3faa95c`, `f23d928`
+  - Phase 3 overlay system: `c72d2a3`
+  - Phase 4 generalized `AGENTS.md`: `24b7691`
+  - Phase 5 generic controller helpers: `9634255`
+  - Optional Phase 6 quarter-hour time picker: `7771436`
+- See `master` history for the code-level detail; the dedicated `plans/60-template-extraction.md` file is no longer needed on `roster`.

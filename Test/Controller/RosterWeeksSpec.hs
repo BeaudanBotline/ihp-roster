@@ -1,6 +1,8 @@
 module Test.Controller.RosterWeeksSpec where
 
 import Config
+import Data.Maybe (fromJust)
+import Data.Time.LocalTime (TimeOfDay (..))
 import Generated.Types
 import IHP.ControllerPrelude
 import IHP.FrameworkConfig
@@ -9,8 +11,6 @@ import IHP.Prelude
 import IHP.Test.Mocking
 import Network.HTTP.Types.Status
 import Network.Wai
-import Data.Maybe (fromJust)
-import Data.Time.LocalTime (TimeOfDay (..))
 import Test.Hspec
 import Test.Support
 import Web.Controller.RosterWeeks ()

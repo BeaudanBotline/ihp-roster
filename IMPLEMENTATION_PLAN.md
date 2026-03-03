@@ -21,8 +21,6 @@ Business requirements remain canonical in `specs/`.
   - `plans/30-timesheets-and-leave.md`
   - `plans/40-pay-config-and-admin.md`
   - `plans/50-release-readiness.md`
-- Template extraction (backport to master):
-  - `plans/60-template-extraction.md`
 - Historical completed and superseded slices:
   - `plans/90-historical-completed-slices.md`
 
@@ -106,13 +104,6 @@ These steps are globally ordered. Detailed task breakdowns live in the linked pi
 - **File:** `plans/50-release-readiness.md`
 - **Focus:** testing coverage, UI polish, reporting, security hardening, and release acceptance.
 
-### Pipeline 60 — Template Extraction
-- **Status:** [-]
-- **File:** `plans/60-template-extraction.md`
-- **Focus:** extract reusable, project-agnostic infrastructure (dev automation, overlay system, dark theme, AGENTS.md, e2e helpers) from `roster` back to `master` so master serves as a powerful general-purpose IHP template.
-- **Note:** targets `master` branch only. No domain code crosses over. Can proceed independently of all other pipelines.
-- **Progress:** Phase 1 is complete on `master`: Slice 1.1 via `138f3c2` plus compatibility follow-up `a266d95`, Slice 1.2 via `11af962`, Slice 1.3 via `21c5f38`, and Slices 1.4-1.6 via `43ffa4b`. `master` now includes the Nix empty-string fix, dev lifecycle scripts, `hlint -XQuasiQuotes`, the `IHP_LIB` fallback for `make db`, the `Config.hs` trailing newline fix, and the authenticated `screenshot-page` helper. Phase 2 is now fully complete: Slices 2.1-2.3 via `3faa95c` and Slice 2.4 via `f23d928`, covering Bootstrap 5.3.8, the generic dark-mode CSS foundation, the dark-shell layout/header, and auth-facing view normalization onto semantic theme classes. Phase 3 is complete via `c72d2a3`, which adds the generic overlay helpers, dialog/toast JavaScript, and flash-toast layout wiring. Phase 4 is complete via `24b7691`, which generalizes the root and subdirectory `AGENTS.md` files for template use without carrying over roster-specific guidance. Phase 5 is complete via `9634255`, which adds the generic HTMX helpers, the profile-completion stub comment, and the time parsing utilities to `Application/Helper/Controller.hs`. Optional Phase 6 is complete via `7771436`, which adds the reusable quarter-hour time picker helpers, JS, CSS, and layout wiring.
-
 ## Parallelism Rules
 
 These pipelines can overlap when they respect the dependency constraints above:
@@ -120,7 +111,6 @@ These pipelines can overlap when they respect the dependency constraints above:
 - `plans/20-roster-and-conflicts.md` can progress in parallel with auth/scoping work if it does not reintroduce global-role or cross-venue assumptions.
 - `plans/30-timesheets-and-leave.md` can progress alongside `plans/40-pay-config-and-admin.md` once the snapshot/version contract is fixed.
 - `plans/50-release-readiness.md` should mostly trail the others, but test additions can happen incrementally.
-- `plans/60-template-extraction.md` targets `master` only and has no dependency on any other pipeline. It can proceed fully in parallel.
 
 ## Read Order For Agents
 
