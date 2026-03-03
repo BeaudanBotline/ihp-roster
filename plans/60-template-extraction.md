@@ -122,7 +122,7 @@ Work within a phase is sequential (each slice depends on the prior). Phases them
 ## Phase 2 — Dark Theme and Layout Foundation
 
 ### Slice 2.1: Vendor Bootstrap 5.3.8
-- **Status:** [ ]
+- **Status:** [x]
 - **Source commit:** `abc4f7d` (partial)
 - **Strategy:** Copy the vendored Bootstrap 5.3.8 files from roster. Update `Web/View/Layout.hs` to reference the new paths. Remove the old `bootstrap-5.2.1` references from layout (but do not delete the old vendor files from `IHP/` — they ship with IHP itself).
 - **Files:**
@@ -135,9 +135,10 @@ Work within a phase is sequential (each slice depends on the prior). Phases them
     - Add HTMX CDN script: `<script src="https://unpkg.com/htmx.org@1.9.12"></script>`
     - Add Bootstrap Icons CDN: `<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"/>`
 - **Verification:** `direnv exec . typecheck`
+- **Completion notes:** Landed on `master` as part of `3faa95c`. Added vendored Bootstrap 5.3.8 CSS/JS under `static/vendor/bootstrap-5.3.8/` and updated `Web/View/Layout.hs` to load the new paths plus HTMX and Bootstrap Icons.
 
 ### Slice 2.2: Dark-mode CSS token system
-- **Status:** [ ]
+- **Status:** [x]
 - **Source:** `static/app.css` from roster branch (generic tokens only)
 - **Strategy:** Replace the empty `static/app.css` with the generic dark-mode token system. Include **only** these sections from the roster branch's `app.css`:
   - `:root` variables (lines 1-24, but **remove** `--roster-*` variables)
@@ -161,9 +162,10 @@ Work within a phase is sequential (each slice depends on the prior). Phases them
 - **Files:**
   - `static/app.css`
 - **Verification:** Visual check with `devenv up` running.
+- **Completion notes:** Landed on `master` as part of `3faa95c`. Replaced the empty template stylesheet with the generic dark-mode token system and toast styles while excluding roster-specific classes and variables.
 
 ### Slice 2.3: Layout dark-mode shell and generic authenticated header
-- **Status:** [ ]
+- **Status:** [x]
 - **Strategy:** Update `Web/View/Layout.hs` to use the dark-mode shell structure. The template header should be minimal — just a brand link and logout button. Projects will customize nav links.
 - **Changes to `defaultLayout`:**
   - Add `data-bs-theme="dark"` to `<html>` tag
@@ -200,6 +202,7 @@ Work within a phase is sequential (each slice depends on the prior). Phases them
 - **Files:**
   - `Web/View/Layout.hs`
 - **Verification:** `direnv exec . typecheck`
+- **Completion notes:** Landed on `master` as part of `3faa95c`. `defaultLayout` now uses the dark shell, restores inline flash messages for pre-overlay Phase 2, includes the placeholder `dialog-overlay-mount`, and renders a generic authenticated header with just the brand link and logout button.
 
 ---
 

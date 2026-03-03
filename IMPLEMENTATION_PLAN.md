@@ -111,7 +111,7 @@ These steps are globally ordered. Detailed task breakdowns live in the linked pi
 - **File:** `plans/60-template-extraction.md`
 - **Focus:** extract reusable, project-agnostic infrastructure (dev automation, overlay system, dark theme, AGENTS.md, e2e helpers) from `roster` back to `master` so master serves as a powerful general-purpose IHP template.
 - **Note:** targets `master` branch only. No domain code crosses over. Can proceed independently of all other pipelines.
-- **Progress:** Phase 1 is complete on `master`: Slice 1.1 via `138f3c2` plus compatibility follow-up `a266d95`, Slice 1.2 via `11af962`, Slice 1.3 via `21c5f38`, and Slices 1.4-1.6 via `43ffa4b`. `master` now includes the Nix empty-string fix, dev lifecycle scripts, `hlint -XQuasiQuotes`, the `IHP_LIB` fallback for `make db`, the `Config.hs` trailing newline fix, and the authenticated `screenshot-page` helper.
+- **Progress:** Phase 1 is complete on `master`: Slice 1.1 via `138f3c2` plus compatibility follow-up `a266d95`, Slice 1.2 via `11af962`, Slice 1.3 via `21c5f38`, and Slices 1.4-1.6 via `43ffa4b`. `master` now includes the Nix empty-string fix, dev lifecycle scripts, `hlint -XQuasiQuotes`, the `IHP_LIB` fallback for `make db`, the `Config.hs` trailing newline fix, and the authenticated `screenshot-page` helper. Phase 2 is complete via `3faa95c`, which backports Bootstrap 5.3.8 vendor assets, the generic dark-mode token CSS, and the minimal dark-shell layout/header foundation.
 
 ## Parallelism Rules
 
