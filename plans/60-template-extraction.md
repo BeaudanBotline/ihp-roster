@@ -443,7 +443,7 @@ No code dependencies — can proceed after Phase 1 or in parallel with Phases 2-
 This phase is optional. Include it if the template should ship with a reusable time-picker component out of the box. Skip it if the template should stay minimal.
 
 ### Slice 6.1: Time picker Haskell helpers
-- **Status:** [ ]
+- **Status:** [x]
 - **Strategy:** Add to `Application/Helper/View.hs`:
   - `timePickerModalId` constant
   - `quarterHourTimeOptions` — generates `(value, label)` pairs
@@ -458,27 +458,31 @@ This phase is optional. Include it if the template should ship with a reusable t
 - **Files:**
   - `Application/Helper/View.hs`
 - **Verification:** `direnv exec . typecheck`
+- **Completion notes:** Landed on `master` as part of `7771436`. Added `timePickerModalId`, quarter-hour option generation, formatting helpers, and the reusable picker modal renderers.
 
 ### Slice 6.2: Time picker JavaScript
-- **Status:** [ ]
+- **Status:** [x]
 - **Strategy:** Add `enableQuarterHourTimePicker` IIFE to `static/app.js` (after the toast host IIFE).
 - **Files:**
   - `static/app.js`
 - **Verification:** Visual check — picker modal renders, options respond to clicks.
+- **Completion notes:** Landed on `master` as part of `7771436`. Added the reusable `enableQuarterHourTimePicker` behavior without bringing over roster-specific auto-refresh or break-toggle logic.
 
 ### Slice 6.3: Time picker CSS
-- **Status:** [ ]
+- **Status:** [x]
 - **Strategy:** Add `.time-picker-grid` and `.time-picker-option` classes to `static/app.css`.
 - **Files:**
   - `static/app.css`
 - **Verification:** Visual check.
+- **Completion notes:** Landed on `master` as part of `7771436`. Added the generic `.time-picker-grid` and `.time-picker-option` styles.
 
 ### Slice 6.4: Wire time picker into Layout.hs
-- **Status:** [ ]
+- **Status:** [x]
 - **Strategy:** Add `{renderQuarterHourTimePickerModal}` to `defaultLayout` in `Web/View/Layout.hs`, before the closing `</body>`.
 - **Files:**
   - `Web/View/Layout.hs`
 - **Verification:** `direnv exec . typecheck`
+- **Completion notes:** Landed on `master` as part of `7771436`. `Web/View/Layout.hs` now renders `renderQuarterHourTimePickerModal` at layout level, and a browser check confirmed the modal and picker grid are present in the rendered DOM.
 
 ---
 
