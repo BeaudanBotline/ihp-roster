@@ -74,7 +74,7 @@ Work within a phase is sequential (each slice depends on the prior). Phases them
 - **Completion notes:** Landed on `master` as `21c5f38`. In addition to the planned `flake.nix` change, current `master` required the companion `newtype` cleanup in `Web/View/Users/New.hs` from `f330df7` so `direnv exec . lint` would pass with `No hints`.
 
 ### Slice 1.4: Makefile IHP_LIB fallback
-- **Status:** [ ]
+- **Status:** [x]
 - **Source:** Makefile diff from roster branch
 - **Strategy:** Add the `IHP_LIB_FALLBACK` resolution block before `include ${IHP}/Makefile.dist`:
   ```makefile
@@ -92,16 +92,18 @@ Work within a phase is sequential (each slice depends on the prior). Phases them
 - **Files:**
   - `Makefile`
 - **Verification:** `make db` with `devenv up` active (should not error on missing IHPSchema.sql).
+- **Completion notes:** Landed on `master` as part of `43ffa4b`. Verified with `direnv exec . dev-start`, `direnv exec . make db`, and `direnv exec . dev-stop`; `make db` completed successfully using the fallback-aware `Makefile`.
 
 ### Slice 1.5: Config.hs trailing newline fix
-- **Status:** [ ]
+- **Status:** [x]
 - **Strategy:** Ensure `Config/Config.hs` ends with a newline after `pure ()`.
 - **Files:**
   - `Config/Config.hs`
 - **Verification:** `direnv exec . typecheck`
+- **Completion notes:** Landed on `master` as part of `43ffa4b`. The existing `master` file lacked a trailing newline; `direnv exec . typecheck` passed after normalizing it.
 
 ### Slice 1.6: Authenticated screenshot script
-- **Status:** [ ]
+- **Status:** [x]
 - **Source commit:** `fad4ea5` (partial)
 - **Strategy:** Copy `e2e/screenshot-page.mjs` from the roster branch as-is. Add the `screenshot-page` script entry to `flake.nix`:
   ```nix
@@ -113,6 +115,7 @@ Work within a phase is sequential (each slice depends on the prior). Phases them
   - `e2e/screenshot-page.mjs` (new — copy verbatim from roster branch)
   - `flake.nix` (add script entry)
 - **Verification:** `direnv exec . screenshot-page --help` should print usage.
+- **Completion notes:** Landed on `master` as part of `43ffa4b`. Verified with `direnv exec . screenshot-page --help`, which printed the expected CLI usage and option list.
 
 ---
 
