@@ -21,6 +21,8 @@ Business requirements remain canonical in `specs/`.
   - `plans/30-timesheets-and-leave.md`
   - `plans/40-pay-config-and-admin.md`
   - `plans/50-release-readiness.md`
+- Template extraction (backport to master):
+  - `plans/60-template-extraction.md`
 - Historical completed and superseded slices:
   - `plans/90-historical-completed-slices.md`
 
@@ -104,6 +106,12 @@ These steps are globally ordered. Detailed task breakdowns live in the linked pi
 - **File:** `plans/50-release-readiness.md`
 - **Focus:** testing coverage, UI polish, reporting, security hardening, and release acceptance.
 
+### Pipeline 60 — Template Extraction
+- **Status:** [ ]
+- **File:** `plans/60-template-extraction.md`
+- **Focus:** extract reusable, project-agnostic infrastructure (dev automation, overlay system, dark theme, AGENTS.md, e2e helpers) from `roster` back to `master` so master serves as a powerful general-purpose IHP template.
+- **Note:** targets `master` branch only. No domain code crosses over. Can proceed independently of all other pipelines.
+
 ## Parallelism Rules
 
 These pipelines can overlap when they respect the dependency constraints above:
@@ -111,6 +119,7 @@ These pipelines can overlap when they respect the dependency constraints above:
 - `plans/20-roster-and-conflicts.md` can progress in parallel with auth/scoping work if it does not reintroduce global-role or cross-venue assumptions.
 - `plans/30-timesheets-and-leave.md` can progress alongside `plans/40-pay-config-and-admin.md` once the snapshot/version contract is fixed.
 - `plans/50-release-readiness.md` should mostly trail the others, but test additions can happen incrementally.
+- `plans/60-template-extraction.md` targets `master` only and has no dependency on any other pipeline. It can proceed fully in parallel.
 
 ## Read Order For Agents
 
