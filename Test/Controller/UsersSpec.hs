@@ -1,6 +1,7 @@
 module Test.Controller.UsersSpec where
 
 import Config
+import Data.Time.Clock (addUTCTime, getCurrentTime)
 import Generated.Types
 import IHP.ControllerPrelude
 import IHP.FrameworkConfig
@@ -38,6 +39,19 @@ tests = beforeAll testContext do
                 response `responseBodyShouldContain` "invitee@example.com"
                 response `responseBodyShouldContain` "venue admin"
 
+        it "does not render the signup form for an expired invitation" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Expired Invite Venue"
+                now <- getCurrentTime
+                invitation <- createVenueInvitationRecord venue Nothing "expired@example.com" "worker"
+                    >>= updateRecord . set #expiresAt (Just (addUTCTime (-3600) now))
+
+                response <- callActionWithParams NewUserAction [("invitationId", idToParam invitation.id)]
+
+                response `responseStatusShouldBe` status200
+                response `responseBodyShouldContain` "Invitation Required"
+                response `responseBodyShouldNotContain` "Accept Invitation"
+
         it "does not create accounts without an invitation" $ withContext do
             withCleanDb do
                 response <- callActionWithParams CreateUserAction
@@ -50,6 +64,26 @@ tests = beforeAll testContext do
 
                 userCount <- query @User |> fetchCount
                 userCount `shouldBe` 0
+
+        it "does not redeem an invitation that has already been accepted" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Accepted Invite Venue"
+                invitation <- createVenueInvitationRecord venue Nothing "accepted@example.com" "manager"
+                    >>= updateRecord . set #status "accepted"
+
+                response <- callActionWithParams CreateUserAction
+                    [ ("invitationId", idToParam invitation.id)
+                    , ("passwordHash", "test-password-123")
+                    , ("passwordConfirmation", "test-password-123")
+                    ]
+
+                response `responseStatusShouldBe` status200
+                response `responseBodyShouldContain` "Invitation Required"
+
+                userCount <- query @User |> fetchCount
+                membershipCount <- query @VenueMembership |> fetchCount
+                userCount `shouldBe` 0
+                membershipCount `shouldBe` 0
 
         it "creates a user and venue membership from a pending invitation" $ withContext do
             withCleanDb do
@@ -77,4 +111,3 @@ tests = beforeAll testContext do
                 user.userRole `shouldBe` "staff"
                 updatedInvitation.status `shouldBe` "accepted"
                 updatedInvitation.acceptedByUserId `shouldBe` Just (unpackId user.id)
-
