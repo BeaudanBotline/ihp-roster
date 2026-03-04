@@ -20,9 +20,24 @@ instance View IndexView where
                 <div class="app-panel mb-3">
                     <div class="app-panel-body">
                         <h1 class="h4 mb-2">Admin</h1>
-                        <p class="app-muted mb-0">
-                            Manage venue-owned config tables here, then save a pay/config snapshot when you want a historical version for approvals and exports.
+                        <p class="app-muted mb-3">
+                            Manage venue-owned config tables here. Edits change the current venue draft state only until you save a new pay/config snapshot.
                         </p>
+                        <div class="alert alert-info mb-0">
+                            Use these screens to keep pay levels, shift types, day names, slot names, and weekday multiplier rules tidy before creating the next immutable version.
+                        </div>
+                    </div>
+                </div>
+                <div class="app-panel mb-3">
+                    <div class="app-panel-body">
+                        <h2 class="h5 mb-3">Config Table Overview</h2>
+                        <div class="row g-2">
+                            {renderConfigTableCard "Pay Levels" "pay-levels" payLevels}
+                            {renderConfigTableCard "Shift Types" "shift-types" shiftTypes}
+                            {renderCountTableCard "Pay Level Day Rules" "pay-level-day-rules" payLevelDayRules}
+                            {renderConfigTableCard "Slot Names" "slot-names" slotNames}
+                            {renderConfigTableCard "Day Names" "day-names" dayNames}
+                        </div>
                     </div>
                 </div>
                 <div class="row g-3">
@@ -50,6 +65,9 @@ instance View IndexView where
                         <p class="app-muted mb-3">
                             Save immutable versions before or between payroll-adjacent approval cycles so historical outputs stay explainable.
                         </p>
+                        <div class="small app-muted mb-3">
+                            Draft edits on this page do not rewrite historical approvals or exports. Those remain pinned to the snapshot version they were created with.
+                        </div>
                         {renderSnapshotSummary latestSnapshot}
                         <form method="POST" action={CreatePayConfigSnapshotAction} class="mt-3">
                             <button class="btn btn-primary" type="submit">Save Snapshot</button>
@@ -80,49 +98,65 @@ instance View IndexView where
 renderPayLevelsSection :: [PayLevel] -> Html
 renderPayLevelsSection payLevels =
     renderConfigSection
+        "pay-levels"
         "Pay Levels"
         "Configure venue pay level names and whether they remain selectable."
+        (renderRowCountSummary payLevels)
         (renderPayLevelCreateForm)
         (if null payLevels then renderEmptyState "No pay levels yet." else forEach payLevels renderPayLevelRow)
 
 renderShiftTypesSection :: [ShiftType] -> [PayLevel] -> Html
 renderShiftTypesSection shiftTypes payLevels =
     renderConfigSection
+        "shift-types"
         "Shift Types"
         "Each shift type points to a default pay level used by pay resolution."
+        (renderRowCountSummary shiftTypes)
         (renderShiftTypeCreateForm payLevels)
         (if null shiftTypes then renderEmptyState "No shift types yet." else forEach shiftTypes (renderShiftTypeRow payLevels))
 
 renderPayLevelDayRulesSection :: [PayLevelDayRule] -> [PayLevel] -> [DayName] -> Html
 renderPayLevelDayRulesSection payLevelDayRules payLevels dayNames =
     renderConfigSection
+        "pay-level-day-rules"
         "Pay Level Day Rules"
         "Override weekday multipliers for a pay level without changing the underlying day-name table."
+        (renderRuleCountSummary payLevelDayRules)
         (renderPayLevelDayRuleCreateForm payLevels dayNames)
         (if null payLevelDayRules then renderEmptyState "No pay level day rules yet." else forEach payLevelDayRules (renderPayLevelDayRuleRow payLevels dayNames))
 
 renderSlotNamesSection :: [SlotName] -> Html
 renderSlotNamesSection slotNames =
     renderConfigSection
+        "slot-names"
         "Slot Names"
         "These power the roster sheet block labels and remain venue-scoped."
+        (renderRowCountSummary slotNames)
         renderSlotNameCreateForm
         (if null slotNames then renderEmptyState "No slot names yet." else forEach slotNames renderSlotNameRow)
 
 renderDayNamesSection :: [DayName] -> Html
 renderDayNamesSection dayNames =
     renderConfigSection
+        "day-names"
         "Day Names"
         "Weekday labels can be customised per venue and toggled active/inactive."
+        (renderRowCountSummary dayNames)
         renderDayNameCreateForm
         (if null dayNames then renderEmptyState "No day names yet." else forEach dayNames renderDayNameRow)
 
-renderConfigSection :: Text -> Text -> Html -> Html -> Html
-renderConfigSection title description createForm rows = [hsx|
-    <div class="app-panel h-100">
+renderConfigSection :: Text -> Text -> Text -> Html -> Html -> Html -> Html
+renderConfigSection anchorId title description summary createForm rows = [hsx|
+    <div id={anchorId} class="app-panel h-100">
         <div class="app-panel-body">
-            <h2 class="h5 mb-2">{title}</h2>
-            <p class="app-muted mb-3">{description}</p>
+            <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
+                <div>
+                    <h2 class="h5 mb-2">{title}</h2>
+                    <p class="app-muted mb-2">{description}</p>
+                </div>
+                <a class="btn btn-sm btn-outline-secondary" href={"#" <> anchorId}>Link</a>
+            </div>
+            {summary}
             {createForm}
             <div class="mt-3">
                 {rows}
@@ -429,8 +463,48 @@ renderSnapshotSummary maybeSnapshot =
             <div class="border rounded p-3">
                 <div class="fw-semibold">Active snapshot: {snapshot.versionLabel}</div>
                 <div class="small app-muted">Saved {formatTimestamp snapshot.createdAt}</div>
+                <div class="small app-muted">Approvals and exports use the snapshot version they were bound to at approval or generation time.</div>
             </div>
         |]
+
+renderConfigTableCard :: HasField "isActive" record Bool => Text -> Text -> [record] -> Html
+renderConfigTableCard title anchorId rows = [hsx|
+    <div class="col-12 col-md-6 col-xl-4">
+        <a href={"#" <> anchorId} class="text-decoration-none">
+            <div class="border rounded p-3 h-100">
+                <div class="fw-semibold text-body">{title}</div>
+                <div class="small app-muted">{tshow (length rows)} rows</div>
+                <div class="small app-muted">{tshow (countActiveRows rows)} active</div>
+            </div>
+        </a>
+    </div>
+|]
+
+renderCountTableCard :: Text -> Text -> [record] -> Html
+renderCountTableCard title anchorId rows = [hsx|
+    <div class="col-12 col-md-6 col-xl-4">
+        <a href={"#" <> anchorId} class="text-decoration-none">
+            <div class="border rounded p-3 h-100">
+                <div class="fw-semibold text-body">{title}</div>
+                <div class="small app-muted">{tshow (length rows)} rows</div>
+            </div>
+        </a>
+    </div>
+|]
+
+renderRowCountSummary :: HasField "isActive" record Bool => [record] -> Html
+renderRowCountSummary rows = [hsx|
+    <p class="small app-muted mb-3">
+        {tshow (length rows)} rows total, {tshow (countActiveRows rows)} active, {tshow (length rows - countActiveRows rows)} inactive.
+    </p>
+|]
+
+renderRuleCountSummary :: [PayLevelDayRule] -> Html
+renderRuleCountSummary rules = [hsx|
+    <p class="small app-muted mb-3">
+        {tshow (length rules)} multiplier rules configured for this venue.
+    </p>
+|]
 
 renderSnapshotTable :: [PayConfigSnapshot] -> Html
 renderSnapshotTable snapshots
@@ -517,6 +591,9 @@ renderActiveBadge isActive =
 
 renderEmptyState :: Text -> Html
 renderEmptyState message = [hsx|<p class="app-muted mb-0">{message}</p>|]
+
+countActiveRows :: HasField "isActive" record Bool => [record] -> Int
+countActiveRows = length . filter (.isActive)
 
 weekdayOptions :: [(Int, Text)]
 weekdayOptions =
