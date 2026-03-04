@@ -4,13 +4,13 @@ import Data.Time.Format (defaultTimeLocale, formatTime)
 import Web.View.Prelude
 
 data IndexView = IndexView
-    { latestSnapshot  :: Maybe PayConfigSnapshot
-    , recentSnapshots :: [PayConfigSnapshot]
-    , payLevels       :: [PayLevel]
+    { latestSnapshot   :: Maybe PayConfigSnapshot
+    , recentSnapshots  :: [PayConfigSnapshot]
+    , payLevels        :: [PayLevel]
     , payLevelDayRules :: [PayLevelDayRule]
-    , shiftTypes      :: [ShiftType]
-    , slotNames       :: [SlotName]
-    , dayNames        :: [DayName]
+    , shiftTypes       :: [ShiftType]
+    , slotNames        :: [SlotName]
+    , dayNames         :: [DayName]
     }
 
 instance View IndexView where
@@ -102,7 +102,7 @@ renderPayLevelsSection payLevels =
         "Pay Levels"
         "Configure venue pay level names and whether they remain selectable."
         (renderRowCountSummary payLevels)
-        (renderPayLevelCreateForm)
+        renderPayLevelCreateForm
         (if null payLevels then renderEmptyState "No pay levels yet." else forEach payLevels renderPayLevelRow)
 
 renderShiftTypesSection :: [ShiftType] -> [PayLevel] -> Html
@@ -580,8 +580,8 @@ renderPayLevelDayRuleHeading :: [PayLevel] -> [DayName] -> PayLevelDayRule -> Te
 renderPayLevelDayRuleHeading payLevels dayNames payLevelDayRule =
     payLevelLabel <> " on " <> dayNameLabel
     where
-        payLevelLabel = fromMaybe "Unknown pay level" (renderPayLevelLabel <$> find (\payLevel -> unpackId (get #id payLevel) == payLevelDayRule.payLevelId) payLevels)
-        dayNameLabel = fromMaybe "Unknown day name" (renderDayNameLabel <$> find (\dayName -> unpackId (get #id dayName) == payLevelDayRule.dayNameId) dayNames)
+        payLevelLabel = maybe "Unknown pay level" renderPayLevelLabel (find (\payLevel -> unpackId (get #id payLevel) == payLevelDayRule.payLevelId) payLevels)
+        dayNameLabel = maybe "Unknown day name" renderDayNameLabel (find (\dayName -> unpackId (get #id dayName) == payLevelDayRule.dayNameId) dayNames)
 
 renderActiveBadge :: Bool -> Html
 renderActiveBadge isActive =

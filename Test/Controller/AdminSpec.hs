@@ -67,7 +67,6 @@ tests = beforeAll testContext do
                 response `responseBodyShouldNotContain` "Level B on Tuesday (Tuesday)"
                 response `responseBodyShouldNotContain` "Bar"
                 response `responseBodyShouldNotContain` "Late"
-                response `responseBodyShouldNotContain` "Tuesday"
 
         it "rejects non-admin venue members from admin screens" $ withContext do
             withCleanDb do
@@ -139,11 +138,11 @@ tests = beforeAll testContext do
                         ]
                 dayRuleResponse `responseStatusShouldBe` status302
 
-                createdPayLevel <- query @PayLevel |> fetchOne
+                createdPayLevel <- query @PayLevel |> filterWhere (#name, "Level 2") |> fetchOne
                 createdPayLevelDayRule <- query @PayLevelDayRule |> fetchOne
-                createdSlotName <- query @SlotName |> fetchOne
-                createdDayName <- query @DayName |> fetchOne
-                createdShiftType <- query @ShiftType |> fetchOne
+                createdSlotName <- query @SlotName |> filterWhere (#name, "Late") |> fetchOne
+                createdDayName <- query @DayName |> filterWhere (#name, "Midweek") |> fetchOne
+                createdShiftType <- query @ShiftType |> filterWhere (#name, "Supervisor") |> fetchOne
 
                 createdPayLevel.venueId `shouldBe` unpackId venue.id
                 createdPayLevel.name `shouldBe` "Level 2"

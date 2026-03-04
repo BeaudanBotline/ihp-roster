@@ -274,7 +274,7 @@ parseDayNameParams existingDayName = do
             | weekdayIndex < 0 || weekdayIndex > 6 -> do
                 setErrorMessage "Weekday must be between 0 and 6."
                 pure Nothing
-            | otherwise ->
+            | otherwise -> do
                 maybeName <- parseRequiredName "name" "Day name is required."
                 case maybeName of
                     Nothing -> pure Nothing
@@ -387,7 +387,7 @@ ensurePayLevelDayRuleInCurrentVenue ::
     PayLevelDayRule ->
     IO ()
 ensurePayLevelDayRuleInCurrentVenue payLevelDayRule = do
-    payLevel <- fetch (Id payLevelDayRule.payLevelId)
-    dayName <- fetch (Id payLevelDayRule.dayNameId)
+    payLevel <- fetch (Id payLevelDayRule.payLevelId :: Id PayLevel)
+    dayName <- fetch (Id payLevelDayRule.dayNameId :: Id DayName)
     ensureRecordInCurrentVenue payLevel.venueId
     ensureRecordInCurrentVenue dayName.venueId
