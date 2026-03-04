@@ -53,6 +53,12 @@
 - Use `.loom/workstreams/<workstream>/context.md` and `handoff.md` as the repo-local execution memory for a tracked workstream.
 - Keep durable project-wide learnings in this `AGENTS.md` or the repo's own plans/specs rather than leaving them only in a workstream handoff.
 
+## Learning Capture
+
+- If a command, workaround, or constraint is likely to matter again across this repo, add it here or to the most relevant spec.
+- Keep workstream-specific resume notes in `.loom/workstreams/<workstream>/handoff.md`.
+- Keep long debug trails in `.loom/workstreams/<workstream>/history.md` only while the workstream is active.
+
 ## Overlay Architecture
 - Treat overlays as three separate lanes:
   - `dialog` for workflow forms and confirmations
