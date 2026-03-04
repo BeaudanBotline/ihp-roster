@@ -9,6 +9,9 @@ Use this structure for an active tracked workstream:
 ```text
 .loom/
   base-prompt.md
+  runs/
+    <category>/
+      <run>.md
   workstreams/
     <workstream>/
       prompt.md
@@ -19,6 +22,7 @@ Use this structure for an active tracked workstream:
 
 ## Rules
 
+- `runs/<category>/<run>.md` is a reusable one-shot run prompt. Use it for coordinator-managed audits or reviews that should be rerunnable from scratch and should not create persistent workstream state.
 - `prompt.md` is the launch entrypoint for the workstream.
 - `context.md` holds stable workstream scope, constraints, and required read order.
 - `handoff.md` holds the current technical resume point.
@@ -35,3 +39,9 @@ When you learn something during a workstream:
 - update coordinator state or coordinator docs only if the learning affects orchestration outside this repo
 
 Do not leave reusable learnings only in a final message.
+
+For a reusable one-shot run:
+
+- keep the prompt itself durable under `.loom/runs/`
+- promote stable repo-wide learnings into the repo's `AGENTS.md` or relevant specs
+- do not create `.loom/workstreams/<workstream>/` files unless the run is explicitly promoted into a persistent workstream
