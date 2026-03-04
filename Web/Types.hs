@@ -56,6 +56,16 @@ data ExportsController
 data AdminController
     = AdminAction
     | CreatePayConfigSnapshotAction
+    | CreatePayLevelAction
+    | UpdatePayLevelAction { payLevelId :: !(Id PayLevel) }
+    | CreatePayLevelDayRuleAction
+    | UpdatePayLevelDayRuleAction { payLevelDayRuleId :: !(Id PayLevelDayRule) }
+    | CreateShiftTypeAction
+    | UpdateShiftTypeAction { shiftTypeId :: !(Id ShiftType) }
+    | CreateSlotNameAction
+    | UpdateSlotNameAction { slotNameId :: !(Id SlotName) }
+    | CreateDayNameAction
+    | UpdateDayNameAction { dayNameId :: !(Id DayName) }
     deriving (Eq, Show, Data)
 
 data StaffController
