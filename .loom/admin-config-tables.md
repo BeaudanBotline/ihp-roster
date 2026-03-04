@@ -28,8 +28,8 @@ This corresponds to:
 4. Keep the admin flow focused on config-table screens rather than drifting into later slices unless necessary to complete `7.1`.
 5. Add or update tests that cover the changed behavior.
 6. Run the required verification commands from repo guidance.
-   - At minimum, run `direnv exec . typecheck`.
-   - Run `direnv exec . test` for backend, controller, or schema changes.
+   - At minimum, run `bash ./bin/in-env typecheck`.
+   - Run `bash ./bin/in-env test` for backend, controller, or schema changes.
    - Run any relevant admin or end-to-end coverage for the changed workflow if the slice touches UI flows.
 7. Work on branch `weaver/admin-config-tables`.
 8. If `weaver/admin-config-tables` does not exist yet, create it from `roster`.

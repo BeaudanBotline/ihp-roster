@@ -1,7 +1,6 @@
 .DS_Store
 .idea
 .env
-.envrc
 .ghci
 tmp
 result
@@ -32,3 +31,5 @@ playwright-report/
 .devenv*
 devenv.local.nix
 .direnv
+
+!.envrc

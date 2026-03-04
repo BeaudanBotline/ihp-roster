@@ -2,29 +2,29 @@
 
 ## Running Tests
 
-All commands require `direnv exec .` prefix (or an active direnv shell).
+All commands require `bash ./bin/in-env` (or an already active devenv shell).
 
 ```bash
 # Run all e2e tests (requires devenv up)
-direnv exec . e2e
+bash ./bin/in-env e2e
 
 # Run a specific test file
-direnv exec . e2e e2e/auth.spec.ts
+bash ./bin/in-env e2e e2e/auth.spec.ts
 
 # Run in headed mode (visible browser)
-direnv exec . e2e --headed
+bash ./bin/in-env e2e --headed
 
 # Run with Playwright UI
-direnv exec . e2e --ui
+bash ./bin/in-env e2e --ui
 
 # Take a screenshot of a page
-direnv exec . screenshot http://localhost:8000/Dashboard dash.png
+bash ./bin/in-env screenshot http://localhost:8000/Dashboard dash.png
 
 # Take a screenshot of a protected page with reusable login flow
-direnv exec . screenshot-page /RosterWeeks roster.png --selector 'table.roster-grid'
+bash ./bin/in-env screenshot-page /RosterWeeks roster.png --selector 'table.roster-grid'
 
 # View the last test report
-direnv exec . e2e-report
+bash ./bin/in-env e2e-report
 ```
 
 ## Prerequisites
@@ -121,9 +121,9 @@ ss -ltnp '( sport = :8000 )'
 - If a stale `RunDevServer` is occupying the port, stop it and restart the managed server:
 
 ```bash
-direnv exec . dev-stop
-direnv exec . dev-start
-direnv exec . dev-wait
+bash ./bin/in-env dev-stop
+bash ./bin/in-env dev-start
+bash ./bin/in-env dev-wait
 ```
 
 ## Authenticated Screenshot Helper
@@ -131,7 +131,7 @@ direnv exec . dev-wait
 Use `screenshot-page` when a page requires login/profile completion before rendering:
 
 ```bash
-direnv exec . screenshot-page /RosterWeeks test-results/roster.png --selector 'table.roster-grid'
+bash ./bin/in-env screenshot-page /RosterWeeks test-results/roster.png --selector 'table.roster-grid'
 ```
 
 Useful options:
@@ -173,12 +173,12 @@ Useful options:
 
 ```bash
 # Run with debug logging
-DEBUG=pw:api direnv exec . e2e
+DEBUG=pw:api bash ./bin/in-env e2e
 
 # Run headed + slow motion
-direnv exec . e2e --headed --slow-mo=500
+bash ./bin/in-env e2e --headed --slow-mo=500
 
 # Generate and open a trace
-direnv exec . e2e --trace on
+bash ./bin/in-env e2e --trace on
 npx playwright show-trace test-results/*/trace.zip
 ```

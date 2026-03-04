@@ -68,25 +68,27 @@
 
 ## Verification Tools
 
-These scripts are defined in `flake.nix` as devenv shell scripts. They are placed on `PATH` automatically when the **direnv environment is active** (i.e. when a user's shell has been loaded by direnv via the `.envrc` file using `use flake`).
+These scripts are defined in `flake.nix` as devenv shell scripts. They are placed on `PATH` automatically when the project environment is active.
 
-**Agent/automation note:** Agents and CI running outside an interactive direnv shell must prefix commands with `direnv exec .` to run them inside the activated environment:
+Use the repo wrapper `bash ./bin/in-env` as the default entrypoint for automation, agents, CI, and weavers. It prefers `direnv exec` when `.envrc` is available and falls back to `nix develop` when needed.
+
+**Agent/automation note:** Run project commands through `bash ./bin/in-env` unless you are already inside the activated devenv shell:
 
 ```bash
-# Correct — works from any shell (e.g. Bash tool, CI)
-direnv exec . regen-types
-direnv exec . typecheck
-direnv exec . test
-direnv exec . lint
-direnv exec . format
-direnv exec . e2e
-direnv exec . screenshot http://localhost:8000/MyPage output.png
-direnv exec . e2e-report
+# Correct — works from any shell when direnv or nix is available
+bash ./bin/in-env regen-types
+bash ./bin/in-env typecheck
+bash ./bin/in-env test
+bash ./bin/in-env lint
+bash ./bin/in-env format
+bash ./bin/in-env e2e
+bash ./bin/in-env screenshot http://localhost:8000/MyPage output.png
+bash ./bin/in-env e2e-report
 ```
 
-Never use bare names like `regen-types` or `typecheck` in Bash tool calls — they will fail with "command not found" unless direnv has already activated the environment in that shell session.
+Never use bare names like `regen-types` or `typecheck` in non-interactive automation unless you already know the devenv shell is active.
 
-If you hit `attempt to write a readonly database` for nix fetcher cache, ensure `XDG_CACHE_HOME` points to a writable path (this repo defaults to `/tmp/nix-cache` in `.envrc` and `dev-start`).
+If you hit `attempt to write a readonly database` for nix fetcher cache, ensure `XDG_CACHE_HOME` points to a writable path (this repo defaults to `/tmp/nix-cache` in `.envrc`, `bin/in-env`, and `dev-start`).
 
 Available scripts:
 
@@ -109,34 +111,34 @@ Available scripts:
 For reliable non-interactive automation, prefer:
 
 ```bash
-direnv exec . dev-start
-direnv exec . dev-wait
+bash ./bin/in-env dev-start
+bash ./bin/in-env dev-wait
 # run commands that need server + DB
-direnv exec . dev-stop
+bash ./bin/in-env dev-stop
 ```
 
 ## Adding a New Feature (e.g. a new page with database table)
 
 1. **Schema** — Add table to `Application/Schema.sql`, then:
-   - Run `direnv exec . regen-types` to regenerate Haskell types
+   - Run `bash ./bin/in-env regen-types` to regenerate Haskell types
    - Run `make db` (requires `devenv up` running) to apply the schema to the dev database — **skipping this causes "relation does not exist" crashes at runtime even when typecheck passes**
 2. **Types** — Add controller type to `Web/Types.hs` (see `Web/Controller/AGENTS.md` for pattern)
 3. **Routes** — Add `instance AutoRoute MyController` to `Web/Routes.hs`
 4. **Controller** — Create `Web/Controller/My.hs` with action implementations
 5. **Views** — Create `Web/View/My/Index.hs`, `Show.hs`, etc. (see `Web/View/AGENTS.md`)
 6. **Mount** — Add `import Web.Controller.My` and `parseRoute @MyController` to `Web/FrontController.hs`
-7. **Verify** — Run `direnv exec . typecheck` (must pass before moving on)
+7. **Verify** — Run `bash ./bin/in-env typecheck` (must pass before moving on)
 8. **DB check** — Confirm the table exists: `psql -h "$PWD/build/db" app -c "\dt"`
-9. **Polish** — Run `direnv exec . lint`, then `direnv exec . format`
+9. **Polish** — Run `bash ./bin/in-env lint`, then `bash ./bin/in-env format`
 
 For simple CRUD, prefer running `new-controller NAME` to scaffold all files, then customize.
 
 ## Verification Workflow
-- **After every code change**: `direnv exec . typecheck` (fast, ~2-3s)
-- **After schema changes**: `direnv exec . regen-types` first, then `direnv exec . typecheck`, then `make db` (requires `devenv up`)
-- **After adding/changing controllers**: `direnv exec . test` to run the test suite
-- **After UI/integration changes**: `direnv exec . e2e` to run end-to-end tests (requires `devenv up`)
-- **Before committing**: `direnv exec . lint` then `direnv exec . format`
+- **After every code change**: `bash ./bin/in-env typecheck` (fast, ~2-3s)
+- **After schema changes**: `bash ./bin/in-env regen-types` first, then `bash ./bin/in-env typecheck`, then `make db` (requires `devenv up`)
+- **After adding/changing controllers**: `bash ./bin/in-env test` to run the test suite
+- **After UI/integration changes**: `bash ./bin/in-env e2e` to run end-to-end tests (requires `devenv up`)
+- **Before committing**: `bash ./bin/in-env lint` then `bash ./bin/in-env format`
 - **To confirm DB is in sync**: `psql -h "$PWD/build/db" app -c "\dt"` — all tables in `Schema.sql` should be present
 
 ## E2E Testing

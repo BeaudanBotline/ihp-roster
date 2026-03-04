@@ -5,11 +5,11 @@ Read `IHP/Guide/testing.markdown` for full IHP testing documentation.
 
 ## Running Tests
 
-Tests are a devenv shell script — use `direnv exec .` outside an interactive shell:
+Tests are a devenv shell script — use `bash ./bin/in-env` outside an interactive shell:
 
 ```bash
-direnv exec . test                             # compile and run all tests
-direnv exec . test --match "PostsController"  # run tests matching a pattern
+bash ./bin/in-env test                        # compile and run all tests
+bash ./bin/in-env test --match "PostsController"  # run tests matching a pattern
 ```
 
 ## DB-Backed Controller Tests

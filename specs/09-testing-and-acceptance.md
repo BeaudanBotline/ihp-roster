@@ -2,11 +2,11 @@
 
 ## Verification workflow
 
-Use project scripts via direnv:
+Use project scripts via the repo environment wrapper:
 
-- `direnv exec . typecheck` after each change.
-- `direnv exec . test` for test suite.
-- `direnv exec . lint` and `direnv exec . format` before finalizing.
+- `bash ./bin/in-env typecheck` after each change.
+- `bash ./bin/in-env test` for test suite.
+- `bash ./bin/in-env lint` and `bash ./bin/in-env format` before finalizing.
 
 ## Required test coverage (minimum)
 

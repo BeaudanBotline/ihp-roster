@@ -27,8 +27,8 @@ Inspect `IMPLEMENTATION_PLAN.md`, identify the **next most important uncompleted
 3. Implement the feature completely (schema/types/routes/controllers/views/helpers as needed).
 4. Add or update tests that fully cover the behavior introduced.
 5. Run the required verification commands defined by project guidance.
-   - At minimum, run `direnv exec . typecheck`.
-   - Run `direnv exec . test` when controller or backend behavior changes.
+   - At minimum, run `bash ./bin/in-env typecheck`.
+   - Run `bash ./bin/in-env test` when controller or backend behavior changes.
    - Run relevant end-to-end checks when UI or workflow behavior changes.
 6. Update `IMPLEMENTATION_PLAN.md`:
    - mark the task as complete,

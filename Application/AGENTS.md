@@ -23,7 +23,7 @@ CREATE TABLE posts (
 
 After editing the schema you must do **two things**:
 
-1. **Regenerate Haskell types** — run `direnv exec . regen-types` (updates `build/Generated/Types.hs`)
+1. **Regenerate Haskell types** — run `bash ./bin/in-env regen-types` (updates `build/Generated/Types.hs`)
 2. **Apply to the running database** — run `make db` while `devenv up` is active in another terminal
 
 `make db` drops and recreates the entire database from `Schema.sql` + `Fixtures.sql`. This is safe in development. **Without running `make db` the app will crash at runtime with "relation does not exist"** even if typecheck passes.
