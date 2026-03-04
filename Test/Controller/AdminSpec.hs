@@ -80,6 +80,19 @@ tests = beforeAll testContext do
 
                 response `responseStatusShouldBe` status403
 
+        it "allows venue owners to access admin config screens" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Venue A"
+                owner <- createUserRecord "owner-admin@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue owner "venue_owner"
+
+                response <- withUserAndCurrentVenue owner venue.id do
+                    callAction AdminAction
+
+                response `responseStatusShouldBe` status200
+                response `responseBodyShouldContain` "Config Table Overview"
+                response `responseBodyShouldContain` "Pay/Config Snapshots"
+
         it "creates venue-scoped config table rows from the admin page" $ withContext do
             withCleanDb do
                 venue <- createVenueWithConfig "Admin Venue"
