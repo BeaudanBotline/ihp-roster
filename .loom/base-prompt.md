@@ -13,6 +13,7 @@ Inspect `IMPLEMENTATION_PLAN.md`, identify the **next most important uncompleted
 3. The most relevant plan file for the selected task
 4. The most relevant spec files under `specs/`
 5. Relevant subdirectory `AGENTS.md` files before editing files in those areas
+6. `.loom/workstreams/<workstream>/context.md` and `.loom/workstreams/<workstream>/handoff.md` when the coordinator assigned an explicit workstream
 
 ## Required process
 

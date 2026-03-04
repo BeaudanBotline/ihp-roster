@@ -46,6 +46,13 @@
 - Detailed execution plans live under `plans/` and are scoped by workstream; read only the relevant pipeline file after reading the root roadmap.
 - `plans/90-historical-completed-slices.md` holds completed or superseded detail that may still matter for migration work.
 
+## Coordinator Workstreams
+
+- Active coordinator-managed workstreams live under `.loom/workstreams/<workstream>/`.
+- Read `.loom/AGENTS.md` before editing files there.
+- Use `.loom/workstreams/<workstream>/context.md` and `handoff.md` as the repo-local execution memory for a tracked workstream.
+- Keep durable project-wide learnings in this `AGENTS.md` or the repo's own plans/specs rather than leaving them only in a workstream handoff.
+
 ## Overlay Architecture
 - Treat overlays as three separate lanes:
   - `dialog` for workflow forms and confirmations
