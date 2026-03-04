@@ -22,24 +22,30 @@ This corresponds to:
 
 ## Required process
 
-1. Implement slice `7.1 Admin screens for config tables` first.
-2. Keep the work aligned with the existing snapshot-based pay/config model from pipeline 40.
-3. Respect venue scoping and correction-safe history assumptions already established by completed pipelines.
-4. Keep the admin flow focused on config-table screens rather than drifting into later slices unless necessary to complete `7.1`.
-5. Add or update tests that cover the changed behavior.
-6. Run the required verification commands from repo guidance.
+1. Before taking on any new issue, first stabilize the branch state.
+2. Start by identifying and fixing any currently failing verification on the branch, including tests, type errors, lint findings, or other repo-standard checks that are expected for the changed scope.
+3. Run the required verification commands from repo guidance while doing that stabilization work.
    - At minimum, run `bash ./bin/in-env typecheck`.
    - Run `bash ./bin/in-env test` for backend, controller, or schema changes.
+   - Run `bash ./bin/in-env lint` when Haskell source changes are involved.
    - Run any relevant admin or end-to-end coverage for the changed workflow if the slice touches UI flows.
-7. Work on branch `weaver/admin-config-tables`.
-8. If `weaver/admin-config-tables` does not exist yet, create it from `roster`.
-9. Update `IMPLEMENTATION_PLAN.md` with completion notes if and only if the slice is actually complete.
-10. Commit the changes when the slice or a coherent milestone is complete.
-11. Push `weaver/admin-config-tables` when the assigned work is complete and verification has passed for the changed scope.
+4. Commit and push the branch once the verification-fix cleanup is in a coherent passing state.
+5. Only after that cleanup commit is pushed should you move on to the next issue for this workstream.
+6. The next issue remains slice `7.1 Admin screens for config tables`.
+7. Keep the work aligned with the existing snapshot-based pay/config model from pipeline 40.
+8. Respect venue scoping and correction-safe history assumptions already established by completed pipelines.
+9. Keep the admin flow focused on config-table screens rather than drifting into later slices unless necessary to complete `7.1`.
+10. Add or update tests that cover the changed behavior.
+11. Work on branch `weaver/admin-config-tables`.
+12. If `weaver/admin-config-tables` does not exist yet, create it from `roster`.
+13. Update `IMPLEMENTATION_PLAN.md` with completion notes if and only if the slice is actually complete.
+14. Commit the changes when the slice or a coherent milestone is complete.
+15. Push `weaver/admin-config-tables` when the assigned work is complete and verification has passed for the changed scope.
 
 ## Constraints
 
 - Do not pick a different task.
+- Do not skip the stabilization pass at the start of the session.
 - Do not reintroduce global-role or cross-venue assumptions.
 - Do not rewrite the historical snapshot model.
 - If blocked by unclear product requirements, stop and ask targeted clarification questions instead of inventing policy.
