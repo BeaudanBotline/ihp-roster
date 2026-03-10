@@ -40,7 +40,7 @@ tests = beforeAll testContext do
                 _ <- createPayConfigSnapshotRecord venueA admin 2 (Aeson.object [])
 
                 payLevelB <- createPayLevelRecord venueB "Level B"
-                dayNameB <- createDayNameRecord venueB 2 "Tuesday"
+                dayNameB <- createDayNameRecord venueB 2 "Venue B Tuesday"
                 _ <- createPayLevelDayRuleRecord payLevelB dayNameB 1.75
                 _ <- createShiftTypeRecord venueB payLevelB "Bar"
                 _ <- createSlotNameRecord venueB "Late"
@@ -61,10 +61,10 @@ tests = beforeAll testContext do
                 response `responseBodyShouldContain` "Monday"
                 response `responseBodyShouldContain` "Active snapshot: v2"
                 response `responseBodyShouldNotContain` "Level B"
-                response `responseBodyShouldNotContain` "Level B on Tuesday (Tuesday)"
+                response `responseBodyShouldNotContain` "Level B on Venue B Tuesday (Tuesday)"
                 response `responseBodyShouldNotContain` "Bar"
                 response `responseBodyShouldNotContain` "Late"
-                response `responseBodyShouldNotContain` "Tuesday"
+                response `responseBodyShouldNotContain` "Venue B Tuesday"
 
         it "creates venue-scoped config table rows from the admin page" $ withContext do
             withCleanDb do
@@ -112,11 +112,11 @@ tests = beforeAll testContext do
                         ]
                 dayRuleResponse `responseStatusShouldBe` status302
 
-                createdPayLevel <- query @PayLevel |> fetchOne
+                createdPayLevel <- query @PayLevel |> filterWhere (#name, "Level 2") |> fetchOne
                 createdPayLevelDayRule <- query @PayLevelDayRule |> fetchOne
-                createdSlotName <- query @SlotName |> fetchOne
-                createdDayName <- query @DayName |> fetchOne
-                createdShiftType <- query @ShiftType |> fetchOne
+                createdSlotName <- query @SlotName |> filterWhere (#name, "Late") |> fetchOne
+                createdDayName <- query @DayName |> filterWhere (#name, "Midweek") |> fetchOne
+                createdShiftType <- query @ShiftType |> filterWhere (#name, "Supervisor") |> fetchOne
 
                 createdPayLevel.venueId `shouldBe` unpackId venue.id
                 createdPayLevel.name `shouldBe` "Level 2"

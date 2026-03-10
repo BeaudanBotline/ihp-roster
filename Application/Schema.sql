@@ -1,11 +1,18 @@
 -- Your database schema. Use the Schema Designer at http://localhost:8001/ to add some tables.
+CREATE TYPE venue_status_enum AS ENUM ('active', 'inactive');
+CREATE TYPE venue_role_enum AS ENUM ('worker', 'manager', 'venue_admin', 'venue_owner');
+CREATE TYPE invitation_status_enum AS ENUM ('pending', 'accepted', 'revoked');
+CREATE TYPE leave_request_status_enum AS ENUM ('pending', 'approved', 'denied');
+CREATE TYPE leave_request_event_type_enum AS ENUM ('created', 'approved', 'denied', 'deleted');
+CREATE TYPE entry_version_action_enum AS ENUM ('created', 'updated', 'approved', 'unapproved', 'approval_reset', 'deleted');
+CREATE TYPE venue_membership_role_event_type_enum AS ENUM ('assigned', 'changed');
+
 CREATE TABLE venues (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
     name TEXT NOT NULL,
-    status TEXT DEFAULT 'active' NOT NULL,
+    status venue_status_enum DEFAULT 'active' NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
-    CHECK (status IN ('active', 'inactive'))
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
 );
 CREATE TABLE users (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
@@ -16,18 +23,18 @@ CREATE TABLE users (
     locked_at TIMESTAMP WITH TIME ZONE DEFAULT NULL,
     failed_login_attempts INT DEFAULT 0 NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    CHECK ((user_role = 'staff') OR (user_role = 'manager') OR (user_role = 'admin'))
 );
 CREATE TABLE venue_memberships (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
     venue_id UUID NOT NULL,
     user_id UUID NOT NULL,
-    venue_role TEXT DEFAULT 'worker' NOT NULL,
+    venue_role venue_role_enum DEFAULT 'worker' NOT NULL,
     is_active BOOLEAN DEFAULT TRUE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     UNIQUE(venue_id, user_id),
-    CHECK (venue_role IN ('worker', 'manager', 'venue_admin', 'venue_owner')),
     FOREIGN KEY (venue_id) REFERENCES venues (id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
@@ -37,14 +44,12 @@ CREATE TABLE venue_invitations (
     invited_by_user_id UUID,
     accepted_by_user_id UUID,
     email TEXT NOT NULL,
-    invite_role TEXT DEFAULT 'worker' NOT NULL,
-    status TEXT DEFAULT 'pending' NOT NULL,
+    invite_role venue_role_enum DEFAULT 'worker' NOT NULL,
+    status invitation_status_enum DEFAULT 'pending' NOT NULL,
     accepted_at TIMESTAMP WITH TIME ZONE,
     expires_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
-    CHECK (invite_role IN ('worker', 'manager', 'venue_admin', 'venue_owner')),
-    CHECK (status IN ('pending', 'accepted', 'revoked')),
     FOREIGN KEY (venue_id) REFERENCES venues (id) ON DELETE CASCADE,
     FOREIGN KEY (invited_by_user_id) REFERENCES users (id) ON DELETE SET NULL,
     FOREIGN KEY (accepted_by_user_id) REFERENCES users (id) ON DELETE SET NULL
@@ -191,7 +196,7 @@ CREATE TABLE leave_requests (
     staff_id UUID NOT NULL,
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
-    status TEXT DEFAULT 'pending' NOT NULL,
+    status leave_request_status_enum DEFAULT 'pending' NOT NULL,
     notes TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
@@ -203,12 +208,11 @@ CREATE TABLE leave_request_events (
     venue_id UUID NOT NULL,
     leave_request_id UUID NOT NULL,
     actor_user_id UUID NOT NULL,
-    event_type TEXT NOT NULL,
-    previous_status TEXT,
-    new_status TEXT,
+    event_type leave_request_event_type_enum NOT NULL,
+    previous_status leave_request_status_enum,
+    new_status leave_request_status_enum,
     payload JSONB DEFAULT '{}'::JSONB NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
-    CHECK (event_type IN ('created', 'approved', 'denied', 'deleted')),
     FOREIGN KEY (venue_id) REFERENCES venues (id) ON DELETE CASCADE,
     FOREIGN KEY (actor_user_id) REFERENCES users (id) ON DELETE RESTRICT
 );
@@ -279,11 +283,10 @@ CREATE TABLE timesheet_entry_versions (
     venue_id UUID NOT NULL,
     timesheet_entry_id UUID NOT NULL,
     actor_user_id UUID NOT NULL,
-    version_action TEXT NOT NULL,
+    version_action entry_version_action_enum NOT NULL,
     snapshot JSONB DEFAULT '{}'::JSONB NOT NULL,
     payload JSONB DEFAULT '{}'::JSONB NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
-    CHECK (version_action IN ('created', 'updated', 'approved', 'unapproved', 'approval_reset', 'deleted')),
     FOREIGN KEY (venue_id) REFERENCES venues (id) ON DELETE CASCADE,
     FOREIGN KEY (actor_user_id) REFERENCES users (id) ON DELETE RESTRICT
 );
@@ -292,12 +295,11 @@ CREATE TABLE venue_membership_role_events (
     venue_id UUID NOT NULL,
     venue_membership_id UUID NOT NULL,
     actor_user_id UUID NOT NULL,
-    event_type TEXT NOT NULL,
-    previous_role TEXT,
-    new_role TEXT NOT NULL,
+    event_type venue_membership_role_event_type_enum NOT NULL,
+    previous_role venue_role_enum,
+    new_role venue_role_enum NOT NULL,
     payload JSONB DEFAULT '{}'::JSONB NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
-    CHECK (event_type IN ('assigned', 'changed')),
     FOREIGN KEY (venue_id) REFERENCES venues (id) ON DELETE CASCADE,
     FOREIGN KEY (actor_user_id) REFERENCES users (id) ON DELETE RESTRICT
 );

@@ -127,3 +127,6 @@ Do not add new `pendingWith "requires real DB"` placeholders for normal controll
 `IHP.Test.Mocking.withUser` only seeds the login session key. If the app depends on additional session state, add it through `withSessionValues`/`withUserAndCurrentVenue` in `Test/Support.hs`.
 
 This matters for venue-scoped auth because `beforeLogin` writes `currentVenueId`, and request init reads that session value back on subsequent requests.
+
+- For HTML scoping assertions, avoid broad `responseBodyShouldNotContain` checks on generic UI text that also appears in static controls (for example weekday names in a shared `<select>`). Prefer row-specific combined labels or unique seeded names.
+- When a spec seeds prerequisite rows and then creates more rows of the same table, query the created record by a unique field (or explicit ordering) instead of bare `fetchOne`, which may return the older fixture row.

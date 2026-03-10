@@ -62,7 +62,7 @@ instance Controller UsersController where
                                             |> set #isActive True
                                             |> createRecord
                                         _ <- invitation
-                                            |> set #status "accepted"
+                                            |> set #status (unsafeEnumFromText @InvitationStatusEnum "accepted")
                                             |> set #acceptedByUserId (Just (unpackId (get #id user)))
                                             |> set #acceptedAt (Just now)
                                             |> updateRecord
@@ -74,7 +74,7 @@ instance Controller UsersController where
                                             (unpackId (get #id membership))
                                             (Aeson.object
                                                 [ "email" Aeson..= user.email
-                                                , "assignedRole" Aeson..= membership.venueRole
+                                                , "assignedRole" Aeson..= inputValue membership.venueRole
                                                 , "invitationId" Aeson..= unpackId (get #id invitation)
                                                 ]
                                             )
@@ -83,7 +83,7 @@ instance Controller UsersController where
                                             invitation.venueId
                                             (unpackId (get #id user))
                                             membership
-                                            "assigned"
+                                            (unsafeEnumFromText @VenueMembershipRoleEventTypeEnum "assigned")
                                             Nothing
                                             membership.venueRole
                                             (Aeson.object
@@ -106,6 +106,6 @@ fetchInvitation invitationId =
 
 invitationIsActive :: UTCTime -> VenueInvitation -> Bool
 invitationIsActive now invitation =
-    invitation.status == "pending"
+    invitation.status == unsafeEnumFromText @InvitationStatusEnum "pending"
         && isNothing invitation.acceptedAt
         && maybe True (> now) invitation.expiresAt

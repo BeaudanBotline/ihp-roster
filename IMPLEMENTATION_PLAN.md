@@ -37,8 +37,10 @@ The current high-priority business-logic decisions are:
 
 - business authority comes from `venue_memberships`, not `users`
 - privileged access uses founder-managed venue bootstrap, not bootstrap-admin signup
+- development resets should keep a deterministic founder bootstrap login in `Application/Fixtures.sql`
 - payroll-adjacent records use correction-safe history
 - pay/config history uses immutable snapshot versions created by venue admin bulk-save actions
+- a future founder-only cross-venue `super_admin` / `platform_admin` capability should be modelled separately from venue roles, not by stretching `users.user_role` or `venue_memberships.venue_role`
 
 ## Status Legend
 

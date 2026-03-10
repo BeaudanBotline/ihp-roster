@@ -94,7 +94,7 @@ resolveStaffName staffUuid staffMembers =
         Just staff -> staff.firstName <> " " <> staff.lastName
         Nothing    -> "Unknown" :: Text
 
-renderStatusBadge :: Text -> Html
+renderStatusBadge :: InputValue value => value -> Html
 renderStatusBadge status =
     case parseLeaveRequestStatus status of
         Just LeaveApproved -> [hsx|<span class="badge bg-success">Approved</span>|]

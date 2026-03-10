@@ -82,7 +82,7 @@ renderPayLevelsSection payLevels =
     renderConfigSection
         "Pay Levels"
         "Configure venue pay level names and whether they remain selectable."
-        (renderPayLevelCreateForm)
+        renderPayLevelCreateForm
         (if null payLevels then renderEmptyState "No pay levels yet." else forEach payLevels renderPayLevelRow)
 
 renderShiftTypesSection :: [ShiftType] -> [PayLevel] -> Html
@@ -506,8 +506,8 @@ renderPayLevelDayRuleHeading :: [PayLevel] -> [DayName] -> PayLevelDayRule -> Te
 renderPayLevelDayRuleHeading payLevels dayNames payLevelDayRule =
     payLevelLabel <> " on " <> dayNameLabel
     where
-        payLevelLabel = fromMaybe "Unknown pay level" (renderPayLevelLabel <$> find (\payLevel -> unpackId (get #id payLevel) == payLevelDayRule.payLevelId) payLevels)
-        dayNameLabel = fromMaybe "Unknown day name" (renderDayNameLabel <$> find (\dayName -> unpackId (get #id dayName) == payLevelDayRule.dayNameId) dayNames)
+        payLevelLabel = maybe "Unknown pay level" renderPayLevelLabel (find (\payLevel -> unpackId (get #id payLevel) == payLevelDayRule.payLevelId) payLevels)
+        dayNameLabel = maybe "Unknown day name" renderDayNameLabel (find (\dayName -> unpackId (get #id dayName) == payLevelDayRule.dayNameId) dayNames)
 
 renderActiveBadge :: Bool -> Html
 renderActiveBadge isActive =

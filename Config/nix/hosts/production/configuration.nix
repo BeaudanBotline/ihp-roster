@@ -67,6 +67,8 @@
         # databaseUrl = lib.mkForce "postgresql://postgres:...CHANGE-ME";
 
         additionalEnvVars = {
+            IHP_TELEMETRY_DISABLED = "1";
+
             # Uncomment to use a custom session secret, ensuring sessions aren't invalidated
             # on each deploy.
             # Learn how to create the secret key in https://ihp.digitallyinduced.com/Guide/deployment.html#ihpsessionsecret

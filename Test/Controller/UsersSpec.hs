@@ -1,6 +1,7 @@
 module Test.Controller.UsersSpec where
 
-import Application.Helper.Controller (updateVenueMembershipRoleWithAudit)
+import Application.Helper.Controller (unsafeEnumFromText,
+                                      updateVenueMembershipRoleWithAudit)
 import Config
 import Data.Aeson (Value (Null))
 import Data.Time.Clock (addUTCTime, getCurrentTime)
@@ -8,6 +9,7 @@ import Generated.Types
 import IHP.ControllerPrelude
 import IHP.FrameworkConfig
 import IHP.HaskellSupport
+import IHP.ModelSupport (inputValue)
 import IHP.Prelude
 import IHP.Test.Mocking
 import Network.HTTP.Types.Status
@@ -71,7 +73,7 @@ tests = beforeAll testContext do
             withCleanDb do
                 venue <- createVenueWithConfig "Accepted Invite Venue"
                 invitation <- createVenueInvitationRecord venue Nothing "accepted@example.com" "manager"
-                    >>= updateRecord . set #status "accepted"
+                    >>= updateRecord . set #status (unsafeEnumFromText @InvitationStatusEnum "accepted")
 
                 response <- callActionWithParams CreateUserAction
                     [ ("invitationId", idToParam invitation.id)
@@ -109,9 +111,9 @@ tests = beforeAll testContext do
                 updatedInvitation <- fetch invitation.id
 
                 membership.venueId `shouldBe` unpackId venue.id
-                membership.venueRole `shouldBe` "venue_owner"
-                user.userRole `shouldBe` "staff"
-                updatedInvitation.status `shouldBe` "accepted"
+                inputValue membership.venueRole `shouldBe` "venue_owner"
+                inputValue user.userRole `shouldBe` "staff"
+                inputValue updatedInvitation.status `shouldBe` "accepted"
                 updatedInvitation.acceptedByUserId `shouldBe` Just (unpackId user.id)
 
                 auditEvent <- query @AuditEvent |> fetchOne
@@ -122,9 +124,9 @@ tests = beforeAll testContext do
                 auditEvent.targetId `shouldBe` unpackId membership.id
 
                 roleEvent <- query @VenueMembershipRoleEvent |> fetchOne
-                roleEvent.eventType `shouldBe` "assigned"
+                inputValue roleEvent.eventType `shouldBe` "assigned"
                 roleEvent.previousRole `shouldBe` Nothing
-                roleEvent.newRole `shouldBe` "venue_owner"
+                inputValue roleEvent.newRole `shouldBe` "venue_owner"
 
         it "records durable history when a venue membership role changes" $ withContext do
             withCleanDb do
@@ -138,16 +140,16 @@ tests = beforeAll testContext do
                     (unpackId owner.id)
                     "web"
                     membership
-                    "manager"
+                    (unsafeEnumFromText @VenueRoleEnum "manager")
                     Null
 
-                updatedMembership.venueRole `shouldBe` "manager"
+                inputValue updatedMembership.venueRole `shouldBe` "manager"
 
                 auditEvent <- query @AuditEvent |> fetchOne
                 auditEvent.eventType `shouldBe` "venue_role_changed"
                 auditEvent.targetId `shouldBe` unpackId membership.id
 
                 roleEvent <- query @VenueMembershipRoleEvent |> fetchOne
-                roleEvent.eventType `shouldBe` "changed"
-                roleEvent.previousRole `shouldBe` Just "worker"
-                roleEvent.newRole `shouldBe` "manager"
+                inputValue roleEvent.eventType `shouldBe` "changed"
+                fmap inputValue roleEvent.previousRole `shouldBe` Just "worker"
+                inputValue roleEvent.newRole `shouldBe` "manager"

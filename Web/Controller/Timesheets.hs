@@ -75,7 +75,7 @@ instance Controller TimesheetsController where
                     ensureStaffAssignmentAllowed timesheetEntry.staffId
                     createdEntry <- withTransaction do
                         createdEntry <- timesheetEntry |> createRecord
-                        void $ recordCurrentUserTimesheetEntryVersion "created" createdEntry Aeson.Null
+                        void $ recordCurrentUserTimesheetEntryVersion (unsafeEnumFromText @EntryVersionActionEnum "created") createdEntry Aeson.Null
                         pure createdEntry
                     if isHtmxRequest
                         then respondWithTimesheetDaySection weekOffset createdEntry.workedOn
@@ -114,7 +114,7 @@ instance Controller TimesheetsController where
                         else render EditView { .. }
                 Right timesheetEntry -> do
                     ensureStaffAssignmentAllowed timesheetEntry.staffId
-                    let updateAction = if wasApproved then "approval_reset" else "updated"
+                    let updateAction = unsafeEnumFromText @EntryVersionActionEnum (if wasApproved then "approval_reset" else "updated")
                     withTransaction do
                         updatedEntry <- timesheetEntry
                             |> resetApprovalOnEdit wasApproved
@@ -161,7 +161,7 @@ instance Controller TimesheetsController where
                 withTransaction do
                     void $
                         recordCurrentUserTimesheetEntryVersion
-                            "deleted"
+                            (unsafeEnumFromText @EntryVersionActionEnum "deleted")
                             timesheetEntry
                             Aeson.Null
                     deleteRecord timesheetEntry
@@ -185,7 +185,7 @@ instance Controller TimesheetsController where
                 |> updateRecord
             void $
                 recordCurrentUserTimesheetEntryVersion
-                    "approved"
+                    (unsafeEnumFromText @EntryVersionActionEnum "approved")
                     updatedEntry
                     (Aeson.object
                         [ "previous" Aeson..= timesheetEntrySnapshot timesheetEntry
@@ -222,7 +222,7 @@ instance Controller TimesheetsController where
                 |> updateRecord
             void $
                 recordCurrentUserTimesheetEntryVersion
-                    "unapproved"
+                    (unsafeEnumFromText @EntryVersionActionEnum "unapproved")
                     updatedEntry
                     (Aeson.object
                         [ "previous" Aeson..= timesheetEntrySnapshot timesheetEntry

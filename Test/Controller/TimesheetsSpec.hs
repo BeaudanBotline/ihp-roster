@@ -7,6 +7,7 @@ import Generated.Types
 import IHP.ControllerPrelude
 import IHP.FrameworkConfig
 import IHP.HaskellSupport
+import IHP.ModelSupport (inputValue)
 import IHP.Prelude
 import IHP.Test.Mocking
 import Network.HTTP.Types.Status
@@ -66,7 +67,7 @@ tests = beforeAll testContext do
                 updatedEntry.payConfigSnapshotId `shouldSatisfy` isJust
 
                 version <- query @TimesheetEntryVersion |> fetchOne
-                version.versionAction `shouldBe` "approved"
+                inputValue version.versionAction `shouldBe` "approved"
                 version.timesheetEntryId `shouldBe` unpackId entry.id
                 version.actorUserId `shouldBe` unpackId manager.id
 
@@ -104,7 +105,7 @@ tests = beforeAll testContext do
                 updatedEntry.payConfigSnapshotId `shouldBe` Nothing
 
                 version <- query @TimesheetEntryVersion |> fetchOne
-                version.versionAction `shouldBe` "unapproved"
+                inputValue version.versionAction `shouldBe` "unapproved"
                 version.timesheetEntryId `shouldBe` unpackId entry.id
 
                 auditEvent <- query @AuditEvent |> fetchOne
@@ -138,7 +139,7 @@ tests = beforeAll testContext do
                 parseTimeParam "17:15" `shouldBe` Just updatedEntry.endTime
 
                 version <- query @TimesheetEntryVersion |> fetchOne
-                version.versionAction `shouldBe` "approval_reset"
+                inputValue version.versionAction `shouldBe` "approval_reset"
                 version.timesheetEntryId `shouldBe` unpackId entry.id
 
                 auditEvent <- query @AuditEvent |> fetchOne
@@ -163,7 +164,7 @@ tests = beforeAll testContext do
                 remainingEntries `shouldBe` 0
 
                 version <- query @TimesheetEntryVersion |> fetchOne
-                version.versionAction `shouldBe` "deleted"
+                inputValue version.versionAction `shouldBe` "deleted"
                 version.timesheetEntryId `shouldBe` unpackId entry.id
 
         it "blocks deleting an approved timesheet entry" $ withContext do

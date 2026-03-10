@@ -7,6 +7,7 @@ import Generated.Types
 import IHP.ControllerPrelude
 import IHP.FrameworkConfig
 import IHP.HaskellSupport
+import IHP.ModelSupport (inputValue)
 import IHP.Prelude
 import IHP.Test.Mocking
 import Network.HTTP.Types.Status
@@ -84,12 +85,12 @@ tests = beforeAll testContext do
                 response `responseStatusShouldBe` status302
 
                 updatedLeaveRequest <- fetch leaveRequest.id
-                updatedLeaveRequest.status `shouldBe` "approved"
+                inputValue updatedLeaveRequest.status `shouldBe` "approved"
 
                 leaveEvent <- query @LeaveRequestEvent |> fetchOne
-                leaveEvent.eventType `shouldBe` "approved"
-                leaveEvent.previousStatus `shouldBe` Just "pending"
-                leaveEvent.newStatus `shouldBe` Just "approved"
+                inputValue leaveEvent.eventType `shouldBe` "approved"
+                fmap inputValue leaveEvent.previousStatus `shouldBe` Just "pending"
+                fmap inputValue leaveEvent.newStatus `shouldBe` Just "approved"
 
                 auditEvent <- query @AuditEvent |> fetchOne
                 auditEvent.venueId `shouldBe` unpackId venue.id
@@ -112,12 +113,12 @@ tests = beforeAll testContext do
                 response `responseStatusShouldBe` status302
 
                 updatedLeaveRequest <- fetch leaveRequest.id
-                updatedLeaveRequest.status `shouldBe` "denied"
+                inputValue updatedLeaveRequest.status `shouldBe` "denied"
 
                 leaveEvent <- query @LeaveRequestEvent |> fetchOne
-                leaveEvent.eventType `shouldBe` "denied"
-                leaveEvent.previousStatus `shouldBe` Just "pending"
-                leaveEvent.newStatus `shouldBe` Just "denied"
+                inputValue leaveEvent.eventType `shouldBe` "denied"
+                fmap inputValue leaveEvent.previousStatus `shouldBe` Just "pending"
+                fmap inputValue leaveEvent.newStatus `shouldBe` Just "denied"
 
                 auditEvent <- query @AuditEvent |> fetchOne
                 auditEvent.eventType `shouldBe` "leave_denied"
@@ -140,9 +141,9 @@ tests = beforeAll testContext do
                 response `responseStatusShouldBe` status302
 
                 leaveEvent <- query @LeaveRequestEvent |> fetchOne
-                leaveEvent.eventType `shouldBe` "created"
+                inputValue leaveEvent.eventType `shouldBe` "created"
                 leaveEvent.previousStatus `shouldBe` Nothing
-                leaveEvent.newStatus `shouldBe` Just "pending"
+                fmap inputValue leaveEvent.newStatus `shouldBe` Just "pending"
 
         it "writes an audit event when deleting a pending leave request" $ withContext do
             withCleanDb do
@@ -161,8 +162,8 @@ tests = beforeAll testContext do
                 remainingCount `shouldBe` 0
 
                 leaveEvent <- query @LeaveRequestEvent |> fetchOne
-                leaveEvent.eventType `shouldBe` "deleted"
-                leaveEvent.previousStatus `shouldBe` Just "pending"
+                inputValue leaveEvent.eventType `shouldBe` "deleted"
+                fmap inputValue leaveEvent.previousStatus `shouldBe` Just "pending"
                 leaveEvent.newStatus `shouldBe` Nothing
 
                 auditEvent <- query @AuditEvent |> fetchOne

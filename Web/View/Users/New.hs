@@ -67,8 +67,10 @@ renderInvitationForm user invitation = formFor user [hsx|
     </div>
 |]
 
-invitationRoleLabel :: Text -> Text
-invitationRoleLabel "venue_owner" = "venue owner"
-invitationRoleLabel "venue_admin" = "venue admin"
-invitationRoleLabel "manager"     = "manager"
-invitationRoleLabel _             = "worker"
+invitationRoleLabel :: InputValue value => value -> Text
+invitationRoleLabel value =
+    case inputValue value of
+        "venue_owner" -> "venue owner"
+        "venue_admin" -> "venue admin"
+        "manager"     -> "manager"
+        _             -> "worker"

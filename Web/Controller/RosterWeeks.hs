@@ -516,7 +516,7 @@ fetchRosterStaffPanelEntries staffMembers allSlots = do
         buildPanelEntry memberships staff =
             let assignedShiftCount = length (filter (\slot -> slot.staffId == Just (coerce (get #id staff))) allSlots)
                 roleText = case staff.userId >>= \userId -> find (\membership -> membership.userId == userId) memberships of
-                    Just membership -> membership.venueRole
+                    Just membership -> inputValue membership.venueRole
                     Nothing         -> venueRoleToText WorkerRole
              in RosterStaffPanelEntry
                     { staff

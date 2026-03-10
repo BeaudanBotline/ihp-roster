@@ -1,6 +1,7 @@
 module Test.ConflictSpec where
 
 import Application.Helper.Conflict
+import Application.Helper.Controller (unsafeEnumFromText)
 import Data.Time.Calendar (fromGregorian)
 import Data.Time.LocalTime (TimeOfDay (..))
 import Generated.Types
@@ -54,7 +55,7 @@ tests = describe "Conflict Engine" do
             , staffId = def
             , startDate = fromGregorian 2025 1 5
             , endDate = fromGregorian 2025 1 7
-            , status = "approved"
+            , status = unsafeEnumFromText @LeaveRequestStatusEnum "approved"
             , notes = Nothing
             , createdAt = def
             , updatedAt = def

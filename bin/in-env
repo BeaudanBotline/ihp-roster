@@ -11,6 +11,7 @@ fi
 
 # Keep nix/direnv fetcher cache writable in restricted environments.
 export XDG_CACHE_HOME="${XDG_CACHE_HOME:-/tmp/nix-cache}"
+export IHP_TELEMETRY_DISABLED="${IHP_TELEMETRY_DISABLED:-1}"
 mkdir -p "$XDG_CACHE_HOME"
 
 if [ "${DEVENV_IN_DIRENV_SHELL:-}" = "true" ]; then

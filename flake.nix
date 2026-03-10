@@ -61,6 +61,7 @@
                     ];
 
                     env = {
+                        IHP_TELEMETRY_DISABLED = "1";
                         PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1";
                         PLAYWRIGHT_BROWSERS_PATH = "${inputs'.playwright.packages.playwright-driver.browsers}";
                         PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";

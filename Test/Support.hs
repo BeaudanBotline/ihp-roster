@@ -1,6 +1,7 @@
 module Test.Support where
 
-import Application.Helper.Controller (currentVenueSessionKey)
+import Application.Helper.Controller (currentVenueSessionKey,
+                                      unsafeEnumFromText)
 import Config
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString as ByteString
@@ -83,7 +84,7 @@ createVenueMembershipRecord venue user venueRole =
     newRecord @VenueMembership
         |> set #venueId (unpackId (get #id venue))
         |> set #userId (unpackId (get #id user))
-        |> set #venueRole venueRole
+        |> set #venueRole (unsafeEnumFromText @VenueRoleEnum venueRole)
         |> set #isActive True
         |> createRecord
 
@@ -93,8 +94,8 @@ createVenueInvitationRecord venue maybeInviter emailAddress inviteRole =
         |> set #venueId (unpackId (get #id venue))
         |> set #invitedByUserId (fmap (unpackId . get #id) maybeInviter)
         |> set #email emailAddress
-        |> set #inviteRole inviteRole
-        |> set #status "pending"
+        |> set #inviteRole (unsafeEnumFromText @VenueRoleEnum inviteRole)
+        |> set #status (unsafeEnumFromText @InvitationStatusEnum "pending")
         |> createRecord
 
 createStaffRecord :: (?modelContext :: ModelContext) => Venue -> Maybe User -> Text -> Text -> IO Staff
@@ -160,7 +161,7 @@ createLeaveRequestRecord venue staff startDate endDate leaveStatus =
         |> set #staffId (unpackId (get #id staff))
         |> set #startDate startDate
         |> set #endDate endDate
-        |> set #status leaveStatus
+        |> set #status (unsafeEnumFromText @LeaveRequestStatusEnum leaveStatus)
         |> createRecord
 
 createPayLevelRecord :: (?modelContext :: ModelContext) => Venue -> Text -> IO PayLevel

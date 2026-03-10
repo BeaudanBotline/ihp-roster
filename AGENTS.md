@@ -137,6 +137,10 @@ bash ./bin/in-env dev-stop
 1. **Schema** — Add table to `Application/Schema.sql`, then:
    - Run `bash ./bin/in-env regen-types` to regenerate Haskell types
    - Run `make db` (requires `devenv up` running) to apply the schema to the dev database — **skipping this causes "relation does not exist" crashes at runtime even when typecheck passes**
+   - Keep `Application/Fixtures.sql` usable after every `make db`; dev resets should leave a deterministic founder login (`beaudan.brown@gmail.com`) with a venue-scoped admin membership in the default dev venue
+   - For finite roles/statuses/event-kind columns, prefer Postgres enums over `TEXT` + `CHECK (... IN (...))`; IHP startup reparses `pg_dump`, and Postgres rewrites `IN` checks to `= ANY (ARRAY [...])`, which the vendored IHP parser does not understand
+   - Avoid enum type names starting with built-in SQL type tokens such as `time`/`timestamp`; the IHP parser may parse the prefix as a built-in type instead of a custom enum name
+   - Watch for generated enum constructor collisions with model constructors (for example enum value `staff` versus the `Staff` model); in those cases keep the column as `TEXT` and use an explicit `(a = 'x') OR (a = 'y') ...` check instead of `IN (...)`
 2. **Types** — Add controller type to `Web/Types.hs` (see `Web/Controller/AGENTS.md` for pattern)
 3. **Routes** — Add `instance AutoRoute MyController` to `Web/Routes.hs`
 4. **Controller** — Create `Web/Controller/My.hs` with action implementations
@@ -151,6 +155,8 @@ For simple CRUD, prefer running `new-controller NAME` to scaffold all files, the
 ## Verification Workflow
 - **After every code change**: `bash ./bin/in-env typecheck` (fast, ~2-3s)
 - **After schema changes**: `bash ./bin/in-env regen-types` first, then `bash ./bin/in-env typecheck`, then `make db` (requires `devenv up`)
+- **After schema changes involving enums or constraints**: after `make db`, restart and wait for the dev server (`bash ./bin/in-env dev-stop`, `bash ./bin/in-env dev-start`, `bash ./bin/in-env dev-wait`) to catch startup-only schema-parser failures; this is why the earlier QC pass missed the `pg_dump`-roundtrip issue
+- The IHP schema-designer toast about `Unmigrated Changes` is not an authoritative sync check in this repo; it is driven by the IDE migration workflow state and can stay stale even after `make db`. Treat `make db` plus explicit DB/startup verification as the real source of truth.
 - **After adding/changing controllers**: `bash ./bin/in-env test` to run the test suite
 - **After UI/integration changes**: `bash ./bin/in-env e2e` to run end-to-end tests (requires `devenv up`)
 - **Before committing**: `bash ./bin/in-env lint` then `bash ./bin/in-env format`
@@ -175,3 +181,7 @@ Playwright-based end-to-end tests live in `e2e/` and run against the live dev se
 ## Current UI Patterns
 - Roster and timesheet week pagers use HTMX shell swaps with pushed canonical URLs instead of full-page week navigations
 - The roster staff sidebar uses CSS-only desktop behavior: sticky positioning, viewport-capped height, and internal list scrolling
+
+## Auth Model Notes
+- Current business authority is venue-scoped. `venue_memberships.venue_role` is what grants manager/admin access; `users.user_role = 'admin'` is not a cross-venue superuser.
+- If founder/sysadmin access across all venues is added later, model it as a separate platform-level capability such as `platform_admin` / `super_admin` instead of overloading venue roles.

@@ -16,7 +16,7 @@ import Data.UUID (UUID)
 import Generated.Types
 import IHP.ControllerPrelude (Id, newRecord)
 import IHP.HaskellSupport (set)
-import IHP.ModelSupport (textToId)
+import IHP.ModelSupport (inputValue, textToId)
 import IHP.NameSupport (columnNameToFieldName, fieldNameToColumnName)
 import IHP.Prelude
 import Test.Hspec
@@ -77,13 +77,13 @@ tests = describe "Schema" do
 
     it "venue membership exposes role and active fields" do
         let membership = newRecord @VenueMembership
-        get #venueRole membership `shouldBe` "worker"
+        inputValue (get #venueRole membership) `shouldBe` "worker"
         get #isActive membership `shouldBe` True
 
     it "venue invitations expose bootstrap role and status fields" do
         let invitation = newRecord @VenueInvitation
-        get #inviteRole invitation `shouldBe` "worker"
-        get #status invitation `shouldBe` "pending"
+        inputValue (get #inviteRole invitation) `shouldBe` "worker"
+        inputValue (get #status invitation) `shouldBe` "pending"
 
     it "exposes normalized legacy user roles, venue roles, and leave statuses via shared helpers" do
         allUserRoleValues `shouldBe` ["staff", "manager", "admin"]
@@ -106,21 +106,21 @@ tests = describe "Schema" do
         allExportJobTypeValues `shouldBe` ["approved_timesheets_csv"]
         allExportJobStatusValues `shouldBe` ["pending", "ready", "expired"]
 
-        parseUserRole "staff" `shouldBe` Just StaffRole
-        parseUserRole "manager" `shouldBe` Just ManagerRole
-        parseUserRole "admin" `shouldBe` Just AdminRole
-        parseUserRole "owner" `shouldBe` Nothing
+        parseUserRole ("staff" :: Text) `shouldBe` Just StaffRole
+        parseUserRole ("manager" :: Text) `shouldBe` Just ManagerRole
+        parseUserRole ("admin" :: Text) `shouldBe` Just AdminRole
+        parseUserRole ("owner" :: Text) `shouldBe` Nothing
 
-        parseVenueRole "worker" `shouldBe` Just WorkerRole
-        parseVenueRole "manager" `shouldBe` Just ManagerRole'
-        parseVenueRole "venue_admin" `shouldBe` Just VenueAdminRole
-        parseVenueRole "venue_owner" `shouldBe` Just VenueOwnerRole
-        parseVenueRole "admin" `shouldBe` Nothing
+        parseVenueRole ("worker" :: Text) `shouldBe` Just WorkerRole
+        parseVenueRole ("manager" :: Text) `shouldBe` Just ManagerRole'
+        parseVenueRole ("venue_admin" :: Text) `shouldBe` Just VenueAdminRole
+        parseVenueRole ("venue_owner" :: Text) `shouldBe` Just VenueOwnerRole
+        parseVenueRole ("admin" :: Text) `shouldBe` Nothing
 
-        parseLeaveRequestStatus "pending" `shouldBe` Just LeavePending
-        parseLeaveRequestStatus "approved" `shouldBe` Just LeaveApproved
-        parseLeaveRequestStatus "denied" `shouldBe` Just LeaveDenied
-        parseLeaveRequestStatus "cancelled" `shouldBe` Nothing
+        parseLeaveRequestStatus ("pending" :: Text) `shouldBe` Just LeavePending
+        parseLeaveRequestStatus ("approved" :: Text) `shouldBe` Just LeaveApproved
+        parseLeaveRequestStatus ("denied" :: Text) `shouldBe` Just LeaveDenied
+        parseLeaveRequestStatus ("cancelled" :: Text) `shouldBe` Nothing
         parseExportJobType "approved_timesheets_csv" `shouldBe` Just ApprovedTimesheetsCsv
         parseExportJobType "leave_csv" `shouldBe` Nothing
         parseExportJobStatus "pending" `shouldBe` Just ExportPending
@@ -133,6 +133,26 @@ tests = describe "Schema" do
         map leaveRequestStatusToText [LeavePending, LeaveApproved, LeaveDenied] `shouldBe` allLeaveRequestStatusValues
         map exportJobTypeToText [ApprovedTimesheetsCsv] `shouldBe` allExportJobTypeValues
         map exportJobStatusToText [ExportPending, ExportReady, ExportExpired] `shouldBe` allExportJobStatusValues
+
+    it "avoids IN-based CHECK constraints that pg_dump rewrites into parser-hostile ANY(ARRAY ...)" do
+        schemaSqlText <- TextIO.readFile "Application/Schema.sql"
+        let riskyCheckLines =
+                filter
+                    (\line -> "CHECK" `Text.isInfixOf` line && " IN (" `Text.isInfixOf` line)
+                    (Text.lines schemaSqlText)
+        riskyCheckLines `shouldBe` []
+
+    it "keeps custom enum type names away from parser-hostile built-in type prefixes" do
+        schemaSqlText <- TextIO.readFile "Application/Schema.sql"
+        let enumNames =
+                map
+                    (Text.takeWhile (\char -> char /= ' ' && char /= '\t'))
+                    (mapMaybe (Text.stripPrefix "CREATE TYPE " . Text.stripStart) (Text.lines schemaSqlText))
+        let riskyEnumNames =
+                filter
+                    (\name -> any (`Text.isPrefixOf` Text.toLower name) ["time", "timestamp", "interval"])
+                    enumNames
+        riskyEnumNames `shouldBe` []
 
     describe "Leave request helpers" do
         it "validates leave date ranges as unavailable-from to available-again" do
@@ -223,7 +243,7 @@ tests = describe "Schema" do
                         |> set #userRole "admin"
             let membership =
                     newRecord @VenueMembership
-                        |> set #venueRole "worker"
+                        |> set #venueRole (unsafeEnumFromText @VenueRoleEnum "worker")
 
             parseUserRole user.userRole `shouldBe` Just AdminRole
             parseVenueRole membership.venueRole `shouldBe` Just WorkerRole

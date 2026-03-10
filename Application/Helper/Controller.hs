@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeApplications #-}
+
 module Application.Helper.Controller where
 
 import qualified Data.Aeson as Aeson
@@ -48,10 +50,10 @@ allUserRoleValues :: [Text]
 allUserRoleValues = ["staff", "manager", "admin"]
 
 allVenueRoleValues :: [Text]
-allVenueRoleValues = ["worker", "manager", "venue_admin", "venue_owner"]
+allVenueRoleValues = map inputValue (allEnumValues @VenueRoleEnum)
 
 allLeaveRequestStatusValues :: [Text]
-allLeaveRequestStatusValues = ["pending", "approved", "denied"]
+allLeaveRequestStatusValues = map inputValue (allEnumValues @LeaveRequestStatusEnum)
 
 allAuditEventTypeValues :: [Text]
 allAuditEventTypeValues =
@@ -71,24 +73,26 @@ allAuditEventTypeValues =
 allAuditSourceChannelValues :: [Text]
 allAuditSourceChannelValues = ["web", "htmx", "system"]
 
-parseUserRole :: Text -> Maybe UserRole
-parseUserRole "staff"   = Just StaffRole
-parseUserRole "manager" = Just ManagerRole
-parseUserRole "admin"   = Just AdminRole
-parseUserRole _         = Nothing
+enumFromText :: forall enum. (Enum enum, InputValue enum) => Text -> Maybe enum
+enumFromText value = find (\enumValue -> inputValue enumValue == value) (allEnumValues @enum)
 
-parseVenueRole :: Text -> Maybe VenueRole
-parseVenueRole "worker"      = Just WorkerRole
-parseVenueRole "manager"     = Just ManagerRole'
-parseVenueRole "venue_admin" = Just VenueAdminRole
-parseVenueRole "venue_owner" = Just VenueOwnerRole
-parseVenueRole _             = Nothing
+unsafeEnumFromText :: forall enum. (Enum enum, InputValue enum) => Text -> enum
+unsafeEnumFromText value =
+    fromMaybe (error ("Unknown enum value: " <> cs value)) (enumFromText @enum value)
 
-parseLeaveRequestStatus :: Text -> Maybe LeaveRequestStatus
-parseLeaveRequestStatus "pending"  = Just LeavePending
-parseLeaveRequestStatus "approved" = Just LeaveApproved
-parseLeaveRequestStatus "denied"   = Just LeaveDenied
-parseLeaveRequestStatus _          = Nothing
+parseUserRole :: InputValue value => value -> Maybe UserRole
+parseUserRole value =
+    case inputValue value of
+        "staff" -> Just StaffRole
+        "manager" -> Just ManagerRole
+        "admin" -> Just AdminRole
+        _ -> Nothing
+
+parseVenueRole :: InputValue value => value -> Maybe VenueRole
+parseVenueRole value = venueRoleEnumToRole <$> enumFromText @VenueRoleEnum (inputValue value)
+
+parseLeaveRequestStatus :: InputValue value => value -> Maybe LeaveRequestStatus
+parseLeaveRequestStatus value = leaveRequestStatusEnumToStatus <$> enumFromText @LeaveRequestStatusEnum (inputValue value)
 
 userRoleToText :: UserRole -> Text
 userRoleToText StaffRole   = "staff"
@@ -105,6 +109,29 @@ leaveRequestStatusToText :: LeaveRequestStatus -> Text
 leaveRequestStatusToText LeavePending  = "pending"
 leaveRequestStatusToText LeaveApproved = "approved"
 leaveRequestStatusToText LeaveDenied   = "denied"
+
+venueRoleEnumToRole :: VenueRoleEnum -> VenueRole
+venueRoleEnumToRole enumValue =
+    case inputValue enumValue of
+        "worker" -> WorkerRole
+        "manager" -> ManagerRole'
+        "venue_admin" -> VenueAdminRole
+        "venue_owner" -> VenueOwnerRole
+        unexpected -> error ("Unexpected venue role enum: " <> cs unexpected)
+
+venueRoleToEnum :: VenueRole -> VenueRoleEnum
+venueRoleToEnum = unsafeEnumFromText @VenueRoleEnum . venueRoleToText
+
+leaveRequestStatusEnumToStatus :: LeaveRequestStatusEnum -> LeaveRequestStatus
+leaveRequestStatusEnumToStatus enumValue =
+    case inputValue enumValue of
+        "pending" -> LeavePending
+        "approved" -> LeaveApproved
+        "denied" -> LeaveDenied
+        unexpected -> error ("Unexpected leave request status enum: " <> cs unexpected)
+
+leaveRequestStatusToEnum :: LeaveRequestStatus -> LeaveRequestStatusEnum
+leaveRequestStatusToEnum = unsafeEnumFromText @LeaveRequestStatusEnum . leaveRequestStatusToText
 
 requiredProfileFieldsCompleted :: Text -> Text -> Bool
 requiredProfileFieldsCompleted firstName lastName =
@@ -238,7 +265,7 @@ recordTimesheetEntryVersion ::
     (?modelContext :: ModelContext) =>
     UUID ->
     UUID ->
-    Text ->
+    EntryVersionActionEnum ->
     TimesheetEntry ->
     Aeson.Value ->
     IO TimesheetEntryVersion
@@ -254,7 +281,7 @@ recordTimesheetEntryVersion venueId actorUserId versionAction entry payload =
 
 recordCurrentUserTimesheetEntryVersion ::
     (?context :: ControllerContext, ?modelContext :: ModelContext) =>
-    Text ->
+    EntryVersionActionEnum ->
     TimesheetEntry ->
     Aeson.Value ->
     IO TimesheetEntryVersion
@@ -268,9 +295,9 @@ recordLeaveRequestEvent ::
     UUID ->
     UUID ->
     UUID ->
-    Text ->
-    Maybe Text ->
-    Maybe Text ->
+    LeaveRequestEventTypeEnum ->
+    Maybe LeaveRequestStatusEnum ->
+    Maybe LeaveRequestStatusEnum ->
     Aeson.Value ->
     IO LeaveRequestEvent
 recordLeaveRequestEvent venueId actorUserId leaveRequestId eventType previousStatus newStatus payload =
@@ -287,9 +314,9 @@ recordLeaveRequestEvent venueId actorUserId leaveRequestId eventType previousSta
 recordCurrentUserLeaveRequestEvent ::
     (?context :: ControllerContext, ?modelContext :: ModelContext) =>
     LeaveRequest ->
-    Text ->
-    Maybe Text ->
-    Maybe Text ->
+    LeaveRequestEventTypeEnum ->
+    Maybe LeaveRequestStatusEnum ->
+    Maybe LeaveRequestStatusEnum ->
     Aeson.Value ->
     IO LeaveRequestEvent
 recordCurrentUserLeaveRequestEvent leaveRequest =
@@ -303,9 +330,9 @@ recordVenueMembershipRoleEvent ::
     UUID ->
     UUID ->
     VenueMembership ->
-    Text ->
-    Maybe Text ->
-    Text ->
+    VenueMembershipRoleEventTypeEnum ->
+    Maybe VenueRoleEnum ->
+    VenueRoleEnum ->
     Aeson.Value ->
     IO VenueMembershipRoleEvent
 recordVenueMembershipRoleEvent venueId actorUserId membership eventType previousRole newRole payload =
@@ -324,7 +351,7 @@ updateVenueMembershipRoleWithAudit ::
     UUID ->
     Text ->
     VenueMembership ->
-    Text ->
+    VenueRoleEnum ->
     Aeson.Value ->
     IO VenueMembership
 updateVenueMembershipRoleWithAudit actorUserId sourceChannel membership newRole payload
@@ -338,8 +365,8 @@ updateVenueMembershipRoleWithAudit actorUserId sourceChannel membership newRole 
             "venue_memberships"
             (unpackId (get #id membership))
             (Aeson.object
-                [ "previousRole" Aeson..= membership.venueRole
-                , "newRole" Aeson..= newRole
+                [ "previousRole" Aeson..= inputValue membership.venueRole
+                , "newRole" Aeson..= inputValue newRole
                 , "details" Aeson..= payload
                 ]
             )
@@ -348,7 +375,7 @@ updateVenueMembershipRoleWithAudit actorUserId sourceChannel membership newRole 
             membership.venueId
             actorUserId
             updatedMembership
-            "changed"
+            Changed
             (Just membership.venueRole)
             newRole
             payload
@@ -500,7 +527,7 @@ resolveVenueContextForUser sessionVenueId userId = do
             then pure []
             else query @Venue
                 |> filterWhereIn (#id, venueIds)
-                |> filterWhere (#status, "active")
+                |> filterWhere (#status, unsafeEnumFromText @VenueStatusEnum "active")
                 |> fetch
 
     let activeVenueIds = map (coerce . (.id)) venues

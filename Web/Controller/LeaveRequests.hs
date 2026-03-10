@@ -49,7 +49,7 @@ instance Controller LeaveRequestsController where
                         newRecord @LeaveRequest
                             |> set #venueId (unpackId currentVenueId)
                             |> set #staffId (coerce (get #id staff))
-                            |> set #status (leaveRequestStatusToText LeavePending)
+                            |> set #status (leaveRequestStatusToEnum LeavePending)
                             |> buildLeaveRequest
 
                 leaveRequest
@@ -64,7 +64,7 @@ instance Controller LeaveRequestsController where
                                 void $
                                     recordCurrentUserLeaveRequestEvent
                                         createdLeaveRequest
-                                        "created"
+                                        (unsafeEnumFromText @LeaveRequestEventTypeEnum "created")
                                         Nothing
                                         (Just createdLeaveRequest.status)
                                         Aeson.Null
@@ -83,12 +83,12 @@ instance Controller LeaveRequestsController where
             let wasApproved = parseLeaveRequestStatus leaveRequest.status == Just LeaveApproved
             updatedLeaveRequest <-
                 leaveRequest
-                    |> set #status (leaveRequestStatusToText LeaveApproved)
+                    |> set #status (leaveRequestStatusToEnum LeaveApproved)
                     |> updateRecord
             void $
                 recordCurrentUserLeaveRequestEvent
                     updatedLeaveRequest
-                    "approved"
+                    (unsafeEnumFromText @LeaveRequestEventTypeEnum "approved")
                     (Just leaveRequest.status)
                     (Just updatedLeaveRequest.status)
                     Aeson.Null
@@ -102,8 +102,8 @@ instance Controller LeaveRequestsController where
                     [ "staffId" Aeson..= leaveRequest.staffId
                     , "startDate" Aeson..= leaveRequest.startDate
                     , "endDate" Aeson..= leaveRequest.endDate
-                    , "previousStatus" Aeson..= leaveRequest.status
-                    , "newStatus" Aeson..= updatedLeaveRequest.status
+                    , "previousStatus" Aeson..= inputValue leaveRequest.status
+                    , "newStatus" Aeson..= inputValue updatedLeaveRequest.status
                     ]
                 )
         setSuccessMessage "Leave request approved"
@@ -117,12 +117,12 @@ instance Controller LeaveRequestsController where
             let wasApproved = parseLeaveRequestStatus leaveRequest.status == Just LeaveApproved
             updatedLeaveRequest <-
                 leaveRequest
-                    |> set #status (leaveRequestStatusToText LeaveDenied)
+                    |> set #status (leaveRequestStatusToEnum LeaveDenied)
                     |> updateRecord
             void $
                 recordCurrentUserLeaveRequestEvent
                     updatedLeaveRequest
-                    "denied"
+                    (unsafeEnumFromText @LeaveRequestEventTypeEnum "denied")
                     (Just leaveRequest.status)
                     (Just updatedLeaveRequest.status)
                     Aeson.Null
@@ -136,8 +136,8 @@ instance Controller LeaveRequestsController where
                     [ "staffId" Aeson..= leaveRequest.staffId
                     , "startDate" Aeson..= leaveRequest.startDate
                     , "endDate" Aeson..= leaveRequest.endDate
-                    , "previousStatus" Aeson..= leaveRequest.status
-                    , "newStatus" Aeson..= updatedLeaveRequest.status
+                    , "previousStatus" Aeson..= inputValue leaveRequest.status
+                    , "newStatus" Aeson..= inputValue updatedLeaveRequest.status
                     ]
                 )
         setSuccessMessage "Leave request denied"
@@ -154,7 +154,7 @@ instance Controller LeaveRequestsController where
             void $
                 recordCurrentUserLeaveRequestEvent
                     leaveRequest
-                    "deleted"
+                    (unsafeEnumFromText @LeaveRequestEventTypeEnum "deleted")
                     (Just leaveRequest.status)
                     Nothing
                     Aeson.Null
@@ -166,7 +166,7 @@ instance Controller LeaveRequestsController where
                     [ "staffId" Aeson..= leaveRequest.staffId
                     , "startDate" Aeson..= leaveRequest.startDate
                     , "endDate" Aeson..= leaveRequest.endDate
-                    , "deletedStatus" Aeson..= leaveRequest.status
+                    , "deletedStatus" Aeson..= inputValue leaveRequest.status
                     ]
                 )
             deleteRecord leaveRequest
