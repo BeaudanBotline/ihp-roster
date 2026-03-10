@@ -51,6 +51,7 @@
 - Active coordinator-managed workstreams live under `.loom/workstreams/<workstream>/`.
 - Read `.loom/AGENTS.md` before editing files there.
 - Use `.loom/workstreams/<workstream>/context.md` and `handoff.md` as the repo-local execution memory for a tracked workstream.
+- When a workstream needs repeated unattended Codex passes inside one Loom session, use `.loom/bin/codex-workstream-loop.sh` plus that workstream's `loop-launch.md`.
 - Keep durable project-wide learnings in this `AGENTS.md` or the repo's own plans/specs rather than leaving them only in a workstream handoff.
 - Reusable one-shot coordinator runs live under `.loom/runs/<category>/<run>.md` and should not create persistent workstream state unless explicitly promoted.
 

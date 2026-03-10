@@ -9,6 +9,8 @@ Use this structure for an active tracked workstream:
 ```text
 .loom/
   base-prompt.md
+  bin/
+    codex-workstream-loop.sh
   runs/
     <category>/
       <run>.md
@@ -23,6 +25,7 @@ Use this structure for an active tracked workstream:
 ## Rules
 
 - `runs/<category>/<run>.md` is a reusable one-shot run prompt. Use it for coordinator-managed audits or reviews that should be rerunnable from scratch and should not create persistent workstream state.
+- `bin/` holds reusable repo-local execution helpers that a launched weaver may call from inside `/workspace`.
 - `prompt.md` is the launch entrypoint for the workstream.
 - `context.md` holds stable workstream scope, constraints, and required read order.
 - `handoff.md` holds the current technical resume point.
