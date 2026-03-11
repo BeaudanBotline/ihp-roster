@@ -102,7 +102,7 @@ These steps are globally ordered. Detailed task breakdowns live in the linked pi
 - **Status:** [-]
 - **File:** `plans/40-pay-config-and-admin.md`
 - **Focus:** SQL pay engine, immutable pay/config snapshot versions, and the venue admin bulk-edit/save workflow.
-- **Progress:** A.7 is complete. The app now stores immutable `pay_config_snapshots`, binds approved timesheets to snapshot versions, carries snapshot version metadata on exports, exposes a minimal admin snapshot-save flow, and keeps approved pay calculations stable after later config changes. Admin config-table editing and wage/hour summaries remain open.
+- **Progress:** A.7 and 7.1 are complete. The app now stores immutable `pay_config_snapshots`, binds approved timesheets to snapshot versions, carries snapshot version metadata on exports, keeps approved pay calculations stable after later config changes, and exposes venue-scoped admin config-table screens for pay levels, shift types, pay-level day rules, slot names, and day names. Venue configuration editing and wage/hour summaries remain open.
 
 ### Pipeline 50 — Release Readiness
 - **Status:** [ ]

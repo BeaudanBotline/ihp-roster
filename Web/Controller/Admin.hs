@@ -387,9 +387,7 @@ ensurePayLevelDayRuleInCurrentVenue ::
     PayLevelDayRule ->
     IO ()
 ensurePayLevelDayRuleInCurrentVenue payLevelDayRule = do
-    let payLevelId = Id payLevelDayRule.payLevelId :: Id PayLevel
-    let dayNameId = Id payLevelDayRule.dayNameId :: Id DayName
-    payLevel <- fetch payLevelId
-    dayName <- fetch dayNameId
+    payLevel <- fetch (Id payLevelDayRule.payLevelId :: Id PayLevel)
+    dayName <- fetch (Id payLevelDayRule.dayNameId :: Id DayName)
     ensureRecordInCurrentVenue payLevel.venueId
     ensureRecordInCurrentVenue dayName.venueId

@@ -58,7 +58,8 @@ The selected historical model is:
 - **Status:** [x]
 
 ### 7.1 Admin screens for config tables
-- **Status:** [ ]
+- **Status:** [x]
+- **Completion notes:** Added venue-scoped admin screens and controller actions for pay levels, shift types, pay level day rules, slot names, and day names, including active/inactive support, current-venue validation, and snapshot-context messaging. Coverage lives in `Test/Controller/AdminSpec.hs`.
 
 ### 7.2 Venue configuration editor
 - **Status:** [ ]

@@ -54,6 +54,9 @@ tests = beforeAll testContext do
                 response `responseBodyShouldContain` "Shift Types"
                 response `responseBodyShouldContain` "Slot Names"
                 response `responseBodyShouldContain` "Day Names"
+                response `responseBodyShouldContain` "Config Table Overview"
+                response `responseBodyShouldContain` "Edits change the current venue draft state only until you save a new pay/config snapshot."
+                response `responseBodyShouldContain` "Draft edits on this page do not rewrite historical approvals or exports."
                 response `responseBodyShouldContain` "Level A"
                 response `responseBodyShouldContain` "Level A on Monday (Monday)"
                 response `responseBodyShouldContain` "Kitchen"
@@ -65,6 +68,30 @@ tests = beforeAll testContext do
                 response `responseBodyShouldNotContain` "Bar"
                 response `responseBodyShouldNotContain` "Late"
                 response `responseBodyShouldNotContain` "Venue B Tuesday"
+
+        it "rejects non-admin venue members from admin screens" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Venue A"
+                manager <- createUserRecord "manager-admin@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue manager "manager"
+
+                response <- withUserAndCurrentVenue manager venue.id do
+                    callAction AdminAction
+
+                response `responseStatusShouldBe` status403
+
+        it "allows venue owners to access admin config screens" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Venue A"
+                owner <- createUserRecord "owner-admin@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue owner "venue_owner"
+
+                response <- withUserAndCurrentVenue owner venue.id do
+                    callAction AdminAction
+
+                response `responseStatusShouldBe` status200
+                response `responseBodyShouldContain` "Config Table Overview"
+                response `responseBodyShouldContain` "Pay/Config Snapshots"
 
         it "creates venue-scoped config table rows from the admin page" $ withContext do
             withCleanDb do
