@@ -2,6 +2,34 @@
 -- All test data uses fixed ids and/or the 'e2e-' prefix to stay idempotent.
 -- Password for this user is: test-password-123
 
+-- Reset mutable venue-scoped test data so repeated runs start from the same roster state.
+DELETE FROM timesheet_entries
+WHERE venue_id IN ('a1000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000002');
+
+DELETE FROM leave_requests
+WHERE venue_id IN ('a1000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000002');
+
+DELETE FROM staff_availability
+WHERE venue_id IN ('a1000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000002');
+
+DELETE FROM roster_slots
+WHERE roster_day_id IN (
+    SELECT rd.id
+    FROM roster_days rd
+    JOIN roster_weeks rw ON rw.id = rd.roster_week_id
+    WHERE rw.venue_id IN ('a1000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000002')
+);
+
+DELETE FROM roster_days
+WHERE roster_week_id IN (
+    SELECT id
+    FROM roster_weeks
+    WHERE venue_id IN ('a1000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000002')
+);
+
+DELETE FROM roster_weeks
+WHERE venue_id IN ('a1000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000002');
+
 INSERT INTO venues (id, name, status)
 VALUES
     ('a1000000-0000-0000-0000-000000000001', 'e2e-alpha-venue', 'active'),

@@ -11,12 +11,11 @@
 
 ## Baseline verification notes
 
-- `bash ./bin/in-env typecheck` passes after the live-fragment transport/refetch/client changes.
-- `bash ./bin/in-env test --match "RosterWeeksController"` now compiles and runs the unauthenticated examples, but every DB-backed example still fails in this sandbox because the local Postgres socket at `/home/beau/documents/projects/ihp-roster/build/db/.s.PGSQL.5432` returns `Operation not permitted`.
-- `bash ./bin/in-env dev-status` reports `running=false managed=false socket_ok=false pid=none db_ok=false http_ok=false db_blocked=true http_blocked=true`.
-- `bash ./bin/in-env e2e e2e/roster-live-fragments.spec.ts` fails during Playwright global setup for the same socket-permission reason while seeding `e2e/fixtures/seed.sql`.
-- `bash ./bin/in-env format` passes.
-- `bash ./bin/in-env lint` passes after a small roster controller cleanup.
+- `bash ./bin/in-env dev-start` / `bash ./bin/in-env dev-wait 120` succeeds in this environment and reports `running=true managed=true db_ok=true http_ok=true`.
+- `bash ./bin/in-env typecheck` passes after the actor/viewer roster update fixes.
+- `bash ./bin/in-env test --match "RosterWeeksController"` passes with DB-backed controller coverage.
+- `bash ./bin/in-env lint` passes after the roster/view/live-update changes.
+- `bash ./bin/in-env node ./node_modules/.bin/playwright test e2e/roster-assignment-sidebar.spec.ts e2e/roster-live-fragments.spec.ts e2e/roster-duplicate-conflicts.spec.ts` passes.
 
 ## Current architecture decision
 
@@ -36,10 +35,11 @@ Rejected as primary foundation:
 
 ## Current roster-specific understanding
 
-- The acting-user gap today is in `UpdateRosterSlotAction`: impacted rows refresh, but the roster staff panel does not
-- Roster rows already have stable DOM ids and OOB render helpers
-- The sidebar/staff panel needs to become a first-class fragment with a stable id and render helper
-- `ShowRosterWeekAction` already uses Auto Refresh, so this work must coexist safely with that behavior during rollout
+- `UpdateRosterSlotAction` now uses a full `#roster-content` OOB refresh for the acting browser so multi-row conflict changes stay correct.
+- Viewer updates still stay fragment-scoped: websocket invalidation plus authorized refetch of plain row/sidebar/content fragments.
+- Roster inputs now sync against `#roster-week-shell`, not `#roster-content`, because actor-side content refreshes replace the inner content node.
+- Row-fragment refetches return plain `<tr>` markup and the client replaces those DOM nodes directly rather than routing them through generic `htmx.swap`.
+- `ShowRosterWeekAction` still uses Auto Refresh as the broad fallback during rollout.
 
 ## Landed in this pass
 
@@ -60,6 +60,13 @@ Rejected as primary foundation:
   - `UpdateRosterSlotAction` now broadcasts row invalidations plus sidebar when assignment changes
   - `AddRosterRowAction` and `RemoveRosterRowAction` now broadcast coarse content + sidebar invalidations
   - `PublishRosterWeekAction` now broadcasts roster content invalidation
+- Fixed the actor-path conflict/sidebar regressions in [Web/Controller/RosterWeeks.hs](/home/beau/documents/projects/ihp-roster/Web/Controller/RosterWeeks.hs) and [Web/View/RosterWeeks/Show.hs](/home/beau/documents/projects/ihp-roster/Web/View/RosterWeeks/Show.hs):
+  - `UpdateRosterSlotAction` now returns `renderRosterContentFragmentOob` for the acting browser
+  - roster slot inputs now use `hx-sync="#roster-week-shell:queue last"`
+- Fixed the viewer-path row corruption in [Web/Controller/RosterWeeks.hs](/home/beau/documents/projects/ihp-roster/Web/Controller/RosterWeeks.hs) and [static/app.js](/home/beau/documents/projects/ihp-roster/static/app.js):
+  - `ShowRosterWeekRowFragmentAction` now returns plain row fragments instead of OOB row wrappers
+  - client refetch replacement now parses and replaces fragment roots directly instead of using generic `htmx.swap` for table rows
+- Hardened e2e determinism in [e2e/fixtures/seed.sql](/home/beau/documents/projects/ihp-roster/e2e/fixtures/seed.sql) by deleting mutable venue-scoped roster/leave/timesheet rows before reseeding fixed fixtures.
 - Added roster shell live-subscription metadata in [Web/View/RosterWeeks/Show.hs](/home/beau/documents/projects/ihp-roster/Web/View/RosterWeeks/Show.hs).
 - Added client live-fragment handling in [static/app.js](/home/beau/documents/projects/ihp-roster/static/app.js):
   - per-tab `clientId`
@@ -71,8 +78,11 @@ Rejected as primary foundation:
   - unauthenticated fragment route protection
   - manager row-fragment fetch
   - hidden draft row fragments for staff
-  - assignment actor response patches
-- Added multi-context browser coverage in [e2e/roster-live-fragments.spec.ts](/home/beau/documents/projects/ihp-roster/e2e/roster-live-fragments.spec.ts) for same-week live updates across viewers.
+  - assignment actor response patch shape
+  - duplicate-conflict row fragment rendering after mutation
+- Added multi-context browser coverage in:
+  - [e2e/roster-live-fragments.spec.ts](/home/beau/documents/projects/ihp-roster/e2e/roster-live-fragments.spec.ts) for same-week live updates across viewers
+  - [e2e/roster-duplicate-conflicts.spec.ts](/home/beau/documents/projects/ihp-roster/e2e/roster-duplicate-conflicts.spec.ts) for actor/viewer duplicate-conflict highlighting plus viewer grid integrity
 - Promoted durable live-fragment conventions into [AGENTS.md](/home/beau/documents/projects/ihp-roster/AGENTS.md), [Web/Controller/AGENTS.md](/home/beau/documents/projects/ihp-roster/Web/Controller/AGENTS.md), and [Web/View/AGENTS.md](/home/beau/documents/projects/ihp-roster/Web/View/AGENTS.md).
 
 ## Recommended implementation starting point
@@ -105,14 +115,7 @@ Use the names above only if they still fit the code once implementation begins.
 
 ## Next actions
 
-1. Restore a working local DB/server path outside this sandbox:
-   - get `/home/beau/documents/projects/ihp-roster/build/db/.s.PGSQL.5432` reachable
-   - get `bash ./bin/in-env dev-status` to report `db_ok=true` and `http_ok=true`
-2. Re-run verification in that healthy environment:
-   - `bash ./bin/in-env test --match "RosterWeeksController"`
-   - `bash ./bin/in-env e2e e2e/roster-assignment-sidebar.spec.ts`
-   - `bash ./bin/in-env e2e e2e/roster-live-fragments.spec.ts`
-3. If the new multi-viewer flow is clean, extend invalidation coverage to any remaining roster-affecting workflows still relying only on Auto Refresh:
+1. Extend invalidation coverage to any remaining roster-affecting workflows still relying only on Auto Refresh:
    - copy/import/create week flows
    - staff-edit workflows launched from roster when they change visible sidebar content
-4. After live coverage is proven complete, review whether roster can narrow Auto Refresh or should keep it as the broad fallback.
+2. After live coverage is proven complete, review whether roster can narrow Auto Refresh or should keep it as the broad fallback.

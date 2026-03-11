@@ -443,15 +443,23 @@ $(document).on('ready turbolinks:load', function () {
             return;
         }
 
-        if (window.htmx && typeof window.htmx.swap === 'function') {
-            window.htmx.swap(target, trimmed, { swapStyle: 'outerHTML' });
-            if (typeof window.htmx.process === 'function') {
-                window.htmx.process(document.body);
-            }
+        const template = document.createElement('template');
+        template.innerHTML = trimmed;
+
+        let nextNode = template.content.firstElementChild;
+        if (nextNode && nextNode.tagName === 'TEMPLATE') {
+            nextNode = nextNode.content.firstElementChild;
+        }
+
+        if (!(nextNode instanceof Element)) {
             return;
         }
 
-        target.outerHTML = trimmed;
+        target.replaceWith(nextNode);
+
+        if (window.htmx && typeof window.htmx.process === 'function') {
+            window.htmx.process(document.body);
+        }
     }
 
     async function refetchFragment(fragment) {

@@ -2,7 +2,7 @@
 
 ## Running Tests
 
-All commands require `bash ./bin/in-env` (or an already active devenv shell). Do not rely on bare `npx playwright ...` in Loom or other automation contexts; the repo wrapper resolves the Nix-provided `playwright` binary inside the dev shell.
+All commands require `bash ./bin/in-env` (or an already active devenv shell). Do not rely on bare `npx playwright ...` in Loom or other automation contexts; the repo wrapper resolves the repo-local Playwright test CLI inside the dev shell so the runner matches the `@playwright/test` package imported by the specs.
 
 ```bash
 # Run all e2e tests (requires devenv up)
@@ -102,6 +102,7 @@ test('authenticated feature', async ({ page }) => {
 - Use `ON CONFLICT DO UPDATE` for idempotency
 - Prefer fixed UUIDs plus `ON CONFLICT DO UPDATE` so reruns stay deterministic
 - Treat `e2e/fixtures/seed.sql` as durable fixture state: fixed-id venue rows can persist across runs, while teardown mainly cleans dynamic `e2e-%` users created during tests
+- If a spec mutates fixed-id roster/week fixture rows, reset the mutable venue-scoped rows at the top of `e2e/fixtures/seed.sql` before reinserting them; do not rely on teardown of `e2e-%` users alone to restore roster state.
 
 ## Assertion Style
 

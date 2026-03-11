@@ -21,7 +21,8 @@ import Web.View.RosterWeeks.Show (RosterStaffPanelEntry (..), ShowView (..),
                                   renderRosterContentFragmentOob,
                                   renderRosterStaffPanelFragment,
                                   renderRosterStaffPanelFragmentOob,
-                                  renderRosterWeekShell, renderRowOob,
+                                  renderRosterWeekShell, renderRowFragment,
+                                  renderRowOob,
                                   rosterContentFragmentId, rosterRowDomIdText,
                                   rosterStaffPanelFragmentId, rowsForDay)
 
@@ -281,7 +282,7 @@ instance Controller RosterWeeksController where
             ( buildRosterRowFragmentRefs rosterWeek.weekOffset impactedRowKeys
                 <> [buildRosterStaffPanelFragmentRef rosterWeek.weekOffset | shouldRefreshStaffPanel]
             )
-        respondWithRosterPatches rosterWeek.weekOffset impactedRowKeys shouldRefreshStaffPanel
+        respondWithRosterContentOob rosterWeek.weekOffset
 
 slotNameOrder :: Text -> Int
 slotNameOrder slotName =
@@ -560,7 +561,7 @@ fetchVisibleRosterRowFragment weekOffset rosterDayId rowIndex = do
     rosterData <- fetchVisibleRosterRenderData weekOffset
     pure do
         RosterRenderData { rosterDays, weekStartDate, staffMembers, orderedSlotNames, allSlots, slotConflicts } <- rosterData
-        renderRequestedRow rosterDays weekStartDate orderedSlotNames staffMembers allSlots slotConflicts (unpackId rosterDayId, rowIndex)
+        renderRequestedRowFragment rosterDays weekStartDate orderedSlotNames staffMembers allSlots slotConflicts (unpackId rosterDayId, rowIndex)
 
 buildRosterWeekScope :: (?context :: ControllerContext) => Int -> LiveUpdateScope
 buildRosterWeekScope weekOffset =
@@ -650,6 +651,17 @@ renderRequestedRow rosterDays weekStartDate orderedSlotNames staffMembers allSlo
     (rowPosition, (_, rowSlots)) <- find (\(_, (rowIndex, _)) -> rowIndex == targetRowIndex) indexedRows
     let date = Calendar.addDays (toInteger (get #dayOffset rosterDay)) weekStartDate
     pure (renderRowOob orderedSlotNames staffMembers date rosterDay rowCount lastRowIndex slotConflicts (rowPosition, (targetRowIndex, rowSlots)))
+
+renderRequestedRowFragment rosterDays weekStartDate orderedSlotNames staffMembers allSlots slotConflicts (rosterDayUuid, targetRowIndex) = do
+    rosterDay <- find (\day -> coerce (get #id day) == rosterDayUuid) rosterDays
+    let daySlots = filter (\slot -> slot.rosterDayId == rosterDayUuid) allSlots
+    let dayRows = rowsForDay daySlots
+    let rowCount = length dayRows
+    let lastRowIndex = lastRowIndexForRows dayRows
+    let indexedRows = zip [0 :: Int ..] dayRows
+    (rowPosition, (_, rowSlots)) <- find (\(_, (rowIndex, _)) -> rowIndex == targetRowIndex) indexedRows
+    let date = Calendar.addDays (toInteger (get #dayOffset rosterDay)) weekStartDate
+    pure (renderRowFragment orderedSlotNames staffMembers date rosterDay rowCount lastRowIndex slotConflicts (rowPosition, (targetRowIndex, rowSlots)))
 
 impactedRowKeysForSlotUpdate :: Maybe UUID.UUID -> RosterSlot -> [RosterSlot] -> [(UUID.UUID, Int)]
 impactedRowKeysForSlotUpdate previousStaffId updatedSlot relatedSlots =

@@ -254,9 +254,12 @@ renderRow :: (?context :: ControllerContext) => [SlotName] -> [Staff] -> Day -> 
 renderRow slotNames staffMembers date rosterDay rowCount lastRowIndex slotConflicts rowData =
     renderRowWithAttrs slotNames staffMembers date rosterDay rowCount lastRowIndex slotConflicts rowData Nothing
 
+renderRowFragment :: (?context :: ControllerContext) => [SlotName] -> [Staff] -> Day -> RosterDay -> Int -> Int -> [(Id RosterSlot, [RosterConflict])] -> (Int, (Int, [RosterSlot])) -> Html
+renderRowFragment = renderRow
+
 renderRowOob :: (?context :: ControllerContext) => [SlotName] -> [Staff] -> Day -> RosterDay -> Int -> Int -> [(Id RosterSlot, [RosterConflict])] -> (Int, (Int, [RosterSlot])) -> Html
 renderRowOob slotNames staffMembers date rosterDay rowCount lastRowIndex slotConflicts rowData =
-    renderRowWithAttrs slotNames staffMembers date rosterDay rowCount lastRowIndex slotConflicts rowData (Just "outerHTML")
+    [hsx|<template>{renderRowWithAttrs slotNames staffMembers date rosterDay rowCount lastRowIndex slotConflicts rowData (Just "outerHTML")}</template>|]
 
 renderRowWithAttrs :: (?context :: ControllerContext) => [SlotName] -> [Staff] -> Day -> RosterDay -> Int -> Int -> [(Id RosterSlot, [RosterConflict])] -> (Int, (Int, [RosterSlot])) -> Maybe Text -> Html
 renderRowWithAttrs slotNames staffMembers date rosterDay rowCount lastRowIndex slotConflicts (rowPosition, (rowIndex, rowSlots)) maybeSwapOob = [hsx|
@@ -349,7 +352,7 @@ renderBlockCells staffMembers rosterDayId rowIndex rowSlots slotConflicts (block
                                hx-post={UpdateRosterSlotAction slot.id}
                                hx-trigger="change"
                                hx-include="closest form"
-                               hx-sync="#roster-content:queue last"
+                               hx-sync={"#" <> rosterWeekShellId <> ":queue last"}
                                hx-swap="none"
                                disabled={not currentUserIsManager} />
                         <button type="button"
@@ -367,7 +370,7 @@ renderBlockCells staffMembers rosterDayId rowIndex rowSlots slotConflicts (block
                                 hx-post={UpdateRosterSlotAction slot.id}
                                 hx-trigger="change"
                                 hx-include="closest form"
-                                hx-sync="#roster-content:queue last"
+                                hx-sync={"#" <> rosterWeekShellId <> ":queue last"}
                                 hx-swap="none"
                                 disabled={not currentUserIsManager}>
                             <option value=""></option>
@@ -387,7 +390,7 @@ renderBlockCells staffMembers rosterDayId rowIndex rowSlots slotConflicts (block
                                hx-post={UpdateRosterSlotAction slot.id}
                                hx-trigger="change"
                                hx-include="closest form"
-                               hx-sync="#roster-content:queue last"
+                               hx-sync={"#" <> rosterWeekShellId <> ":queue last"}
                                hx-swap="none"
                                disabled={not currentUserIsManager} />
                     </form>

@@ -18,7 +18,7 @@ import Web.Controller.RosterWeeks ()
 import Web.FrontController ()
 import Web.Routes
 import Web.Types
-import Web.View.RosterWeeks.Show (rosterRowDomIdText,
+import Web.View.RosterWeeks.Show (rosterContentFragmentId, rosterRowDomIdText,
                                   rosterStaffPanelFragmentId)
 
 tests :: Spec
@@ -217,7 +217,7 @@ tests = beforeAll testContext do
                 copiedSlot.durationMinutes `shouldBe` Just 480
                 copiedSlot.note `shouldBe` Just "Copied note"
 
-        it "returns row and staff panel patches when a slot assignment changes" $ withContext do
+        it "returns a roster content patch when a slot assignment changes" $ withContext do
             withCleanDb do
                 venue <- createVenueWithConfig "Venue A"
                 manager <- createUserRecord "roster-manager-update@example.com" "staff" True
@@ -242,14 +242,47 @@ tests = beforeAll testContext do
 
                 body <- responseBody response
                 let bodyText = cs body :: String
-                let rowId = cs (rosterRowDomIdText rosterDay.id 0) :: String
-                let staffPanelId = cs rosterStaffPanelFragmentId :: String
-                bodyText `shouldContain` rowId
-                bodyText `shouldContain` staffPanelId
+                let contentId = cs rosterContentFragmentId :: String
+                bodyText `shouldContain` contentId
                 bodyText `shouldContain` "hx-swap-oob=\"outerHTML\""
                 bodyText `shouldContain` "Alpha Crew"
                 bodyText `shouldContain` "0 (5)"
                 bodyText `shouldContain` "Bravo Crew"
                 bodyText `shouldContain` "1 (7)"
+
+        it "row fragment endpoint renders duplicate conflicts after a duplicate assignment is created" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Venue A"
+                manager <- createUserRecord "roster-manager-duplicate@example.com" "staff" True
+                staffUser <- createUserRecord "roster-staff-duplicate@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue manager "manager"
+                _ <- createVenueMembershipRecord venue staffUser "worker"
+                slotName <- createSlotNameRecord venue "Early"
+                staffMember <- createStaffRecord venue (Just staffUser) "Alpha" "Crew"
+                rosterWeek <- createRosterWeekRecord venue 0 False
+                rosterDay <- createRosterDayRecord rosterWeek 0
+                firstSlot <- createRosterSlotRecord rosterDay slotName (Just staffMember) 0
+                secondSlot <- createRosterSlotRecord rosterDay slotName Nothing 1
+                _ <- updateRecord (firstSlot |> set #startTime (Just (timeOfDay 9 0)))
+                _ <- updateRecord (secondSlot |> set #startTime (Just (timeOfDay 13 0)))
+
+                _ <- withUserAndCurrentVenue manager venue.id do
+                    callActionWithParams (UpdateRosterSlotAction secondSlot.id) [("staffId", ByteString.pack (cs (tshow staffMember.id)))]
+
+                firstRowResponse <- withUserAndCurrentVenue manager venue.id do
+                    callAction (ShowRosterWeekRowFragmentAction 0 rosterDay.id 0)
+
+                secondRowResponse <- withUserAndCurrentVenue manager venue.id do
+                    callAction (ShowRosterWeekRowFragmentAction 0 rosterDay.id 1)
+
+                firstRowResponse `responseStatusShouldBe` status200
+                secondRowResponse `responseStatusShouldBe` status200
+
+                firstRowBody <- responseBody firstRowResponse
+                secondRowBody <- responseBody secondRowResponse
+                let firstRowText = cs firstRowBody :: String
+                let secondRowText = cs secondRowBody :: String
+                firstRowText `shouldContain` "conflict-critical"
+                secondRowText `shouldContain` "conflict-critical"
     where
         timeOfDay hour minute = TimeOfDay hour minute 0

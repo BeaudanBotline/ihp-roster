@@ -136,7 +136,7 @@
                         # Run Playwright end-to-end tests.
                         # Usage: e2e [playwright-args...]
                         e2e.exec = ''
-                            exec playwright test "$@"
+                            exec node ./node_modules/@playwright/test/cli.js test "$@"
                         '';
 
                         # Take a screenshot of a page using Playwright.

@@ -115,7 +115,7 @@ Available scripts:
 - **`format`** — Format app sources with stylish-haskell (config in `.stylish-haskell.yaml`).
 - **`ghci-app`** — Launch GHCi with the full app loaded for testing expressions interactively.
 - **`new-controller NAME`** — IHP code generator that scaffolds controller, views, types, and routes. Prefer this for new CRUD controllers, then customize.
-- **`e2e`** — Run Playwright end-to-end tests against the live dev server. Accepts playwright args (e.g. `e2e --headed`, `e2e e2e/auth.spec.ts`). Requires `devenv up` running. This wrapper uses the Nix-provided `playwright` binary rather than `npx playwright` so automation does not depend on a host `node` outside `bash ./bin/in-env`.
+- **`e2e`** — Run Playwright end-to-end tests against the live dev server. Accepts playwright args (e.g. `e2e --headed`, `e2e e2e/auth.spec.ts`). Requires `devenv up` running. This wrapper runs the repo-local Playwright test CLI inside the dev shell so automation uses the same `@playwright/test` package as the spec imports while Nix still provides the browsers and runtime.
 - **`screenshot`** — Take a screenshot of a page. Usage: `screenshot http://localhost:8000/Dashboard dash.png`. Requires `devenv up` running.
 - **`e2e-report`** — Open the Playwright HTML test report from the last run.
 - **`dev-start`** — Start the IHP `start` script in background for automation (no PTY dependency). Writes pid/log to `.devenv/agent/` and fails fast if startup exits early.
@@ -171,7 +171,7 @@ Playwright-based end-to-end tests live in `e2e/` and run against the live dev se
 - **Test data**: Seeded via `e2e/fixtures/seed.sql` (test user: `e2e-test@example.com` / `test-password-123`)
 - **Cleanup**: `global-teardown.ts` deletes all rows with `e2e-` prefixed emails
 - **Browsers**: Provided by Nix via `playwright-web-flake` — no manual browser install needed
-- **CLI invocation**: In automation and Loom runs, prefer `bash ./bin/in-env e2e` / `screenshot` / `e2e-report` instead of bare `npx playwright ...`; the wrapper resolves the Nix-provided CLI inside the dev shell
+- **CLI invocation**: In automation and Loom runs, prefer `bash ./bin/in-env e2e` / `screenshot` / `e2e-report` instead of bare `npx playwright ...`; the wrapper resolves the repo-local Playwright CLI inside the dev shell so the runner matches the imported test package
 - **npm deps**: `@playwright/test` version in `package.json` must match the `playwright-web-flake` tag in `flake.nix`
 
 ## Maintaining Agent Documentation

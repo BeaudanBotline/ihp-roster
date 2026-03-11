@@ -94,5 +94,6 @@ Every controller requires changes in **four files** (missing any will cause comp
 - For collaborative roster mutations, split delivery paths:
   - actor response returns immediate HTMX fragments/OOB swaps
   - cross-viewer updates use `broadcastLiveInvalidation` with fragment refs that point to dedicated GET fragment actions
+- When a slot mutation can change conflict state across multiple rows, it is acceptable for the actor response to return a full `#roster-content` OOB refresh instead of trying to keep actor-side row patches perfectly minimal.
 - Keep fragment GET actions authorized with the same venue/week visibility rules as the full page; do not expose draft roster fragments to non-managers just because the websocket payload names them
 - Include the acting tab's `X-Live-Update-Client-Id` in broadcasts so the client can suppress its own invalidation echo

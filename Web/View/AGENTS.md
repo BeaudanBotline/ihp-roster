@@ -55,10 +55,11 @@ renderForm post = formFor post [hsx|
 ## Roster HTMX Pattern
 - For high-frequency roster edits, avoid `hx-target="#roster-content"` full-fragment swaps on each input.
 - Prefer row-targeted updates: set stable `<tr id=... data-roster-row="true">` IDs and return only affected rows with `hx-swap-oob="outerHTML"`.
-- Keep `hx-sync` on roster inputs (e.g. `#roster-content:queue last`) to prevent out-of-order UI overwrites.
+- Keep `hx-sync` on roster inputs anchored to a stable wrapper that will not be replaced by the response (for roster week pages, use `#roster-week-shell:queue last`, not `#roster-content`).
 - When Turbolinks navigations replace page content that contains new `hx-*` markup, call `htmx.process(document.body)` on `turbolinks:load` so fresh controls are live without a manual refresh.
 - When a roster shell participates in live fragments, render scope metadata on the stable shell (`#roster-week-shell`) so JS can subscribe/unsubscribe as `weekOffset` changes without guessing from the URL.
 - Live fragment refetch endpoints should return plain server-rendered fragments for the target DOM node; reserve `hx-swap-oob` variants for the actor path.
+- For viewer-side row refetches, do not return `hx-swap-oob` row wrappers from the fragment GET action; return the plain `<tr>` fragment and let JS replace the target row directly.
 - Mark row fragments as blur-deferred on the client when remote updates should not overwrite focused `.slot-cell-input` controls.
 
 ## Reusable Time Picker Pattern
