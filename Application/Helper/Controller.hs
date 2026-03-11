@@ -83,10 +83,10 @@ unsafeEnumFromText value =
 parseUserRole :: InputValue value => value -> Maybe UserRole
 parseUserRole value =
     case inputValue value of
-        "staff" -> Just StaffRole
+        "staff"   -> Just StaffRole
         "manager" -> Just ManagerRole
-        "admin" -> Just AdminRole
-        _ -> Nothing
+        "admin"   -> Just AdminRole
+        _         -> Nothing
 
 parseVenueRole :: InputValue value => value -> Maybe VenueRole
 parseVenueRole value = venueRoleEnumToRole <$> enumFromText @VenueRoleEnum (inputValue value)
@@ -113,11 +113,11 @@ leaveRequestStatusToText LeaveDenied   = "denied"
 venueRoleEnumToRole :: VenueRoleEnum -> VenueRole
 venueRoleEnumToRole enumValue =
     case inputValue enumValue of
-        "worker" -> WorkerRole
-        "manager" -> ManagerRole'
+        "worker"      -> WorkerRole
+        "manager"     -> ManagerRole'
         "venue_admin" -> VenueAdminRole
         "venue_owner" -> VenueOwnerRole
-        unexpected -> error ("Unexpected venue role enum: " <> cs unexpected)
+        unexpected    -> error ("Unexpected venue role enum: " <> cs unexpected)
 
 venueRoleToEnum :: VenueRole -> VenueRoleEnum
 venueRoleToEnum = unsafeEnumFromText @VenueRoleEnum . venueRoleToText

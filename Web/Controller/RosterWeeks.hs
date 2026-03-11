@@ -18,6 +18,7 @@ import Web.View.RosterWeeks.Show (RosterStaffPanelEntry (..), ShowView (..),
                                   lastRowIndexForRows,
                                   renderRosterContentFragment,
                                   renderRosterContentFragmentOob,
+                                  renderRosterStaffPanelFragmentOob,
                                   renderRosterWeekShell, renderRowOob,
                                   rowsForDay)
 
@@ -246,7 +247,8 @@ instance Controller RosterWeeksController where
 
         relatedSlots <- fetchRelatedSlotsForStaffIds (catMaybes [previousStaffId, updatedSlot.staffId])
         let impactedRowKeys = impactedRowKeysForSlotUpdate previousStaffId updatedSlot relatedSlots
-        respondWithRosterRows rosterWeek.weekOffset impactedRowKeys
+        let shouldRefreshStaffPanel = previousStaffId /= updatedSlot.staffId
+        respondWithRosterPatches rosterWeek.weekOffset impactedRowKeys shouldRefreshStaffPanel
 
 slotNameOrder :: Text -> Int
 slotNameOrder slotName =
@@ -351,14 +353,22 @@ respondWithRosterContentOob weekOffset = do
                     slotConflicts
 
 respondWithRosterRows :: (?context :: ControllerContext, ?modelContext :: ModelContext) => Int -> [(UUID.UUID, Int)] -> IO ()
-respondWithRosterRows weekOffset requestedRowKeys = do
+respondWithRosterRows weekOffset requestedRowKeys =
+    respondWithRosterPatches weekOffset requestedRowKeys False
+
+respondWithRosterPatches :: (?context :: ControllerContext, ?modelContext :: ModelContext) => Int -> [(UUID.UUID, Int)] -> Bool -> IO ()
+respondWithRosterPatches weekOffset requestedRowKeys shouldRefreshStaffPanel = do
     rosterData <- fetchRosterRenderData weekOffset
     case rosterData of
         Nothing -> respondHtml [hsx||]
-        Just RosterRenderData { rosterDays, weekStartDate, staffMembers, orderedSlotNames, allSlots, slotConflicts } -> do
+        Just RosterRenderData { rosterDays, weekStartDate, staffMembers, panelStaff, orderedSlotNames, allSlots, slotConflicts } -> do
             let uniqueRowKeys = nub requestedRowKeys
             let renderedRows = mapMaybe (renderRequestedRow rosterDays weekStartDate orderedSlotNames staffMembers allSlots slotConflicts) uniqueRowKeys
-            respondHtml (mconcat renderedRows)
+            let renderedStaffPanel =
+                    if shouldRefreshStaffPanel
+                        then [renderRosterStaffPanelFragmentOob weekOffset panelStaff]
+                        else []
+            respondHtml (mconcat (renderedRows <> renderedStaffPanel))
 
 renderRosterWeekPage :: (?context :: ControllerContext, ?modelContext :: ModelContext) => Int -> IO ()
 renderRosterWeekPage weekOffset = do

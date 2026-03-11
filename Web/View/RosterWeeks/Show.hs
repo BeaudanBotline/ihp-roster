@@ -31,6 +31,12 @@ data RosterStaffPanelEntry = RosterStaffPanelEntry
 rosterWeekShellId :: Text
 rosterWeekShellId = "roster-week-shell"
 
+rosterContentFragmentId :: Text
+rosterContentFragmentId = "roster-content"
+
+rosterStaffPanelFragmentId :: Text
+rosterStaffPanelFragmentId = "roster-staff-panel-fragment"
+
 instance View ShowView where
     html = renderRosterWeekShell
 
@@ -76,7 +82,7 @@ renderRosterContentFragmentOob =
 
 renderRosterContentFragmentWithSwap :: (?context :: ControllerContext) => Maybe Text -> Maybe RosterWeek -> [RosterDay] -> Int -> [Staff] -> [RosterStaffPanelEntry] -> [SlotName] -> Day -> [RosterSlot] -> [(Id RosterSlot, [RosterConflict])] -> Html
 renderRosterContentFragmentWithSwap maybeSwapOob rosterWeek rosterDays weekOffset staffMembers panelStaff slotNames weekStartDate allSlots slotConflicts = [hsx|
-    <div id="roster-content" hx-swap-oob={maybeSwapOob}>
+    <div id={rosterContentFragmentId} hx-swap-oob={maybeSwapOob}>
         {renderRosterContent rosterWeek rosterDays weekOffset staffMembers panelStaff slotNames weekStartDate allSlots slotConflicts}
     </div>
 |]
@@ -121,15 +127,25 @@ renderRosterContent (Just rosterWeek) rosterDays weekOffset staffMembers panelSt
                 </div>
             </div>
         </div>
-        {renderRosterStaffPanelColumn weekOffset panelStaff}
+        {renderRosterStaffPanelFragment weekOffset panelStaff}
     </div>
 |]
 
-renderRosterStaffPanelColumn :: (?context :: ControllerContext) => Int -> [RosterStaffPanelEntry] -> Html
-renderRosterStaffPanelColumn weekOffset panelStaff =
+renderRosterStaffPanelFragment :: (?context :: ControllerContext) => Int -> [RosterStaffPanelEntry] -> Html
+renderRosterStaffPanelFragment =
+    renderRosterStaffPanelFragmentWithSwap Nothing
+
+renderRosterStaffPanelFragmentOob :: (?context :: ControllerContext) => Int -> [RosterStaffPanelEntry] -> Html
+renderRosterStaffPanelFragmentOob =
+    renderRosterStaffPanelFragmentWithSwap (Just "outerHTML")
+
+renderRosterStaffPanelFragmentWithSwap :: (?context :: ControllerContext) => Maybe Text -> Int -> [RosterStaffPanelEntry] -> Html
+renderRosterStaffPanelFragmentWithSwap maybeSwapOob weekOffset panelStaff =
     if currentUserIsManager
         then [hsx|
-            <div class="col-12 col-xl-4 col-xxl-3 roster-layout-side">
+            <div id={rosterStaffPanelFragmentId}
+                 class="col-12 col-xl-4 col-xxl-3 roster-layout-side"
+                 hx-swap-oob={maybeSwapOob}>
                 {renderRosterStaffPanel weekOffset panelStaff}
             </div>
         |]

@@ -17,6 +17,8 @@ import Web.Controller.RosterWeeks ()
 import Web.FrontController ()
 import Web.Routes
 import Web.Types
+import Web.View.RosterWeeks.Show (rosterRowDomIdText,
+                                  rosterStaffPanelFragmentId)
 
 tests :: Spec
 tests = beforeAll testContext do
@@ -163,5 +165,37 @@ tests = beforeAll testContext do
                 copiedSlot.startTime `shouldBe` Just (timeOfDay 9 0)
                 copiedSlot.durationMinutes `shouldBe` Just 480
                 copiedSlot.note `shouldBe` Just "Copied note"
+
+        it "returns row and staff panel patches when a slot assignment changes" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Venue A"
+                manager <- createUserRecord "roster-manager-update@example.com" "staff" True
+                staffUserA <- createUserRecord "roster-staff-a@example.com" "staff" True
+                staffUserB <- createUserRecord "roster-staff-b@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue manager "manager"
+                _ <- createVenueMembershipRecord venue staffUserA "worker"
+                _ <- createVenueMembershipRecord venue staffUserB "worker"
+                slotName <- createSlotNameRecord venue "Early"
+                staffA <- createStaffRecord venue (Just staffUserA) "Alpha" "Crew"
+                staffB <- createStaffRecord venue (Just staffUserB) "Bravo" "Crew"
+                _ <- updateRecord (staffA |> set #idealShiftsPerWeek (Just 5))
+                _ <- updateRecord (staffB |> set #idealShiftsPerWeek (Just 7))
+                rosterWeek <- createRosterWeekRecord venue 0 False
+                rosterDay <- createRosterDayRecord rosterWeek 0
+                slot <- createRosterSlotRecord rosterDay slotName (Just staffA) 0
+
+                response <- withUserAndCurrentVenue manager venue.id do
+                    callActionWithParams (UpdateRosterSlotAction slot.id) [("staffId", tshow staffB.id)]
+
+                response `responseStatusShouldBe` status200
+
+                body <- responseBody response
+                cs body `shouldContain` cs (rosterRowDomIdText rosterDay.id 0)
+                cs body `shouldContain` cs rosterStaffPanelFragmentId
+                cs body `shouldContain` "hx-swap-oob=\"outerHTML\""
+                cs body `shouldContain` "Alpha Crew"
+                cs body `shouldContain` "0 (5)"
+                cs body `shouldContain` "Bravo Crew"
+                cs body `shouldContain` "1 (7)"
     where
         timeOfDay hour minute = TimeOfDay hour minute 0
