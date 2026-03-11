@@ -2,7 +2,7 @@
 
 ## Running Tests
 
-All commands require `bash ./bin/in-env` (or an already active devenv shell).
+All commands require `bash ./bin/in-env` (or an already active devenv shell). Do not rely on bare `npx playwright ...` in Loom or other automation contexts; the repo wrapper resolves the Nix-provided `playwright` binary inside the dev shell.
 
 ```bash
 # Run all e2e tests (requires devenv up)
@@ -180,5 +180,5 @@ bash ./bin/in-env e2e --headed --slow-mo=500
 
 # Generate and open a trace
 bash ./bin/in-env e2e --trace on
-npx playwright show-trace test-results/*/trace.zip
+bash ./bin/in-env playwright show-trace test-results/*/trace.zip
 ```

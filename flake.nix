@@ -136,13 +136,13 @@
                         # Run Playwright end-to-end tests.
                         # Usage: e2e [playwright-args...]
                         e2e.exec = ''
-                            exec npx playwright test "$@"
+                            exec playwright test "$@"
                         '';
 
                         # Take a screenshot of a page using Playwright.
                         # Usage: screenshot <url> <output.png>
                         screenshot.exec = ''
-                            exec npx playwright screenshot "$@"
+                            exec playwright screenshot "$@"
                         '';
 
                         # Take a screenshot of an authenticated page with reusable login/navigation flow.
@@ -154,7 +154,7 @@
                         # Open the Playwright HTML test report.
                         # Usage: e2e-report
                         e2e-report.exec = ''
-                            exec npx playwright show-report
+                            exec playwright show-report
                         '';
 
                         # Start devenv processes in background for automation.
@@ -282,7 +282,7 @@
                             DB_ERR=""
                             if DB_ERR=$(psql -h "$PWD/build/db" -d app -c "select 1" 2>&1); then
                                 DB_OK=true
-                            elif echo "$DB_ERR" | rg -qi "operation not permitted|permission denied"; then
+                            elif echo "$DB_ERR" | ${pkgs.ripgrep}/bin/rg -qi "operation not permitted|permission denied"; then
                                 DB_BLOCKED=true
                             fi
 
@@ -291,7 +291,7 @@
                             HTTP_ERR=""
                             if HTTP_ERR=$(curl -fsS "http://127.0.0.1:8000" 2>&1); then
                                 HTTP_OK=true
-                            elif echo "$HTTP_ERR" | rg -qi "operation not permitted|permission denied"; then
+                            elif echo "$HTTP_ERR" | ${pkgs.ripgrep}/bin/rg -qi "operation not permitted|permission denied"; then
                                 HTTP_BLOCKED=true
                             fi
 

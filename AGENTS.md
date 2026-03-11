@@ -115,12 +115,12 @@ Available scripts:
 - **`format`** — Format app sources with stylish-haskell (config in `.stylish-haskell.yaml`).
 - **`ghci-app`** — Launch GHCi with the full app loaded for testing expressions interactively.
 - **`new-controller NAME`** — IHP code generator that scaffolds controller, views, types, and routes. Prefer this for new CRUD controllers, then customize.
-- **`e2e`** — Run Playwright end-to-end tests against the live dev server. Accepts playwright args (e.g. `e2e --headed`, `e2e e2e/auth.spec.ts`). Requires `devenv up` running.
+- **`e2e`** — Run Playwright end-to-end tests against the live dev server. Accepts playwright args (e.g. `e2e --headed`, `e2e e2e/auth.spec.ts`). Requires `devenv up` running. This wrapper uses the Nix-provided `playwright` binary rather than `npx playwright` so automation does not depend on a host `node` outside `bash ./bin/in-env`.
 - **`screenshot`** — Take a screenshot of a page. Usage: `screenshot http://localhost:8000/Dashboard dash.png`. Requires `devenv up` running.
 - **`e2e-report`** — Open the Playwright HTML test report from the last run.
 - **`dev-start`** — Start the IHP `start` script in background for automation (no PTY dependency). Writes pid/log to `.devenv/agent/` and fails fast if startup exits early.
 - **`dev-stop`** — Stop background server started by `dev-start`. If the app is healthy but was started outside `dev-start`, it reports `healthy but unmanaged` and does not kill it.
-- **`dev-status`** — Health check for background dev server (process/socket + DB + HTTP). In restricted sandboxes it may report `*_blocked=true` and still succeed when the process is running.
+- **`dev-status`** — Health check for background dev server (process/socket + DB + HTTP). In restricted sandboxes it may report `*_blocked=true` and still succeed when the process is running. Permission-denied detection uses the Nix-provided `ripgrep` binary from the dev shell, so run it through `bash ./bin/in-env` unless you are already inside the shell.
 - **`dev-wait [seconds]`** — Wait until `dev-status` is healthy (default timeout: 90s). On timeout it prints `dev-status` plus recent `.devenv/agent/devenv.log` lines for debugging.
 - The app runs via `devenv up` — it auto-reloads on file changes, so you can check the browser for runtime behavior.
 
@@ -171,6 +171,7 @@ Playwright-based end-to-end tests live in `e2e/` and run against the live dev se
 - **Test data**: Seeded via `e2e/fixtures/seed.sql` (test user: `e2e-test@example.com` / `test-password-123`)
 - **Cleanup**: `global-teardown.ts` deletes all rows with `e2e-` prefixed emails
 - **Browsers**: Provided by Nix via `playwright-web-flake` — no manual browser install needed
+- **CLI invocation**: In automation and Loom runs, prefer `bash ./bin/in-env e2e` / `screenshot` / `e2e-report` instead of bare `npx playwright ...`; the wrapper resolves the Nix-provided CLI inside the dev shell
 - **npm deps**: `@playwright/test` version in `package.json` must match the `playwright-web-flake` tag in `flake.nix`
 
 ## Maintaining Agent Documentation
