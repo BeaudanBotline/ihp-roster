@@ -9,6 +9,7 @@ import Web.View.Layout (defaultLayout)
 import Web.Controller.Admin
 import Web.Controller.Exports
 import Web.Controller.LeaveRequests
+import Web.Controller.LiveUpdates
 import Web.Controller.Profiles
 import Web.Controller.RosterWeeks
 import Web.Controller.Sessions
@@ -29,6 +30,7 @@ instance FrontController WebApplication where
         , parseRoute @AdminController
         , parseRoute @StaffController
         , parseRoute @RosterWeeksController
+        , webSocketAppWithCustomPath @LiveUpdatesWSApp "live-updates"
         -- Generator Marker
         ]
 

@@ -73,9 +73,17 @@ data StaffController
     | UpdateStaffAction { staffId :: !(Id Staff) }
     deriving (Eq, Show, Data)
 
+data LiveUpdatesWSApp
+    = AwaitingSubscription
+    | LiveUpdatesConnected { subscriptionId :: !UUID }
+    deriving (Eq, Show, Data)
+
 data RosterWeeksController
     = RosterWeeksAction
     | ShowRosterWeekAction { weekOffset :: !Int }
+    | ShowRosterWeekContentFragmentAction { weekOffset :: !Int }
+    | ShowRosterWeekStaffPanelFragmentAction { weekOffset :: !Int }
+    | ShowRosterWeekRowFragmentAction { weekOffset :: !Int, rosterDayId :: !(Id RosterDay), rowIndex :: !Int }
     | CreateRosterWeekAction { weekOffset :: !Int }
     | CopyRosterWeekAction { sourceWeekOffset :: !Int, targetWeekOffset :: !Int }
     | PublishRosterWeekAction { rosterWeekId :: !(Id RosterWeek) }

@@ -11,15 +11,17 @@ module Application.Helper.LiveUpdate
 
 import qualified Control.Exception.Safe as Exception
 import qualified Data.Aeson as Aeson
+import qualified Data.Aeson.Types as Aeson
 import Data.IORef
 import qualified Data.Text as Text
 import qualified Data.UUID as UUID
+import IHP.Prelude
 import qualified Network.WebSockets as WebSocket
 import System.IO.Unsafe (unsafePerformIO)
 
 data LiveUpdateScope
     = RosterWeekScope
-        { venueId :: !UUID.UUID
+        { venueId    :: !UUID.UUID
         , weekOffset :: !Int
         }
     deriving (Eq, Ord, Show)
@@ -29,21 +31,21 @@ data LiveFragmentKey
     | RosterStaffPanelFragment
     | RosterRowFragment
         { rosterDayId :: !UUID.UUID
-        , rowIndex :: !Int
+        , rowIndex    :: !Int
         }
     deriving (Eq, Ord, Show)
 
 data LiveFragmentRef = LiveFragmentRef
-    { fragmentKey :: !LiveFragmentKey
-    , targetId :: !Text
-    , url :: !Text
+    { fragmentKey    :: !LiveFragmentKey
+    , targetId       :: !Text
+    , url            :: !Text
     , deferUntilBlur :: !Bool
     }
     deriving (Eq, Show)
 
 data LiveUpdateCommand
     = SubscribeLiveUpdates
-        { scope :: !LiveUpdateScope
+        { scope    :: !LiveUpdateScope
         , clientId :: !Text
         }
     | UnsubscribeLiveUpdates
@@ -54,8 +56,8 @@ data LiveUpdateMessage
         { scope :: !LiveUpdateScope
         }
     | LiveUpdatesInvalidated
-        { scope :: !LiveUpdateScope
-        , fragments :: ![LiveFragmentRef]
+        { scope          :: !LiveUpdateScope
+        , fragments      :: ![LiveFragmentRef]
         , sourceClientId :: !(Maybe Text)
         }
     | LiveUpdatesError
@@ -163,8 +165,8 @@ instance Aeson.ToJSON LiveUpdateMessage where
             ]
 
 data LiveSubscription = LiveSubscription
-    { subscriptionId :: !UUID.UUID
-    , subscriptionScope :: !LiveUpdateScope
+    { subscriptionId         :: !UUID.UUID
+    , subscriptionScope      :: !LiveUpdateScope
     , subscriptionConnection :: !WebSocket.Connection
     }
 
@@ -203,7 +205,7 @@ sendInvalidation scope sourceClientId fragments subscription = do
             WebSocket.sendTextData subscription.subscriptionConnection (Aeson.encode message)
     pure $
         case result of
-            Left _ -> Just subscription.subscriptionId
+            Left _  -> Just subscription.subscriptionId
             Right _ -> Nothing
     where
         message =
@@ -217,7 +219,7 @@ parseUuid :: Text -> Aeson.Parser UUID.UUID
 parseUuid value =
     case UUID.fromText (Text.strip value) of
         Just uuid -> pure uuid
-        Nothing -> fail ("Invalid UUID: " <> cs value)
+        Nothing   -> fail ("Invalid UUID: " <> cs value)
 
 mapMaybeM :: (a -> IO (Maybe b)) -> [a] -> IO [b]
 mapMaybeM action values =

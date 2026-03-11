@@ -1,5 +1,6 @@
 module Web.View.RosterWeeks.Show where
 
+import Application.Helper.LiveUpdate (LiveUpdateScope (..))
 import Data.Coerce (coerce)
 import Data.List (find, nub, sort)
 import qualified Data.Text as Text
@@ -10,16 +11,17 @@ import Data.UUID (UUID)
 import Web.View.Prelude
 
 data ShowView = ShowView
-    { rosterWeek    :: Maybe RosterWeek
-    , rosterDays    :: [RosterDay]
-    , weekOffset    :: Int
-    , weekStartDate :: Day
-    , weekEndDate   :: Day
-    , staffMembers  :: [Staff]
-    , panelStaff    :: [RosterStaffPanelEntry]
-    , slotNames     :: [SlotName]
-    , allSlots      :: [RosterSlot]
-    , slotConflicts :: [(Id RosterSlot, [RosterConflict])]
+    { rosterWeek      :: Maybe RosterWeek
+    , rosterDays      :: [RosterDay]
+    , weekOffset      :: Int
+    , weekStartDate   :: Day
+    , weekEndDate     :: Day
+    , staffMembers    :: [Staff]
+    , panelStaff      :: [RosterStaffPanelEntry]
+    , slotNames       :: [SlotName]
+    , allSlots        :: [RosterSlot]
+    , slotConflicts   :: [(Id RosterSlot, [RosterConflict])]
+    , liveUpdateScope :: Maybe LiveUpdateScope
     }
 
 data RosterStaffPanelEntry = RosterStaffPanelEntry
@@ -42,7 +44,14 @@ instance View ShowView where
 
 renderRosterWeekShell :: ShowView -> Html
 renderRosterWeekShell ShowView { .. } = [hsx|
-    <section id={rosterWeekShellId} hx-history-elt="true">
+    <section id={rosterWeekShellId}
+             hx-history-elt="true"
+             data-live-updates-path="/live-updates"
+             data-live-update-client-enabled={isJust liveUpdateScope}
+             data-live-update-client-id=""
+             data-live-update-scope-kind={liveUpdateScopeKind <$> liveUpdateScope}
+             data-live-update-venue-id={liveUpdateVenueId <$> liveUpdateScope}
+             data-live-update-week-offset={tshow . liveUpdateWeekOffset <$> liveUpdateScope}>
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
                 <h1 class="mb-0">Roster Starting {formatDateDisplay weekStartDate}</h1>
@@ -441,3 +450,12 @@ renderPublishForm rosterWeek = [hsx|
         <button type="submit" class="btn btn-success px-4 py-2 fw-bold">Publish Week</button>
     </form>
 |]
+
+liveUpdateScopeKind :: LiveUpdateScope -> Text
+liveUpdateScopeKind RosterWeekScope {} = "roster_week"
+
+liveUpdateVenueId :: LiveUpdateScope -> Text
+liveUpdateVenueId RosterWeekScope { venueId } = tshow venueId
+
+liveUpdateWeekOffset :: LiveUpdateScope -> Int
+liveUpdateWeekOffset RosterWeekScope { weekOffset } = weekOffset

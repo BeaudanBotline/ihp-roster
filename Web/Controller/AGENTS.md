@@ -89,3 +89,10 @@ Every controller requires changes in **four files** (missing any will cause comp
 - Reuse the same form/view helper for initial dialog render and validation rerender so field errors stay localized to the shared dialog mount.
 - If a workflow mutates roster or timesheet data, return the smallest updated fragment possible (`#roster-content`, row OOB fragments, or a single day section), not a full page redirect.
 - Only one workflow dialog should be active at a time. Utility pickers are a separate overlay lane and must not reuse the workflow dialog mount.
+
+## Live Fragment Pattern
+- For collaborative roster mutations, split delivery paths:
+  - actor response returns immediate HTMX fragments/OOB swaps
+  - cross-viewer updates use `broadcastLiveInvalidation` with fragment refs that point to dedicated GET fragment actions
+- Keep fragment GET actions authorized with the same venue/week visibility rules as the full page; do not expose draft roster fragments to non-managers just because the websocket payload names them
+- Include the acting tab's `X-Live-Update-Client-Id` in broadcasts so the client can suppress its own invalidation echo

@@ -1,6 +1,7 @@
 module Test.Controller.RosterWeeksSpec where
 
 import Config
+import qualified Data.ByteString.Char8 as ByteString
 import Data.Maybe (fromJust)
 import Data.Time.LocalTime (TimeOfDay (..))
 import Generated.Types
@@ -29,6 +30,18 @@ tests = beforeAll testContext do
 
         it "redirects unauthenticated users from ShowRosterWeekAction" $ withContext do
             response <- callAction (ShowRosterWeekAction 0)
+            response `responseStatusShouldBe` status302
+
+        it "redirects unauthenticated users from ShowRosterWeekContentFragmentAction" $ withContext do
+            response <- callAction (ShowRosterWeekContentFragmentAction 0)
+            response `responseStatusShouldBe` status302
+
+        it "redirects unauthenticated users from ShowRosterWeekStaffPanelFragmentAction" $ withContext do
+            response <- callAction (ShowRosterWeekStaffPanelFragmentAction 0)
+            response `responseStatusShouldBe` status302
+
+        it "redirects unauthenticated users from ShowRosterWeekRowFragmentAction" $ withContext do
+            response <- callAction (ShowRosterWeekRowFragmentAction 0 "11111111-1111-1111-1111-111111111111" 0)
             response `responseStatusShouldBe` status302
 
         it "redirects unauthenticated users from CreateRosterWeekAction" $ withContext do
@@ -116,6 +129,44 @@ tests = beforeAll testContext do
                 publishedWeek <- fetch rosterWeek.id
                 publishedWeek.isLive `shouldBe` True
 
+        it "manager can fetch a roster row fragment for the current venue" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Venue A"
+                manager <- createUserRecord "roster-manager-row-fragment@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue manager "manager"
+                slotName <- createSlotNameRecord venue "Early"
+                staffMember <- createStaffRecord venue Nothing "Alpha" "Crew"
+                rosterWeek <- createRosterWeekRecord venue 0 False
+                rosterDay <- createRosterDayRecord rosterWeek 0
+                _ <- createRosterSlotRecord rosterDay slotName (Just staffMember) 0
+
+                response <- withUserAndCurrentVenue manager venue.id do
+                    callAction (ShowRosterWeekRowFragmentAction 0 rosterDay.id 0)
+
+                response `responseStatusShouldBe` status200
+                response `responseBodyShouldContain` cs (rosterRowDomIdText rosterDay.id 0)
+                response `responseBodyShouldContain` "Crew, Alpha"
+
+        it "staff row fragment fetch stays empty for a draft week" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Venue A"
+                staffUser <- createUserRecord "roster-staff-row-fragment@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue staffUser "worker"
+                slotName <- createSlotNameRecord venue "Early"
+                staffMember <- createStaffRecord venue Nothing "Alpha" "Crew"
+                rosterWeek <- createRosterWeekRecord venue 0 False
+                rosterDay <- createRosterDayRecord rosterWeek 0
+                _ <- createRosterSlotRecord rosterDay slotName (Just staffMember) 0
+
+                response <- withUserAndCurrentVenue staffUser venue.id do
+                    callAction (ShowRosterWeekRowFragmentAction 0 rosterDay.id 0)
+
+                response `responseStatusShouldBe` status200
+                body <- responseBody response
+                let bodyText = cs body :: String
+                let rowId = cs (rosterRowDomIdText rosterDay.id 0) :: String
+                bodyText `shouldNotContain` rowId
+
         it "manager can copy a week and it is created as draft with copied slots" $ withContext do
             withCleanDb do
                 venue <- createVenueWithConfig "Venue A"
@@ -185,17 +236,20 @@ tests = beforeAll testContext do
                 slot <- createRosterSlotRecord rosterDay slotName (Just staffA) 0
 
                 response <- withUserAndCurrentVenue manager venue.id do
-                    callActionWithParams (UpdateRosterSlotAction slot.id) [("staffId", tshow staffB.id)]
+                    callActionWithParams (UpdateRosterSlotAction slot.id) [("staffId", ByteString.pack (cs (tshow staffB.id)))]
 
                 response `responseStatusShouldBe` status200
 
                 body <- responseBody response
-                cs body `shouldContain` cs (rosterRowDomIdText rosterDay.id 0)
-                cs body `shouldContain` cs rosterStaffPanelFragmentId
-                cs body `shouldContain` "hx-swap-oob=\"outerHTML\""
-                cs body `shouldContain` "Alpha Crew"
-                cs body `shouldContain` "0 (5)"
-                cs body `shouldContain` "Bravo Crew"
-                cs body `shouldContain` "1 (7)"
+                let bodyText = cs body :: String
+                let rowId = cs (rosterRowDomIdText rosterDay.id 0) :: String
+                let staffPanelId = cs rosterStaffPanelFragmentId :: String
+                bodyText `shouldContain` rowId
+                bodyText `shouldContain` staffPanelId
+                bodyText `shouldContain` "hx-swap-oob=\"outerHTML\""
+                bodyText `shouldContain` "Alpha Crew"
+                bodyText `shouldContain` "0 (5)"
+                bodyText `shouldContain` "Bravo Crew"
+                bodyText `shouldContain` "1 (7)"
     where
         timeOfDay hour minute = TimeOfDay hour minute 0

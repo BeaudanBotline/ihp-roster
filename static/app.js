@@ -349,6 +349,284 @@ $(document).on('ready turbolinks:load', function () {
     });
 })();
 
+// Roster live fragments use websocket invalidations plus authorized fragment refetch.
+(function enableRosterLiveFragments() {
+    if (typeof window === 'undefined') return;
+
+    const shellId = 'roster-week-shell';
+    const pendingDeferredFragments = new Map();
+    const inFlightFragments = new Map();
+    let socket = null;
+    let reconnectTimer = null;
+    let activeScopeKey = null;
+    let activeClientId = null;
+
+    function getShell() {
+        return document.getElementById(shellId);
+    }
+
+    function hasActiveRosterInput(rowEl) {
+        return Boolean(rowEl && rowEl.querySelector('.slot-cell-input:focus'));
+    }
+
+    function makeClientId() {
+        if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+            return window.crypto.randomUUID();
+        }
+
+        return `live-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    }
+
+    function readScope(shellEl) {
+        if (!(shellEl instanceof HTMLElement)) return null;
+        if (shellEl.dataset.liveUpdateClientEnabled !== 'true') return null;
+
+        const scopeKind = shellEl.dataset.liveUpdateScopeKind;
+        const venueId = shellEl.dataset.liveUpdateVenueId;
+        const weekOffsetRaw = shellEl.dataset.liveUpdateWeekOffset;
+        if (!scopeKind || !venueId || typeof weekOffsetRaw !== 'string') return null;
+
+        const weekOffset = Number.parseInt(weekOffsetRaw, 10);
+        if (!Number.isInteger(weekOffset)) return null;
+
+        return {
+            scope: {
+                kind: scopeKind,
+                venueId,
+                weekOffset,
+            },
+            scopeKey: `${scopeKind}:${venueId}:${weekOffset}`,
+            path: shellEl.dataset.liveUpdatesPath || '/live-updates',
+        };
+    }
+
+    function ensureClientId(shellEl) {
+        if (!(shellEl instanceof HTMLElement)) return null;
+        if (!shellEl.dataset.liveUpdateClientId) {
+            shellEl.dataset.liveUpdateClientId = activeClientId || makeClientId();
+        }
+
+        activeClientId = shellEl.dataset.liveUpdateClientId;
+        return activeClientId;
+    }
+
+    function buildWebSocketUrl(path) {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        return `${protocol}//${window.location.host}${path}`;
+    }
+
+    function closeSocket() {
+        if (reconnectTimer) {
+            window.clearTimeout(reconnectTimer);
+            reconnectTimer = null;
+        }
+
+        if (socket) {
+            socket.onopen = null;
+            socket.onmessage = null;
+            socket.onclose = null;
+            socket.onerror = null;
+            socket.close();
+            socket = null;
+        }
+
+        activeScopeKey = null;
+    }
+
+    async function swapFragmentHtml(targetId, html) {
+        const target = document.getElementById(targetId);
+        if (!target) return;
+
+        const trimmed = (html || '').trim();
+        if (!trimmed) {
+            target.remove();
+            return;
+        }
+
+        if (window.htmx && typeof window.htmx.swap === 'function') {
+            window.htmx.swap(target, trimmed, { swapStyle: 'outerHTML' });
+            if (typeof window.htmx.process === 'function') {
+                window.htmx.process(document.body);
+            }
+            return;
+        }
+
+        target.outerHTML = trimmed;
+    }
+
+    async function refetchFragment(fragment) {
+        const response = await window.fetch(fragment.url, {
+            credentials: 'same-origin',
+            headers: {
+                'HX-Request': 'true',
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error(`Fragment fetch failed with ${response.status}`);
+        }
+
+        const html = await response.text();
+        await swapFragmentHtml(fragment.targetId, html);
+    }
+
+    function queueFragment(fragment) {
+        const existing = inFlightFragments.get(fragment.targetId);
+        if (existing) {
+            inFlightFragments.set(fragment.targetId, { ...existing, next: fragment });
+            return;
+        }
+
+        inFlightFragments.set(fragment.targetId, { next: null });
+        void refetchFragment(fragment)
+            .catch(function () {
+                return null;
+            })
+            .finally(function () {
+                const state = inFlightFragments.get(fragment.targetId);
+                const next = state && state.next;
+                inFlightFragments.delete(fragment.targetId);
+                if (next) {
+                    queueFragment(next);
+                }
+            });
+    }
+
+    function handleInvalidatedFragment(fragment) {
+        if (!fragment || !fragment.targetId || !fragment.url) return;
+
+        if (fragment.deferUntilBlur) {
+            const target = document.getElementById(fragment.targetId);
+            if (hasActiveRosterInput(target)) {
+                pendingDeferredFragments.set(fragment.targetId, fragment);
+                return;
+            }
+        }
+
+        pendingDeferredFragments.delete(fragment.targetId);
+        queueFragment(fragment);
+    }
+
+    function flushDeferredFragment(targetId) {
+        const fragment = pendingDeferredFragments.get(targetId);
+        if (!fragment) return;
+
+        pendingDeferredFragments.delete(targetId);
+        queueFragment(fragment);
+    }
+
+    function scheduleReconnect() {
+        if (reconnectTimer) return;
+
+        reconnectTimer = window.setTimeout(function () {
+            reconnectTimer = null;
+            syncConnection();
+        }, 1000);
+    }
+
+    function openSocket(scopeInfo, shellEl) {
+        const clientId = ensureClientId(shellEl);
+        if (!clientId) return;
+
+        socket = new window.WebSocket(buildWebSocketUrl(scopeInfo.path));
+        activeScopeKey = scopeInfo.scopeKey;
+
+        socket.onopen = function () {
+            socket.send(JSON.stringify({
+                type: 'subscribe',
+                scope: scopeInfo.scope,
+                clientId,
+            }));
+        };
+
+        socket.onmessage = function (event) {
+            let message = null;
+            try {
+                message = JSON.parse(event.data);
+            } catch (_error) {
+                return;
+            }
+
+            if (!message || message.type !== 'invalidate' || !Array.isArray(message.fragments)) return;
+            if (message.sourceClientId && message.sourceClientId === clientId) return;
+
+            message.fragments.forEach(handleInvalidatedFragment);
+        };
+
+        socket.onclose = function () {
+            socket = null;
+
+            const currentShell = getShell();
+            const currentScope = readScope(currentShell);
+            if (currentScope && currentScope.scopeKey === activeScopeKey) {
+                scheduleReconnect();
+            }
+        };
+
+        socket.onerror = function () {
+            if (socket) {
+                socket.close();
+            }
+        };
+    }
+
+    function syncConnection() {
+        const shellEl = getShell();
+        const scopeInfo = readScope(shellEl);
+
+        if (!scopeInfo) {
+            closeSocket();
+            return;
+        }
+
+        ensureClientId(shellEl);
+
+        if (socket && activeScopeKey === scopeInfo.scopeKey && socket.readyState <= window.WebSocket.OPEN) {
+            return;
+        }
+
+        closeSocket();
+        openSocket(scopeInfo, shellEl);
+    }
+
+    document.addEventListener('htmx:configRequest', function (event) {
+        const shellEl = getShell();
+        if (!(shellEl instanceof HTMLElement)) return;
+
+        const requestPath = event.detail && event.detail.path;
+        const sourceEl = event.detail && event.detail.elt;
+        const isRosterRequest =
+            (typeof requestPath === 'string' && requestPath.indexOf('/RosterWeeks') === 0)
+            || (sourceEl instanceof HTMLElement && Boolean(sourceEl.closest(`#${shellId}`)));
+
+        if (!isRosterRequest) return;
+
+        const clientId = ensureClientId(shellEl);
+        if (!clientId) return;
+
+        event.detail.headers['X-Live-Update-Client-Id'] = clientId;
+    });
+
+    document.addEventListener('focusout', function (event) {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        if (!target.classList.contains('slot-cell-input')) return;
+
+        const rowEl = target.closest('tr[data-roster-row]');
+        if (!(rowEl instanceof HTMLElement) || !rowEl.id) return;
+
+        window.setTimeout(function () {
+            if (!hasActiveRosterInput(rowEl)) {
+                flushDeferredFragment(rowEl.id);
+            }
+        }, 0);
+    });
+
+    document.addEventListener('DOMContentLoaded', syncConnection);
+    document.addEventListener('turbolinks:load', syncConnection);
+    document.addEventListener('htmx:afterSwap', syncConnection);
+})();
+
 // Reusable quarter-hour modal time picker.
 // Any field using [data-time-picker-field] + .js-time-picker-input + .js-time-picker-trigger
 // can opt into this behavior.

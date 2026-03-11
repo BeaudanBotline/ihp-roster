@@ -183,6 +183,11 @@ Playwright-based end-to-end tests live in `e2e/` and run against the live dev se
 ## Current UI Patterns
 - Roster and timesheet week pagers use HTMX shell swaps with pushed canonical URLs instead of full-page week navigations
 - The roster staff sidebar uses CSS-only desktop behavior: sticky positioning, viewport-capped height, and internal list scrolling
+- Roster collaboration uses a split live-update path:
+  - actor browser gets immediate HTMX fragments/OOB swaps from the mutation response
+  - concurrent viewers get websocket invalidation payloads plus authorized fragment refetch
+- Keep live invalidation payloads structural (`scope`, `fragmentKey`, `targetId`, `url`, `deferUntilBlur`) rather than broadcasting rendered HTML across viewers
+- When a roster mutation should not clobber focused inputs remotely, mark that fragment `deferUntilBlur = true` and let the client replay it after row blur
 
 ## Auth Model Notes
 - Current business authority is venue-scoped. `venue_memberships.venue_role` is what grants manager/admin access; `users.user_role = 'admin'` is not a cross-venue superuser.
