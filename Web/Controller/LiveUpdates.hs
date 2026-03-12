@@ -81,13 +81,5 @@ isAuthorizedScope RosterWeekScope { venueId, weekOffset } = do
     if venueId /= unpackId currentVenueId
         then pure False
         else do
-            rosterWeekOrNothing <-
-                query @RosterWeek
-                    |> filterWhere (#venueId, venueId)
-                    |> filterWhere (#weekOffset, weekOffset)
-                    |> fetchOneOrNothing
-
-            pure $
-                case rosterWeekOrNothing of
-                    Just rosterWeek -> rosterWeek.isLive || hasRole ManagerRole'
-                    Nothing         -> hasRole ManagerRole'
+            let _ = weekOffset
+            pure True

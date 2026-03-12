@@ -49,7 +49,7 @@ instance Controller RosterWeeksController where
                 renderRosterWeekPage currentWeekOffset
             else redirectTo currentWeekAction
 
-    action ShowRosterWeekAction { weekOffset } = autoRefresh do
+    action ShowRosterWeekAction { weekOffset } = do
         renderRosterWeekPage weekOffset
 
     action ShowRosterWeekContentFragmentAction { weekOffset } = do
@@ -104,6 +104,9 @@ instance Controller RosterWeeksController where
                                 |> set #rowIndex rowIndex
                                 |> createRecord
 
+                broadcastRosterWeekInvalidation
+                    weekOffset
+                    [buildRosterContentFragmentRef weekOffset]
                 setSuccessMessage "Roster week created successfully"
                 redirectTo ShowRosterWeekAction { weekOffset }
 
@@ -163,6 +166,9 @@ instance Controller RosterWeeksController where
                                         pure ()
                                 Nothing -> pure ()
 
+                        broadcastRosterWeekInvalidation
+                            targetWeekOffset
+                            [buildRosterContentFragmentRef targetWeekOffset]
                         setSuccessMessage "Roster week copied successfully."
                         redirectTo ShowRosterWeekAction { weekOffset = targetWeekOffset }
 
@@ -464,7 +470,7 @@ renderRosterWeekPage weekOffset = do
                     , slotNames = []
                     , allSlots = []
                     , slotConflicts = []
-                    , liveUpdateScope = Nothing
+                    , liveUpdateScope = Just (RosterWeekScope { venueId = unpackId currentVenueId, weekOffset })
                     }
 
 respondWithRosterWeekView :: (?context :: ControllerContext) => ShowView -> IO ()

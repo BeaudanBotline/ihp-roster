@@ -11,6 +11,30 @@ async function loginAndOpenRoster(page) {
     await expect(page.locator('#roster-content')).toBeVisible({ timeout: 60000 });
 }
 
+async function openRosterWeekOffset(page, weekOffset) {
+    await loginAndOpenRoster(page);
+
+    for (let step = 0; step < weekOffset; step += 1) {
+        await page.getByRole('link', { name: '>' }).click();
+    }
+
+    await expect(page.locator('#roster-week-shell')).toHaveAttribute(
+        'data-live-update-week-offset',
+        String(weekOffset),
+    );
+}
+
+async function ensureDraftWeek(page, actionName) {
+    const content = page.locator('#roster-content');
+    const contentText = (await content.textContent()) || '';
+
+    if (contentText.includes('No roster exists for this week yet.')) {
+        await page.getByRole('button', { name: actionName }).click();
+    }
+
+    await expect(content).toContainText('Draft Mode');
+}
+
 async function selectStaffForRow(page, rowIndex, staffId) {
     const row = page.locator('tr[data-roster-row]').nth(rowIndex);
     const select = row.locator('select[name="staffId"]');
@@ -64,6 +88,81 @@ test.describe('Roster live fragments', () => {
 
         await expect(actorManagerEntry).toContainText('1');
         await expect(viewerManagerEntry).toContainText('1');
+
+        await actorContext.close();
+        await viewerContext.close();
+    });
+
+    test('updates another manager live after creating a draft week from an empty page', async ({ browser }) => {
+        const actorContext = await browser.newContext();
+        const viewerContext = await browser.newContext();
+        const actorPage = await actorContext.newPage();
+        const viewerPage = await viewerContext.newPage();
+
+        await openRosterWeekOffset(actorPage, 2);
+        await openRosterWeekOffset(viewerPage, 2);
+
+        await ensureDraftWeek(actorPage, 'Create Draft Roster');
+        await expect(viewerPage.locator('#roster-content')).toContainText('Draft Mode');
+        await expect(viewerPage.locator('tr[data-roster-row]')).toHaveCount(35);
+
+        await actorContext.close();
+        await viewerContext.close();
+    });
+
+    test('updates another manager live after copying the previous week into an empty page', async ({ browser }) => {
+        const actorContext = await browser.newContext();
+        const viewerContext = await browser.newContext();
+        const actorPage = await actorContext.newPage();
+        const viewerPage = await viewerContext.newPage();
+
+        await openRosterWeekOffset(actorPage, 1);
+        await openRosterWeekOffset(viewerPage, 1);
+
+        await ensureDraftWeek(actorPage, 'Copy Previous Week');
+        await expect(viewerPage.locator('#roster-content')).toContainText('Draft Mode');
+        await expect(viewerPage.locator('#roster-content')).toContainText('Crew, Alpha');
+
+        await actorContext.close();
+        await viewerContext.close();
+    });
+
+    test('updates another viewer live after a roster-launched staff edit', async ({ browser }) => {
+        const actorContext = await browser.newContext();
+        const viewerContext = await browser.newContext();
+        const actorPage = await actorContext.newPage();
+        const viewerPage = await viewerContext.newPage();
+
+        await loginAndOpenRoster(actorPage);
+        await loginAndOpenRoster(viewerPage);
+
+        const updatedName = 'Live Fragments';
+        const actorEntry = actorPage
+            .locator('.roster-staff-panel-entry')
+            .filter({ hasText: 'E2E Manager' })
+            .first();
+        const viewerEntry = viewerPage
+            .locator('.roster-staff-panel-entry')
+            .filter({ hasText: 'E2E Manager' })
+            .first();
+
+        await expect(actorEntry).toBeVisible();
+        await expect(viewerEntry).toBeVisible();
+
+        await actorEntry.getByRole('button', { name: 'Edit' }).click();
+        await expect(actorPage.locator('#dialog-overlay-mount [data-dialog-overlay="true"]')).toBeVisible();
+
+        await actorPage.locator('#dialog-overlay-mount #firstName').fill('Live');
+        await actorPage.locator('#dialog-overlay-mount #lastName').fill('Fragments');
+        await actorPage.locator('#dialog-overlay-mount').getByRole('button', { name: 'Save' }).click();
+
+        await expect(actorPage.locator('#dialog-overlay-mount')).toBeEmpty();
+        await expect(
+            actorPage.locator('.roster-staff-panel-entry').filter({ hasText: updatedName }).first(),
+        ).toBeVisible();
+        await expect(
+            viewerPage.locator('.roster-staff-panel-entry').filter({ hasText: updatedName }).first(),
+        ).toBeVisible();
 
         await actorContext.close();
         await viewerContext.close();

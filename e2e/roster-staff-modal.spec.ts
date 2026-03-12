@@ -22,7 +22,7 @@ test.describe('Roster Staff Modal', () => {
         await loginAndOpenRoster(page);
 
         const initialUrl = page.url();
-        const modalMount = page.locator('#htmx-modal-mount');
+        const modalMount = page.locator('#dialog-overlay-mount');
         const staffEntry = page.locator('.roster-staff-panel-entry').first();
         const nameLabel = staffEntry.locator('.roster-staff-name-primary');
         const originalName = (await nameLabel.textContent())?.trim() || 'E2E Manager';
@@ -31,7 +31,7 @@ test.describe('Roster Staff Modal', () => {
         await staffEntry.getByRole('button', { name: 'Edit' }).click();
 
         await expect(page).toHaveURL(initialUrl);
-        await expect(modalMount.locator('[data-htmx-modal="true"]')).toBeVisible();
+        await expect(modalMount.locator('[data-dialog-overlay="true"]')).toBeVisible();
         await expect(modalMount).toContainText('Edit Staff Member');
 
         const firstNameField = modalMount.locator('#firstName');

@@ -1,7 +1,9 @@
 module Web.Controller.Staff where
 
 import Web.Controller.Prelude
-import Web.Controller.RosterWeeks (respondWithRosterContentOob)
+import Web.Controller.RosterWeeks (broadcastRosterWeekInvalidation,
+                                   buildRosterContentFragmentRef,
+                                   respondWithRosterContentOob)
 import Web.View.Staff.Edit
 
 instance Controller StaffController where
@@ -33,7 +35,11 @@ instance Controller StaffController where
                 Right staff -> do
                     staff <- staff |> updateRecord
                     if isHtmxRequest
-                        then respondWithRosterContentOob weekOffset
+                        then do
+                            broadcastRosterWeekInvalidation
+                                weekOffset
+                                [buildRosterContentFragmentRef weekOffset]
+                            respondWithRosterContentOob weekOffset
                         else do
                             setSuccessMessage "Staff member updated"
                             redirectTo ShowRosterWeekAction { weekOffset }

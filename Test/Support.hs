@@ -24,6 +24,7 @@ import qualified IHP.LoginSupport.Helper.Controller as LoginSupport
 import IHP.ModelSupport (sqlExec)
 import IHP.Prelude
 import IHP.Test.Mocking
+import Network.HTTP.Types.Header (RequestHeaders)
 import qualified Network.Wai as Wai
 import qualified Network.Wai.Session
 import Web.FrontController ()
@@ -244,6 +245,20 @@ withSessionValues initialValues callback = do
         lookupSession store key = Map.lookup key <$> readIORef store
 
         insertSession store key value = modifyIORef' store (Map.insert key value)
+
+withRequestHeaders ::
+    forall result.
+    (?context :: RequestContext) =>
+    RequestHeaders ->
+    ((?context :: RequestContext) => IO result) ->
+    IO result
+withRequestHeaders headers callback = do
+    let request' =
+            ?context.request
+                { Wai.requestHeaders = headers <> Wai.requestHeaders ?context.request
+                }
+    let ?context = (?context) { request = request' }
+    callback
 
 defaultWeekEpoch :: Day
 defaultWeekEpoch = fromGregorian 2025 1 6

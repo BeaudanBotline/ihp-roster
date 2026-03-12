@@ -78,6 +78,35 @@ tests = beforeAll testContext do
                 response `responseBodyShouldContain` "No roster exists for this week yet."
                 response `responseBodyShouldNotContain` "Draft Mode"
 
+        it "empty roster pages still expose live-update scope metadata" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Venue A"
+                user <- createUserRecord "roster-empty-live-scope@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue user "worker"
+
+                response <- withUserAndCurrentVenue user venue.id do
+                    callAction (ShowRosterWeekAction 0)
+
+                response `responseStatusShouldBe` status200
+                response `responseBodyShouldContain` "data-live-update-client-enabled=\"true\""
+                response `responseBodyShouldContain` "data-live-update-scope-kind=\"roster_week\""
+                response `responseBodyShouldContain` "data-live-update-week-offset=\"0\""
+
+        it "staff on hidden draft pages still expose live-update scope metadata" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Venue A"
+                user <- createUserRecord "roster-hidden-draft-live-scope@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue user "worker"
+                _ <- createRosterWeekRecord venue 0 False
+
+                response <- withUserAndCurrentVenue user venue.id do
+                    callAction (ShowRosterWeekAction 0)
+
+                response `responseStatusShouldBe` status200
+                response `responseBodyShouldContain` "data-live-update-client-enabled=\"true\""
+                response `responseBodyShouldContain` "data-live-update-scope-kind=\"roster_week\""
+                response `responseBodyShouldContain` "data-live-update-week-offset=\"0\""
+
         it "manager can see draft weeks" $ withContext do
             withCleanDb do
                 venue <- createVenueWithConfig "Venue A"
