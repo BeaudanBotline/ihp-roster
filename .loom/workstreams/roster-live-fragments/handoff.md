@@ -7,6 +7,7 @@
 - Phase 3 roster fragment refetch endpoints are landed
 - Phase 4 client subscription/refetch integration is landed for roster week pages
 - Phase 5 mutation coverage is landed for the currently verified roster-visible flows: slot updates, row add/remove, publish, create/copy into empty weeks, and roster-launched staff edits all update passive viewers on the same week
+- Phase 6 global Auto Refresh bootstrap cleanup is landed: `initAutoRefresh`, layout-level Auto Refresh meta, and `ihp-auto-refresh.js` loading are removed
 - Existing repo state was checkpointed before planning in commit `2b4e99a` (`Checkpoint current repo changes`)
 
 ## Baseline verification notes
@@ -16,6 +17,13 @@
 - `bash ./bin/in-env test --match "RosterWeeksController"` passes with DB-backed controller coverage.
 - `bash ./bin/in-env lint` passes after the roster/view/live-update changes.
 - `bash ./bin/in-env node ./node_modules/.bin/playwright test e2e/roster-assignment-sidebar.spec.ts e2e/roster-live-fragments.spec.ts e2e/roster-duplicate-conflicts.spec.ts` passes.
+- Post-bootstrap-removal verification on `2026-03-15`:
+  - `bash ./bin/in-env typecheck`: passed
+  - `bash ./bin/in-env lint`: passed
+  - `bash ./bin/in-env test --match "SessionsController"`: passed
+  - `bash ./bin/in-env test --match "AdminController"`: passed
+  - `bash ./bin/in-env test --match "RosterWeeksController"`: passed
+  - `bash ./bin/in-env e2e e2e/roster-live-fragments.spec.ts e2e/roster-assignment-sidebar.spec.ts e2e/roster-duplicate-conflicts.spec.ts`: passed
 
 ## Current architecture decision
 
@@ -24,7 +32,7 @@ The chosen approach is:
 - immediate HTMX fragment response for the acting user
 - websocket invalidation for concurrent viewers
 - authorized fragment refetch for viewer updates
-- Auto Refresh is still enabled globally, but the roster live-fragment lane no longer depends on it for the currently verified same-week roster-visible flows
+- the app no longer uses IHP Auto Refresh bootstrap at all; freshness now comes from explicit HTMX/live-fragment flows
 
 Rejected as primary foundation:
 
@@ -51,9 +59,11 @@ Rejected as primary foundation:
   - this note is now stale: the roster page no longer loads `ihp-auto-refresh.js` or emits Auto Refresh meta
   - staff edits launched from roster update passive viewers under Playwright coverage
   - clients already viewing an empty week offset receive create/copy transitions under Playwright coverage
-- Any remaining justification for Auto Refresh is now outside the roster page itself:
-  - other pages still use IHP Auto Refresh
-  - external or future roster-affecting workflows that do not yet emit targeted invalidations would regress if Auto Refresh were removed globally without replacement
+- Auto Refresh audit/removal result on `2026-03-15`:
+  - `rg -n "\\bautoRefresh\\b" Web/Controller Application` returns no app-side action wrappers
+  - `initAutoRefresh` has been removed from [Web/FrontController.hs](/home/beau/documents/projects/ihp-roster/Web/FrontController.hs)
+  - layout-level `autoRefreshMeta` / `ihp-auto-refresh.js` loading has been removed from [Web/View/Layout.hs](/home/beau/documents/projects/ihp-roster/Web/View/Layout.hs)
+  - vendor/framework docs still mention Auto Refresh, but there are no remaining app-runtime feature consumers
 
 ## Landed in this pass
 
@@ -91,6 +101,7 @@ Rejected as primary foundation:
   - per-scope version tracking plus reconnect/gap-driven resync through feature adapters
 - Added shared scope-version state in [Application/Helper/LiveUpdate.hs](/home/beau/documents/projects/ihp-roster/Application/Helper/LiveUpdate.hs) and subscribe ack handling in [Web/Controller/LiveUpdates.hs](/home/beau/documents/projects/ihp-roster/Web/Controller/LiveUpdates.hs) so future live-fragment pages can reuse the same reconnect contract.
 - Disabled page-level IHP Auto Refresh assets for roster views in [Web/View/Layout.hs](/home/beau/documents/projects/ihp-roster/Web/View/Layout.hs) so the roster page now relies solely on the shared live-fragment runtime for same-week freshness.
+- Removed the remaining global Auto Refresh bootstrap in [Web/FrontController.hs](/home/beau/documents/projects/ihp-roster/Web/FrontController.hs), [Web/View/Layout.hs](/home/beau/documents/projects/ihp-roster/Web/View/Layout.hs), and [static/app.js](/home/beau/documents/projects/ihp-roster/static/app.js) so the app no longer ships framework Auto Refresh assets or pause/resume shims.
 - Added coverage in [Test/Controller/RosterWeeksSpec.hs](/home/beau/documents/projects/ihp-roster/Test/Controller/RosterWeeksSpec.hs) for:
   - unauthenticated fragment route protection
   - manager row-fragment fetch
@@ -104,10 +115,11 @@ Rejected as primary foundation:
   - reconnect recovery is now covered so viewers who miss updates while offline resync on reconnect, refresh the staff panel immediately, and defer coarse roster-content replacement until blur if they are editing
   - deferred same-row updates now preserve the locally edited field value after blur while still applying the remote roster update
 - Promoted durable live-fragment conventions into [AGENTS.md](/home/beau/documents/projects/ihp-roster/AGENTS.md), [Web/Controller/AGENTS.md](/home/beau/documents/projects/ihp-roster/Web/Controller/AGENTS.md), and [Web/View/AGENTS.md](/home/beau/documents/projects/ihp-roster/Web/View/AGENTS.md).
+- Added explicit shared-layout assertions in [Test/Controller/SessionsSpec.hs](/home/beau/documents/projects/ihp-roster/Test/Controller/SessionsSpec.hs) and [Test/Controller/AdminSpec.hs](/home/beau/documents/projects/ihp-roster/Test/Controller/AdminSpec.hs) so public and authenticated pages both fail if Auto Refresh assets/meta reappear.
 
 ## Recommended implementation starting point
 
-The next pass should decide whether to replace site-wide Auto Refresh infrastructure with explicit live-update invalidations page by page, starting from the now-verified roster pattern.
+The implementation work is complete. The remaining repo action is commit/merge/closeout for the `weaver/roster-live-fragments` branch.
 
 ## Candidate abstraction names
 
@@ -135,11 +147,8 @@ Use the names above only if they still fit the code once implementation begins.
 
 ## Next actions
 
-1. Audit non-roster pages and cross-controller flows that still depend on `initAutoRefresh`/`ihp-auto-refresh.js`, then either migrate them to explicit live invalidations or document them as blockers to site-wide removal.
-2. If site-wide Auto Refresh removal is still the goal, stage it behind explicit coverage gates:
-   - verify each affected page has scope auth, fragment endpoints, mutation invalidations, and focused-edit protections where needed
-   - remove the Auto Refresh script/bootstrap only after those pages have targeted controller/e2e coverage
-3. Reuse plan for other pages:
+1. Commit or merge the verified branch state.
+2. Reuse plan for other pages:
    - keep the shared websocket transport/client pattern
    - add new scope and fragment constructors per feature instead of reusing roster names
    - prefer authorized fragment refetch over cross-user HTML broadcast there as well

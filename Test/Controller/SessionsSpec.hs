@@ -28,6 +28,8 @@ tests = beforeAll (mockContextNoDatabase WebApplication config) do
             response `responseStatusShouldBe` status200
             response `responseBodyShouldContain` "Sign In"
             response `responseBodyShouldContain` "Request an invitation"
+            response `responseBodyShouldNotContain` "/ihp-auto-refresh.js"
+            response `responseBodyShouldNotContain` "ihp-auto-refresh-id"
 
         it "redirects successful logins to the roster week flow" $ withContext do
             Sessions.afterLoginRedirectPath @User `shouldBe` pathTo RosterWeeksAction

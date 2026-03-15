@@ -187,7 +187,8 @@ Playwright-based end-to-end tests live in `e2e/` and run against the live dev se
   - actor browser gets immediate HTMX fragments/OOB swaps from the mutation response
   - concurrent viewers get websocket invalidation payloads plus authorized fragment refetch
 - Roster week pages now subscribe even on empty/hidden-week shells so create/copy/publish transitions can update passive viewers without IHP Auto Refresh
-- The full roster page now opts out of loading `ihp-auto-refresh.js` and Auto Refresh meta entirely; same-week roster freshness is expected to come from the shared live-fragment runtime, not IHP Auto Refresh.
+- The app no longer loads `ihp-auto-refresh.js`, emits Auto Refresh meta, or calls `initAutoRefresh`; page freshness is expected to come from explicit HTMX/live-fragment flows instead of framework-wide polling.
+- Auto Refresh audit result as of `2026-03-15`: there are no remaining app-runtime `autoRefresh` consumers under `Web/Controller/`, `Application/`, `Web/FrontController.hs`, or `Web/View/Layout.hs`.
 - Keep live invalidation payloads structural (`scope`, `fragmentKey`, `targetId`, `url`, `deferUntilBlur`) rather than broadcasting rendered HTML across viewers
 - When a roster mutation should not clobber focused inputs remotely, mark that fragment `deferUntilBlur = true` and let the client replay it after row blur
 - The app-wide live-update direction is:

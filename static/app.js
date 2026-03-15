@@ -298,57 +298,6 @@ $(document).on('ready turbolinks:load', function () {
     });
 })();
 
-// HTMX and IHP AutoRefresh can race and apply overlapping DOM updates.
-// Pause AutoRefresh while an HTMX request is in-flight and briefly during settle.
-(function pauseAutoRefreshDuringHtmxRequests() {
-    if (typeof window === 'undefined') return;
-
-    let inFlightRequests = 0;
-    let resumeTimer = null;
-    const eventTarget = document;
-
-    function pauseNow() {
-        if (typeof window.pauseAutoRefresh === 'function') {
-            window.pauseAutoRefresh();
-            return;
-        }
-        if ('autoRefreshPaused' in window) {
-            window.autoRefreshPaused = true;
-        }
-    }
-
-    function scheduleResume() {
-        if (resumeTimer) {
-            window.clearTimeout(resumeTimer);
-        }
-        resumeTimer = window.setTimeout(function () {
-            if (inFlightRequests === 0 && 'autoRefreshPaused' in window) {
-                window.autoRefreshPaused = false;
-            }
-        }, 150);
-    }
-
-    eventTarget.addEventListener('htmx:beforeRequest', function () {
-        inFlightRequests += 1;
-        pauseNow();
-    });
-
-    function onRequestDone() {
-        if (inFlightRequests > 0) {
-            inFlightRequests -= 1;
-        }
-        scheduleResume();
-    }
-
-    eventTarget.addEventListener('htmx:afterRequest', onRequestDone);
-    eventTarget.addEventListener('htmx:responseError', onRequestDone);
-    eventTarget.addEventListener('htmx:sendError', onRequestDone);
-    eventTarget.addEventListener('htmx:swapError', onRequestDone);
-    eventTarget.addEventListener('htmx:afterSettle', function () {
-        scheduleResume();
-    });
-})();
-
 // Shared live-update runtime: one websocket per tab with many scope subscriptions.
 (function enableLiveUpdates() {
     if (typeof window === 'undefined') return;
