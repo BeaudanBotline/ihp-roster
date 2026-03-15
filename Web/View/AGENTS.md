@@ -67,7 +67,8 @@ renderForm post = formFor post [hsx|
 - Mark each subscribing shell with `data-live-update-owner="true"` and a feature tag such as `data-live-update-feature="roster"` so the shared client can discover owners without hard-coded page ids.
 - A shell may subscribe to more than one scope, but scopes should represent logical data slices rather than page names.
 - Fragment invalidations should name explicit target ids and refetch URLs. Keep the fragment GET route canonical for that DOM region instead of rebuilding HTML inside websocket handlers.
-- Use feature adapters only for DOM-specific behavior such as row replacement or focus deferral. Keep websocket lifecycle, reconnect, dedupe, and refetch queueing in the shared client runtime.
+- Use feature adapters only for DOM-specific behavior such as row replacement, scope-level resync, or focus deferral. Keep websocket lifecycle, reconnect, dedupe, version tracking, and refetch queueing in the shared client runtime.
+- Shared reconnect contract: subscriptions should carry a `lastSeenVersion`, subscribe acks should report `currentVersion` plus whether a scope resync is needed, and a gap in scope versions should trigger a full scope resync through the feature adapter instead of guessing which invalidations were missed.
 
 ## Reusable Time Picker Pattern
 - Use a shared picker overlay + JS behavior for quarter-hour time selection instead of native `<input type="time">` in dense grids.

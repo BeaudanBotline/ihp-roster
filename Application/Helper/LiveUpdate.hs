@@ -5,6 +5,7 @@ module Application.Helper.LiveUpdate
     , LiveUpdateMessage (..)
     , LiveUpdateScope (..)
     , broadcastLiveInvalidation
+    , currentLiveUpdateVersion
     , registerLiveSubscription
     , unregisterLiveSubscription
     ) where
@@ -13,6 +14,7 @@ import qualified Control.Exception.Safe as Exception
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Types as Aeson
 import Data.IORef
+import qualified Data.Map.Strict as Map
 import qualified Data.Text as Text
 import qualified Data.UUID as UUID
 import IHP.Prelude
@@ -47,6 +49,7 @@ data LiveUpdateCommand
     = SubscribeLiveUpdates
         { scope    :: !LiveUpdateScope
         , clientId :: !Text
+        , lastSeenVersion :: !(Maybe Int)
         }
     | UnsubscribeLiveUpdates
         { scope :: !LiveUpdateScope
@@ -55,10 +58,13 @@ data LiveUpdateCommand
 
 data LiveUpdateMessage
     = LiveUpdatesSubscribed
-        { scope :: !LiveUpdateScope
+        { scope          :: !LiveUpdateScope
+        , currentVersion :: !Int
+        , resync         :: !Bool
         }
     | LiveUpdatesInvalidated
         { scope          :: !LiveUpdateScope
+        , version        :: !Int
         , fragments      :: ![LiveFragmentRef]
         , sourceClientId :: !(Maybe Text)
         }
@@ -127,11 +133,12 @@ instance Aeson.FromJSON LiveFragmentRef where
             <*> object Aeson..: "deferUntilBlur"
 
 instance Aeson.ToJSON LiveUpdateCommand where
-    toJSON SubscribeLiveUpdates { scope, clientId } =
+    toJSON SubscribeLiveUpdates { scope, clientId, lastSeenVersion } =
         Aeson.object
             [ "type" Aeson..= ("subscribe" :: Text)
             , "scope" Aeson..= scope
             , "clientId" Aeson..= clientId
+            , "lastSeenVersion" Aeson..= lastSeenVersion
             ]
     toJSON UnsubscribeLiveUpdates { scope } =
         Aeson.object
@@ -147,21 +154,25 @@ instance Aeson.FromJSON LiveUpdateCommand where
                 SubscribeLiveUpdates
                     <$> object Aeson..: "scope"
                     <*> object Aeson..: "clientId"
+                    <*> object Aeson..:? "lastSeenVersion"
             "unsubscribe" ->
                 UnsubscribeLiveUpdates
                     <$> object Aeson..: "scope"
             _ -> fail ("Unknown live update command: " <> cs messageType)
 
 instance Aeson.ToJSON LiveUpdateMessage where
-    toJSON LiveUpdatesSubscribed { scope } =
+    toJSON LiveUpdatesSubscribed { scope, currentVersion, resync } =
         Aeson.object
             [ "type" Aeson..= ("subscribed" :: Text)
             , "scope" Aeson..= scope
+            , "currentVersion" Aeson..= currentVersion
+            , "resync" Aeson..= resync
             ]
-    toJSON LiveUpdatesInvalidated { scope, fragments, sourceClientId } =
+    toJSON LiveUpdatesInvalidated { scope, version, fragments, sourceClientId } =
         Aeson.object
             [ "type" Aeson..= ("invalidate" :: Text)
             , "scope" Aeson..= scope
+            , "version" Aeson..= version
             , "fragments" Aeson..= fragments
             , "sourceClientId" Aeson..= sourceClientId
             ]
@@ -181,6 +192,10 @@ liveSubscriptionsRef :: IORef [LiveSubscription]
 liveSubscriptionsRef = unsafePerformIO (newIORef [])
 {-# NOINLINE liveSubscriptionsRef #-}
 
+liveScopeVersionsRef :: IORef (Map.Map LiveUpdateScope Int)
+liveScopeVersionsRef = unsafePerformIO (newIORef Map.empty)
+{-# NOINLINE liveScopeVersionsRef #-}
+
 registerLiveSubscription :: UUID.UUID -> LiveUpdateScope -> WebSocket.Connection -> IO ()
 registerLiveSubscription subscriptionId scope connection =
     atomicModifyIORef' liveSubscriptionsRef \subscriptions ->
@@ -194,19 +209,30 @@ unregisterLiveSubscription subscriptionId =
     atomicModifyIORef' liveSubscriptionsRef \subscriptions ->
         (filter (\subscription -> subscription.subscriptionId /= subscriptionId) subscriptions, ())
 
+currentLiveUpdateVersion :: LiveUpdateScope -> IO Int
+currentLiveUpdateVersion scope =
+    Map.findWithDefault 0 scope <$> readIORef liveScopeVersionsRef
+
+incrementLiveUpdateVersion :: LiveUpdateScope -> IO Int
+incrementLiveUpdateVersion scope =
+    atomicModifyIORef' liveScopeVersionsRef \versions ->
+        let nextVersion = Map.findWithDefault 0 scope versions + 1
+         in (Map.insert scope nextVersion versions, nextVersion)
+
 broadcastLiveInvalidation :: LiveUpdateScope -> Maybe Text -> [LiveFragmentRef] -> IO ()
 broadcastLiveInvalidation scope sourceClientId fragments = do
+    version <- incrementLiveUpdateVersion scope
     subscriptions <- readIORef liveSubscriptionsRef
     let matchingSubscriptions = filter (\subscription -> subscription.subscriptionScope == scope) subscriptions
-    staleIds <- mapMaybeM (sendInvalidation scope sourceClientId fragments) matchingSubscriptions
+    staleIds <- mapMaybeM (sendInvalidation scope version sourceClientId fragments) matchingSubscriptions
     unless (null staleIds) do
         atomicModifyIORef' liveSubscriptionsRef \activeSubscriptions ->
             ( filter (\subscription -> subscription.subscriptionId `notElem` staleIds) activeSubscriptions
             , ()
             )
 
-sendInvalidation :: LiveUpdateScope -> Maybe Text -> [LiveFragmentRef] -> LiveSubscription -> IO (Maybe UUID.UUID)
-sendInvalidation scope sourceClientId fragments subscription = do
+sendInvalidation :: LiveUpdateScope -> Int -> Maybe Text -> [LiveFragmentRef] -> LiveSubscription -> IO (Maybe UUID.UUID)
+sendInvalidation scope version sourceClientId fragments subscription = do
     result <-
         Exception.tryAny $
             WebSocket.sendTextData subscription.subscriptionConnection (Aeson.encode message)
@@ -218,6 +244,7 @@ sendInvalidation scope sourceClientId fragments subscription = do
         message =
             LiveUpdatesInvalidated
                 { scope
+                , version
                 , fragments
                 , sourceClientId
                 }

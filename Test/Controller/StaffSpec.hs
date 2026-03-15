@@ -39,7 +39,7 @@ tests = beforeAll testContext do
                 _ <- createRosterWeekRecord venue 0 False
                 staff <- createStaffRecord venue (Just linkedUser) "Alpha" "Crew"
 
-                response <- withUserAndCurrentVenue manager venue.id do
+                response <- withUserAndCurrentVenue manager (get #id venue) do
                     withRequestHeaders [("HX-Request", "true")] do
                         callActionWithParams
                             (UpdateStaffAction staff.id)

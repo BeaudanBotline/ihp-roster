@@ -356,6 +356,7 @@ $(document).on('ready turbolinks:load', function () {
     const pendingDeferredFragments = new Map();
     const inFlightFragments = new Map();
     const activeSubscriptions = new Map();
+    const scopeVersions = new Map();
     let socket = null;
     let socketPath = null;
     let reconnectTimer = null;
@@ -515,11 +516,31 @@ $(document).on('ready turbolinks:load', function () {
         socket.send(JSON.stringify(command));
     }
 
+    function getScopeVersion(scopeKey) {
+        const version = scopeVersions.get(scopeKey);
+        return Number.isInteger(version) ? version : null;
+    }
+
+    function setScopeVersion(scopeKey, version) {
+        if (!Number.isInteger(version) || version < 0) return;
+        scopeVersions.set(scopeKey, version);
+    }
+
+    function clearScopeVersion(scopeKey) {
+        scopeVersions.delete(scopeKey);
+    }
+
+    function normalizeVersion(value) {
+        return Number.isInteger(value) && value >= 0 ? value : null;
+    }
+
     function subscribeScope(subscription) {
+        const lastSeenVersion = getScopeVersion(subscription.scopeKey);
         sendCommand({
             type: 'subscribe',
             scope: subscription.scope,
             clientId: ensureClientId(),
+            lastSeenVersion: lastSeenVersion === null ? undefined : lastSeenVersion,
         });
     }
 
@@ -552,6 +573,16 @@ $(document).on('ready turbolinks:load', function () {
                 },
                 scopeKey: `${scopeKind}:${venueId}:${weekOffset}`,
                 path: ownerEl.dataset.liveUpdatesPath || '/live-updates',
+                resync: function (subscription) {
+                    const contentUrl = ownerEl.dataset.liveUpdateContentUrl;
+                    if (!contentUrl) return;
+
+                    handleInvalidatedFragment({
+                        targetId: 'roster-content',
+                        url: contentUrl,
+                        deferUntilBlur: false,
+                    });
+                },
             };
         }
 
@@ -590,6 +621,55 @@ $(document).on('ready turbolinks:load', function () {
         return desired;
     }
 
+    function handleSubscribedMessage(message) {
+        if (!message || !message.scope) return;
+
+        const scope = message.scope;
+        const scopeKey = `${scope.kind}:${scope.venueId}:${scope.weekOffset}`;
+        const subscription = activeSubscriptions.get(scopeKey);
+        if (!subscription) return;
+
+        const currentVersion = normalizeVersion(message.currentVersion);
+        if (currentVersion !== null) {
+            setScopeVersion(scopeKey, currentVersion);
+        }
+
+        if (message.resync && typeof subscription.resync === 'function') {
+            subscription.resync(subscription);
+        }
+    }
+
+    function handleInvalidateMessage(message) {
+        if (!message || !message.scope || !Array.isArray(message.fragments)) return;
+        if (message.sourceClientId && message.sourceClientId === activeClientId) return;
+
+        const scope = message.scope;
+        const scopeKey = `${scope.kind}:${scope.venueId}:${scope.weekOffset}`;
+        const subscription = activeSubscriptions.get(scopeKey);
+        if (!subscription) return;
+
+        const nextVersion = normalizeVersion(message.version);
+        const previousVersion = getScopeVersion(scopeKey);
+
+        if (nextVersion !== null) {
+            if (previousVersion !== null && nextVersion > previousVersion + 1) {
+                setScopeVersion(scopeKey, nextVersion);
+                if (typeof subscription.resync === 'function') {
+                    subscription.resync(subscription);
+                }
+                return;
+            }
+
+            if (previousVersion !== null && nextVersion <= previousVersion) {
+                return;
+            }
+
+            setScopeVersion(scopeKey, nextVersion);
+        }
+
+        message.fragments.forEach(handleInvalidatedFragment);
+    }
+
     function openSocket(path) {
         socket = new window.WebSocket(buildWebSocketUrl(path));
         socketPath = path;
@@ -606,10 +686,16 @@ $(document).on('ready turbolinks:load', function () {
                 return;
             }
 
-            if (!message || message.type !== 'invalidate' || !Array.isArray(message.fragments)) return;
-            if (message.sourceClientId && message.sourceClientId === activeClientId) return;
+            if (!message || typeof message.type !== 'string') return;
 
-            message.fragments.forEach(handleInvalidatedFragment);
+            if (message.type === 'subscribed') {
+                handleSubscribedMessage(message);
+                return;
+            }
+
+            if (message.type === 'invalidate') {
+                handleInvalidateMessage(message);
+            }
         };
 
         socket.onclose = function () {
@@ -655,6 +741,7 @@ $(document).on('ready turbolinks:load', function () {
         removed.forEach(function (subscription) {
             unsubscribeScope(subscription);
             activeSubscriptions.delete(subscription.scopeKey);
+            clearScopeVersion(subscription.scopeKey);
         });
 
         desired.forEach(function (subscription, scopeKey) {

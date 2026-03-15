@@ -42,7 +42,7 @@ handleCommand ::
     IO ()
 handleCommand command =
     case command of
-        SubscribeLiveUpdates { scope } -> do
+        SubscribeLiveUpdates { scope, lastSeenVersion } -> do
             authorized <- isAuthorizedScope scope
             if authorized
                 then do
@@ -50,7 +50,13 @@ handleCommand command =
                     subscriptionId <- UUIDv4.nextRandom
                     registerLiveSubscription subscriptionId scope ?connection
                     addScopeSubscription subscriptionId scope
-                    sendJSON LiveUpdatesSubscribed { scope }
+                    currentVersion <- liftIO (currentLiveUpdateVersion scope)
+                    sendJSON
+                        LiveUpdatesSubscribed
+                            { scope
+                            , currentVersion
+                            , resync = maybe False (/= currentVersion) lastSeenVersion
+                            }
                 else
                     sendJSON
                         LiveUpdatesError

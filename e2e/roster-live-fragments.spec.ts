@@ -42,12 +42,16 @@ async function selectStaffForRow(page, rowIndex, staffId) {
     await expect(select).toHaveValue(staffId);
 }
 
+function managerEntry(page) {
+    return page
+        .locator('#roster-staff-panel-fragment .roster-staff-panel-entry')
+        .filter({ hasText: /E2E Manager|Live Fragments/ })
+        .first();
+}
+
 async function normalizeLiveFragmentRoster(page) {
     const alphaCrewStaffId = 'a1000000-0000-0000-0000-000000000031';
-    const managerEntry = page
-        .locator('#roster-staff-panel-fragment .roster-staff-panel-entry')
-        .filter({ hasText: 'E2E Manager' })
-        .first();
+    const managerPanelEntry = managerEntry(page);
 
     let rowCount = await page.locator('tr[data-roster-row]').count();
     while (rowCount > 1) {
@@ -57,7 +61,7 @@ async function normalizeLiveFragmentRoster(page) {
     }
 
     await selectStaffForRow(page, 0, alphaCrewStaffId);
-    await expect(managerEntry).toContainText('0');
+    await expect(managerPanelEntry).toContainText('0');
 }
 
 test.describe('Roster live fragments', () => {
@@ -71,14 +75,8 @@ test.describe('Roster live fragments', () => {
         await normalizeLiveFragmentRoster(actorPage);
         await loginAndOpenRoster(viewerPage);
 
-        const actorManagerEntry = actorPage
-            .locator('#roster-staff-panel-fragment .roster-staff-panel-entry')
-            .filter({ hasText: 'E2E Manager' })
-            .first();
-        const viewerManagerEntry = viewerPage
-            .locator('#roster-staff-panel-fragment .roster-staff-panel-entry')
-            .filter({ hasText: 'E2E Manager' })
-            .first();
+        const actorManagerEntry = managerEntry(actorPage);
+        const viewerManagerEntry = managerEntry(viewerPage);
 
         await expect(actorManagerEntry).toContainText('0');
         await expect(viewerManagerEntry).toContainText('0');
@@ -137,14 +135,8 @@ test.describe('Roster live fragments', () => {
         await loginAndOpenRoster(viewerPage);
 
         const updatedName = 'Live Fragments';
-        const actorEntry = actorPage
-            .locator('.roster-staff-panel-entry')
-            .filter({ hasText: 'E2E Manager' })
-            .first();
-        const viewerEntry = viewerPage
-            .locator('.roster-staff-panel-entry')
-            .filter({ hasText: 'E2E Manager' })
-            .first();
+        const actorEntry = managerEntry(actorPage);
+        const viewerEntry = managerEntry(viewerPage);
 
         await expect(actorEntry).toBeVisible();
         await expect(viewerEntry).toBeVisible();
@@ -163,6 +155,43 @@ test.describe('Roster live fragments', () => {
         await expect(
             viewerPage.locator('.roster-staff-panel-entry').filter({ hasText: updatedName }).first(),
         ).toBeVisible();
+
+        await actorContext.close();
+        await viewerContext.close();
+    });
+
+    test('defers same-row live updates for a viewer until the focused input blurs', async ({ browser }) => {
+        const actorContext = await browser.newContext();
+        const viewerContext = await browser.newContext();
+        const actorPage = await actorContext.newPage();
+        const viewerPage = await viewerContext.newPage();
+
+        await loginAndOpenRoster(actorPage);
+        await normalizeLiveFragmentRoster(actorPage);
+        await loginAndOpenRoster(viewerPage);
+
+        const viewerRow = viewerPage.locator('tr[data-roster-row]').first();
+        const viewerStaffSelect = viewerRow.locator('select[name="staffId"]');
+        const viewerNoteInput = viewerRow.locator('input[name="note"]');
+        const actorStaffSelect = actorPage.locator('select[name="staffId"]').first();
+        const managerStaffId = 'a0000000-0000-0000-0000-000000000101';
+
+        await expect(viewerStaffSelect).toHaveValue('a1000000-0000-0000-0000-000000000031');
+
+        await viewerNoteInput.click();
+        await viewerNoteInput.fill('viewer keeps editing');
+        await expect(viewerNoteInput).toBeFocused();
+
+        await actorStaffSelect.selectOption(managerStaffId);
+
+        await expect(managerEntry(actorPage)).toContainText('1');
+        await expect(viewerStaffSelect).toHaveValue('a1000000-0000-0000-0000-000000000031');
+        await expect(viewerNoteInput).toHaveValue('viewer keeps editing');
+
+        await viewerNoteInput.blur();
+
+        await expect(viewerStaffSelect).toHaveValue(managerStaffId);
+        await expect(viewerNoteInput).toHaveValue('viewer keeps editing');
 
         await actorContext.close();
         await viewerContext.close();

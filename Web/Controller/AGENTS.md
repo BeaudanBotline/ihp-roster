@@ -97,6 +97,7 @@ Every controller requires changes in **four files** (missing any will cause comp
 - Treat scopes as authorized logical data slices, not pages. A mutation may invalidate multiple scopes, and only a subset of fragments within each scope.
 - Prefer one websocket connection per browser tab/client with many active scope subscriptions instead of one socket per page.
 - Keep fragment refs explicit (`targetId`, `url`, defer/swap metadata) so the transport stays structural and controllers do not need to know mounted DOM state.
+- Keep reconnect semantics explicit in the transport: each scope should expose a monotonic version, subscribe commands may include the client's `lastSeenVersion`, and the server should tell the client when a full scope resync is required instead of assuming no invalidations were missed.
 - Keep fragment GET actions authorized with the same venue/visibility rules as the full page; do not expose restricted fragments just because the websocket payload names them.
 - Include the acting tab's `X-Live-Update-Client-Id` in broadcasts so the client can suppress its own invalidation echo.
 - Broadcast invalidations for affected scopes after the business transaction commits, not before.

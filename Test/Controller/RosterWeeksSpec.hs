@@ -176,6 +176,45 @@ tests = beforeAll testContext do
                 response `responseBodyShouldContain` cs (rosterRowDomIdText rosterDay.id 0)
                 response `responseBodyShouldContain` "Crew, Alpha"
 
+        it "manager can fetch the roster content fragment for the current venue" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Venue A"
+                manager <- createUserRecord "roster-manager-content-fragment@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue manager "manager"
+                slotName <- createSlotNameRecord venue "Early"
+                staffMember <- createStaffRecord venue Nothing "Alpha" "Crew"
+                rosterWeek <- createRosterWeekRecord venue 0 False
+                rosterDay <- createRosterDayRecord rosterWeek 0
+                _ <- createRosterSlotRecord rosterDay slotName (Just staffMember) 0
+
+                response <- withUserAndCurrentVenue manager venue.id do
+                    callAction (ShowRosterWeekContentFragmentAction 0)
+
+                response `responseStatusShouldBe` status200
+                response `responseBodyShouldContain` cs rosterContentFragmentId
+                response `responseBodyShouldContain` "Crew, Alpha"
+
+        it "manager can fetch the roster staff panel fragment for the current venue" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Venue A"
+                manager <- createUserRecord "roster-manager-panel-fragment@example.com" "staff" True
+                linkedUser <- createUserRecord "roster-worker-panel-fragment@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue manager "manager"
+                _ <- createVenueMembershipRecord venue linkedUser "worker"
+                slotName <- createSlotNameRecord venue "Early"
+                staffMember <- createStaffRecord venue (Just linkedUser) "Alpha" "Crew"
+                rosterWeek <- createRosterWeekRecord venue 0 False
+                rosterDay <- createRosterDayRecord rosterWeek 0
+                _ <- createRosterSlotRecord rosterDay slotName (Just staffMember) 0
+
+                response <- withUserAndCurrentVenue manager venue.id do
+                    callAction (ShowRosterWeekStaffPanelFragmentAction 0)
+
+                response `responseStatusShouldBe` status200
+                response `responseBodyShouldContain` cs rosterStaffPanelFragmentId
+                response `responseBodyShouldContain` "Alpha Crew"
+                response `responseBodyShouldContain` "1"
+
         it "staff row fragment fetch stays empty for a draft week" $ withContext do
             withCleanDb do
                 venue <- createVenueWithConfig "Venue A"
