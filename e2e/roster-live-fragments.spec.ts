@@ -196,4 +196,47 @@ test.describe('Roster live fragments', () => {
         await actorContext.close();
         await viewerContext.close();
     });
+
+    test('recovers from reconnect with a deferred content resync and immediate staff-panel refresh', async ({ browser }) => {
+        const actorContext = await browser.newContext();
+        const viewerContext = await browser.newContext();
+        const actorPage = await actorContext.newPage();
+        const viewerPage = await viewerContext.newPage();
+
+        await loginAndOpenRoster(actorPage);
+        await normalizeLiveFragmentRoster(actorPage);
+        await loginAndOpenRoster(viewerPage);
+
+        const viewerRow = viewerPage.locator('tr[data-roster-row]').first();
+        const viewerStaffSelect = viewerRow.locator('select[name="staffId"]');
+        const viewerNoteInput = viewerRow.locator('input[name="note"]');
+        const actorStaffSelect = actorPage.locator('select[name="staffId"]').first();
+        const managerStaffId = 'a0000000-0000-0000-0000-000000000101';
+
+        await expect(managerEntry(actorPage)).toContainText('0');
+        await expect(managerEntry(viewerPage)).toContainText('0');
+        await expect(viewerStaffSelect).toHaveValue('a1000000-0000-0000-0000-000000000031');
+
+        await viewerContext.setOffline(true);
+        await viewerNoteInput.click();
+        await viewerNoteInput.fill('viewer reconnect edit');
+        await expect(viewerNoteInput).toBeFocused();
+
+        await actorStaffSelect.selectOption(managerStaffId);
+        await expect(managerEntry(actorPage)).toContainText('1');
+
+        await viewerContext.setOffline(false);
+
+        await expect(managerEntry(viewerPage)).toContainText('1');
+        await expect(viewerStaffSelect).toHaveValue('a1000000-0000-0000-0000-000000000031');
+        await expect(viewerNoteInput).toHaveValue('viewer reconnect edit');
+
+        await viewerNoteInput.blur();
+
+        await expect(viewerStaffSelect).toHaveValue(managerStaffId);
+        await expect(viewerNoteInput).toHaveValue('viewer reconnect edit');
+
+        await actorContext.close();
+        await viewerContext.close();
+    });
 });

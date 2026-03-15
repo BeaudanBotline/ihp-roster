@@ -450,6 +450,7 @@ $(document).on('ready turbolinks:load', function () {
 
         const html = await response.text();
         await swapFragmentHtml(fragment.targetId, html);
+        restoreDeferredFieldState(fragment);
     }
 
     function queueFragment(fragment) {
@@ -478,6 +479,46 @@ $(document).on('ready turbolinks:load', function () {
         return Boolean(rowEl && rowEl.querySelector('.slot-cell-input:focus'));
     }
 
+    function captureDeferredFieldState(target, fragment) {
+        if (!(target instanceof HTMLElement)) return fragment;
+
+        const activeInput = target.querySelector('.slot-cell-input:focus');
+        if (!(activeInput instanceof HTMLInputElement || activeInput instanceof HTMLSelectElement || activeInput instanceof HTMLTextAreaElement)) {
+            return fragment;
+        }
+
+        const name = activeInput.getAttribute('name');
+        if (!name) return fragment;
+
+        const rowEl = activeInput.closest('tr[data-roster-row]');
+        return {
+            ...fragment,
+            preserveField: {
+                rowId: rowEl instanceof HTMLElement ? rowEl.id : null,
+                name,
+                value: activeInput.value,
+            },
+        };
+    }
+
+    function restoreDeferredFieldState(fragment) {
+        if (!fragment || !fragment.preserveField) return;
+
+        const { rowId, name, value } = fragment.preserveField;
+        if (!name) return;
+
+        const root = rowId ? document.getElementById(rowId) : document.getElementById(fragment.targetId);
+        if (!(root instanceof HTMLElement)) return;
+
+        const escapedName = window.CSS && typeof window.CSS.escape === 'function'
+            ? window.CSS.escape(name)
+            : name;
+        const field = root.querySelector(`[name="${escapedName}"]`);
+        if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement) {
+            field.value = value;
+        }
+    }
+
     function handleInvalidatedFragment(fragment) {
         if (!fragment || !fragment.targetId || !fragment.url) return;
         if (!document.getElementById(fragment.targetId)) return;
@@ -485,7 +526,7 @@ $(document).on('ready turbolinks:load', function () {
         if (fragment.deferUntilBlur) {
             const target = document.getElementById(fragment.targetId);
             if (hasActiveRosterInput(target)) {
-                pendingDeferredFragments.set(fragment.targetId, fragment);
+                pendingDeferredFragments.set(fragment.targetId, captureDeferredFieldState(target, fragment));
                 return;
             }
         }
@@ -575,13 +616,23 @@ $(document).on('ready turbolinks:load', function () {
                 path: ownerEl.dataset.liveUpdatesPath || '/live-updates',
                 resync: function (subscription) {
                     const contentUrl = ownerEl.dataset.liveUpdateContentUrl;
-                    if (!contentUrl) return;
+                    const staffPanelUrl = ownerEl.dataset.liveUpdateStaffPanelUrl;
 
-                    handleInvalidatedFragment({
-                        targetId: 'roster-content',
-                        url: contentUrl,
-                        deferUntilBlur: false,
-                    });
+                    if (contentUrl) {
+                        handleInvalidatedFragment({
+                            targetId: 'roster-content',
+                            url: contentUrl,
+                            deferUntilBlur: true,
+                        });
+                    }
+
+                    if (staffPanelUrl) {
+                        handleInvalidatedFragment({
+                            targetId: 'roster-staff-panel-fragment',
+                            url: staffPanelUrl,
+                            deferUntilBlur: false,
+                        });
+                    }
                 },
             };
         }

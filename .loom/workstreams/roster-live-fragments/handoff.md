@@ -42,12 +42,16 @@ Rejected as primary foundation:
   - subscribe acks report `currentVersion` plus whether a scope resync is required
   - invalidations carry the incremented scope version
   - the client triggers a feature-level resync when subscribe continuity is not guaranteed or when it detects a version gap
+- Roster reconnect recovery currently uses a mixed resync strategy:
+  - `#roster-staff-panel-fragment` refetches immediately on reconnect-driven resync
+  - coarse `#roster-content` resync remains the fallback for week content, but it is now blur-deferred so reconnect recovery does not clobber a focused `.slot-cell-input`
 - Roster inputs now sync against `#roster-week-shell`, not `#roster-content`, because actor-side content refreshes replace the inner content node.
 - Row-fragment refetches return plain `<tr>` markup and the client replaces those DOM nodes directly rather than routing them through generic `htmx.swap`.
 - `ShowRosterWeekAction` still includes Auto Refresh today, but the verified roster flows now propagate through live invalidation without depending on it:
-  - staff edits launched from roster now update passive viewers under Playwright coverage
-  - clients already viewing an empty week offset now receive create/copy transitions under Playwright coverage
-- Any remaining justification for Auto Refresh is now outside the verified roster-live-fragments surface:
+  - this note is now stale: the roster page no longer loads `ihp-auto-refresh.js` or emits Auto Refresh meta
+  - staff edits launched from roster update passive viewers under Playwright coverage
+  - clients already viewing an empty week offset receive create/copy transitions under Playwright coverage
+- Any remaining justification for Auto Refresh is now outside the roster page itself:
   - other pages still use IHP Auto Refresh
   - external or future roster-affecting workflows that do not yet emit targeted invalidations would regress if Auto Refresh were removed globally without replacement
 
@@ -86,6 +90,7 @@ Rejected as primary foundation:
   - blur-deferred row refetch for actively edited rows
   - per-scope version tracking plus reconnect/gap-driven resync through feature adapters
 - Added shared scope-version state in [Application/Helper/LiveUpdate.hs](/home/beau/documents/projects/ihp-roster/Application/Helper/LiveUpdate.hs) and subscribe ack handling in [Web/Controller/LiveUpdates.hs](/home/beau/documents/projects/ihp-roster/Web/Controller/LiveUpdates.hs) so future live-fragment pages can reuse the same reconnect contract.
+- Disabled page-level IHP Auto Refresh assets for roster views in [Web/View/Layout.hs](/home/beau/documents/projects/ihp-roster/Web/View/Layout.hs) so the roster page now relies solely on the shared live-fragment runtime for same-week freshness.
 - Added coverage in [Test/Controller/RosterWeeksSpec.hs](/home/beau/documents/projects/ihp-roster/Test/Controller/RosterWeeksSpec.hs) for:
   - unauthenticated fragment route protection
   - manager row-fragment fetch
@@ -96,6 +101,8 @@ Rejected as primary foundation:
   - [e2e/roster-live-fragments.spec.ts](/home/beau/documents/projects/ihp-roster/e2e/roster-live-fragments.spec.ts) for same-week live updates across viewers
   - [e2e/roster-duplicate-conflicts.spec.ts](/home/beau/documents/projects/ihp-roster/e2e/roster-duplicate-conflicts.spec.ts) for actor/viewer duplicate-conflict highlighting plus viewer grid integrity
   - focused-row deferral is now covered so viewer-side same-row invalidations wait until blur before applying
+  - reconnect recovery is now covered so viewers who miss updates while offline resync on reconnect, refresh the staff panel immediately, and defer coarse roster-content replacement until blur if they are editing
+  - deferred same-row updates now preserve the locally edited field value after blur while still applying the remote roster update
 - Promoted durable live-fragment conventions into [AGENTS.md](/home/beau/documents/projects/ihp-roster/AGENTS.md), [Web/Controller/AGENTS.md](/home/beau/documents/projects/ihp-roster/Web/Controller/AGENTS.md), and [Web/View/AGENTS.md](/home/beau/documents/projects/ihp-roster/Web/View/AGENTS.md).
 
 ## Recommended implementation starting point
@@ -128,14 +135,11 @@ Use the names above only if they still fit the code once implementation begins.
 
 ## Next actions
 
-1. Validate the new reconnect/resync contract on roster itself:
-   - add browser coverage for reconnect or missed-update recovery
-   - decide whether roster resync should stay content-level or enumerate smaller mounted fragments when focused edits exist
-2. Audit non-roster pages and cross-controller flows that still depend on `initAutoRefresh`/`ihp-auto-refresh.js`, then either migrate them to explicit live invalidations or document them as blockers to site-wide removal.
-3. If site-wide Auto Refresh removal is still the goal, stage it behind explicit coverage gates:
+1. Audit non-roster pages and cross-controller flows that still depend on `initAutoRefresh`/`ihp-auto-refresh.js`, then either migrate them to explicit live invalidations or document them as blockers to site-wide removal.
+2. If site-wide Auto Refresh removal is still the goal, stage it behind explicit coverage gates:
    - verify each affected page has scope auth, fragment endpoints, mutation invalidations, and focused-edit protections where needed
    - remove the Auto Refresh script/bootstrap only after those pages have targeted controller/e2e coverage
-4. Reuse plan for other pages:
+3. Reuse plan for other pages:
    - keep the shared websocket transport/client pattern
    - add new scope and fragment constructors per feature instead of reusing roster names
    - prefer authorized fragment refetch over cross-user HTML broadcast there as well

@@ -90,7 +90,7 @@ scripts = [hsx|
         <script src={assetPath "/vendor/turbolinksInstantClick.js"}></script>
         <script src={assetPath "/vendor/turbolinksMorphdom.js"}></script>
         <script src={assetPath "/helpers.js"}></script>
-        <script src={assetPath "/ihp-auto-refresh.js"}></script>
+        {when shouldLoadAutoRefreshAssets autoRefreshScript}
         <script src={assetPath "/app.js"}></script>
     |]
 
@@ -107,5 +107,14 @@ metaTags = [hsx|
     <meta property="og:type" content="website"/>
     <meta property="og:url" content="TODO"/>
     <meta property="og:description" content="TODO"/>
-    {autoRefreshMeta}
+    {when shouldLoadAutoRefreshAssets autoRefreshMeta}
+|]
+
+shouldLoadAutoRefreshAssets :: (?context :: ControllerContext) => Bool
+shouldLoadAutoRefreshAssets =
+    not (isActiveController @RosterWeeksController)
+
+autoRefreshScript :: Html
+autoRefreshScript = [hsx|
+    <script src={assetPath "/ihp-auto-refresh.js"}></script>
 |]
