@@ -46,6 +46,8 @@ renderRosterWeekShell :: ShowView -> Html
 renderRosterWeekShell ShowView { .. } = [hsx|
     <section id={rosterWeekShellId}
              hx-history-elt="true"
+             data-live-update-owner="true"
+             data-live-update-feature="roster"
              data-live-updates-path="/live-updates"
              data-live-update-client-enabled={isJust liveUpdateScope}
              data-live-update-client-id=""

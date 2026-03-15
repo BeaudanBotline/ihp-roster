@@ -133,10 +133,14 @@ Each new controller requires:
 
 ## Realtime considerations
 
-- Roster/timesheet UX utilizes HTMX and IHP AutoRefresh.
-- **HTMX** is used for inline mutation (e.g. `hx-post` on slot inputs) to update the server without page reloads.
-- **AutoRefresh** provides the reactivity: when the database updates, IHP pushes the rendered HTML changes to the client, instantly reflecting updated states and recalculating conflict badges.
-- Realtime updates are an optimization layer; canonical state transitions remain server-side.
+- Realtime UX should use HTMX for actor-side mutations plus websocket invalidation with authorized fragment refetch for passive viewers.
+- Use one websocket connection per browser tab/client and allow many active scope subscriptions on that connection.
+- A **scope** is an authorized logical data slice, not a page. Example shape: `RosterWeekScope venueId weekOffset`.
+- A mutation may invalidate multiple scopes, and only a subset of fragments within each affected scope.
+- Invalidation payloads should stay structural: explicit fragment refs (`targetId`, `url`, feature-specific metadata), not pushed rendered HTML.
+- Clients should refetch only the invalidated fragments they currently have mounted; the server should not track per-client mounted fragment inventories.
+- Keep feature-specific DOM behavior in thin adapters while sharing websocket lifecycle, reconnect, dedupe, and refetch queueing in one client runtime.
+- Realtime updates are an optimization layer; canonical state transitions and authorization remain server-side.
 
 ## Data consistency
 

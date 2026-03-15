@@ -6,7 +6,7 @@
 - Phase 2 websocket invalidation transport is landed
 - Phase 3 roster fragment refetch endpoints are landed
 - Phase 4 client subscription/refetch integration is landed for roster week pages
-- Phase 5 mutation coverage is partial: slot updates, row add/remove, and publish now broadcast invalidations; create/copy/import flows still rely on existing navigation/Auto Refresh behavior
+- Phase 5 mutation coverage is partial: slot updates, row add/remove, and publish now broadcast invalidations; create/copy/import flows still rely on existing navigation/Auto Refresh behavior, and cross-controller staff edits still rely on Auto Refresh for passive viewers
 - Existing repo state was checkpointed before planning in commit `2b4e99a` (`Checkpoint current repo changes`)
 
 ## Baseline verification notes
@@ -24,7 +24,7 @@ The chosen approach is:
 - immediate HTMX fragment response for the acting user
 - websocket invalidation for concurrent viewers
 - authorized fragment refetch for viewer updates
-- Auto Refresh retained during rollout as broad fallback/correctness layer
+- Auto Refresh retained during rollout as broad fallback/correctness layer for roster-visible changes that still happen outside the explicit invalidation path
 
 Rejected as primary foundation:
 
@@ -40,6 +40,9 @@ Rejected as primary foundation:
 - Roster inputs now sync against `#roster-week-shell`, not `#roster-content`, because actor-side content refreshes replace the inner content node.
 - Row-fragment refetches return plain `<tr>` markup and the client replaces those DOM nodes directly rather than routing them through generic `htmx.swap`.
 - `ShowRosterWeekAction` still uses Auto Refresh as the broad fallback during rollout.
+- That fallback still serves a concrete function:
+  - staff edits launched from roster return actor OOB content only; passive viewers still depend on Auto Refresh to see those changes
+  - clients already viewing a week offset before that week exists still depend on Auto Refresh to notice a later create/copy into that offset
 
 ## Landed in this pass
 
@@ -119,3 +122,7 @@ Use the names above only if they still fit the code once implementation begins.
    - copy/import/create week flows
    - staff-edit workflows launched from roster when they change visible sidebar content
 2. After live coverage is proven complete, review whether roster can narrow Auto Refresh or should keep it as the broad fallback.
+3. Reuse plan for other pages:
+   - keep the shared websocket transport/client pattern
+   - add new scope and fragment constructors per feature instead of reusing roster names
+   - prefer authorized fragment refetch over cross-user HTML broadcast there as well

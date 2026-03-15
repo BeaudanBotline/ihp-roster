@@ -189,7 +189,14 @@ Playwright-based end-to-end tests live in `e2e/` and run against the live dev se
 - Roster week pages now subscribe even on empty/hidden-week shells so create/copy/publish transitions can update passive viewers without IHP Auto Refresh
 - Keep live invalidation payloads structural (`scope`, `fragmentKey`, `targetId`, `url`, `deferUntilBlur`) rather than broadcasting rendered HTML across viewers
 - When a roster mutation should not clobber focused inputs remotely, mark that fragment `deferUntilBlur = true` and let the client replay it after row blur
-- The transport/client pattern is reusable across other collaborative pages, but the current `LiveUpdateScope` and `LiveFragmentKey` constructors are still roster-specific; extend them deliberately instead of reusing roster names by accident
+- The app-wide live-update direction is:
+  - one websocket connection per browser tab/client
+  - many scope subscriptions per connection
+  - scopes represent authorized logical data slices, not pages
+  - invalidations are routed by scope and carry explicit fragment refs
+  - clients refetch only the invalidated fragments they currently have mounted
+  - one mutation may invalidate multiple scopes, and only a subset of fragments within each scope
+- The transport/client pattern is reusable across other collaborative pages. Keep the websocket/refetch core shared, and add small per-feature adapters for DOM discovery, swap rules, and focus deferral where needed.
 
 ## Auth Model Notes
 - Current business authority is venue-scoped. `venue_memberships.venue_role` is what grants manager/admin access; `users.user_role = 'admin'` is not a cross-venue superuser.

@@ -49,6 +49,8 @@ data LiveUpdateCommand
         , clientId :: !Text
         }
     | UnsubscribeLiveUpdates
+        { scope :: !LiveUpdateScope
+        }
     deriving (Eq, Show)
 
 data LiveUpdateMessage
@@ -131,8 +133,11 @@ instance Aeson.ToJSON LiveUpdateCommand where
             , "scope" Aeson..= scope
             , "clientId" Aeson..= clientId
             ]
-    toJSON UnsubscribeLiveUpdates =
-        Aeson.object ["type" Aeson..= ("unsubscribe" :: Text)]
+    toJSON UnsubscribeLiveUpdates { scope } =
+        Aeson.object
+            [ "type" Aeson..= ("unsubscribe" :: Text)
+            , "scope" Aeson..= scope
+            ]
 
 instance Aeson.FromJSON LiveUpdateCommand where
     parseJSON = Aeson.withObject "LiveUpdateCommand" \object -> do
@@ -142,7 +147,9 @@ instance Aeson.FromJSON LiveUpdateCommand where
                 SubscribeLiveUpdates
                     <$> object Aeson..: "scope"
                     <*> object Aeson..: "clientId"
-            "unsubscribe" -> pure UnsubscribeLiveUpdates
+            "unsubscribe" ->
+                UnsubscribeLiveUpdates
+                    <$> object Aeson..: "scope"
             _ -> fail ("Unknown live update command: " <> cs messageType)
 
 instance Aeson.ToJSON LiveUpdateMessage where

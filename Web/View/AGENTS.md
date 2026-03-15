@@ -62,6 +62,13 @@ renderForm post = formFor post [hsx|
 - For viewer-side row refetches, do not return `hx-swap-oob` row wrappers from the fragment GET action; return the plain `<tr>` fragment and let JS replace the target row directly.
 - Mark row fragments as blur-deferred on the client when remote updates should not overwrite focused `.slot-cell-input` controls.
 
+## Shared Live Shell Pattern
+- Treat the page shell as the subscription owner. Render scope metadata on a stable shell element so the shared client can subscribe/unsubscribe as HTMX navigation swaps shells in and out.
+- Mark each subscribing shell with `data-live-update-owner="true"` and a feature tag such as `data-live-update-feature="roster"` so the shared client can discover owners without hard-coded page ids.
+- A shell may subscribe to more than one scope, but scopes should represent logical data slices rather than page names.
+- Fragment invalidations should name explicit target ids and refetch URLs. Keep the fragment GET route canonical for that DOM region instead of rebuilding HTML inside websocket handlers.
+- Use feature adapters only for DOM-specific behavior such as row replacement or focus deferral. Keep websocket lifecycle, reconnect, dedupe, and refetch queueing in the shared client runtime.
+
 ## Reusable Time Picker Pattern
 - Use a shared picker overlay + JS behavior for quarter-hour time selection instead of native `<input type="time">` in dense grids.
 - Markup contract:

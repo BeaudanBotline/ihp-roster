@@ -349,25 +349,17 @@ $(document).on('ready turbolinks:load', function () {
     });
 })();
 
-// Roster live fragments use websocket invalidations plus authorized fragment refetch.
-(function enableRosterLiveFragments() {
+// Shared live-update runtime: one websocket per tab with many scope subscriptions.
+(function enableLiveUpdates() {
     if (typeof window === 'undefined') return;
 
-    const shellId = 'roster-week-shell';
     const pendingDeferredFragments = new Map();
     const inFlightFragments = new Map();
+    const activeSubscriptions = new Map();
     let socket = null;
+    let socketPath = null;
     let reconnectTimer = null;
-    let activeScopeKey = null;
     let activeClientId = null;
-
-    function getShell() {
-        return document.getElementById(shellId);
-    }
-
-    function hasActiveRosterInput(rowEl) {
-        return Boolean(rowEl && rowEl.querySelector('.slot-cell-input:focus'));
-    }
 
     function makeClientId() {
         if (window.crypto && typeof window.crypto.randomUUID === 'function') {
@@ -377,36 +369,17 @@ $(document).on('ready turbolinks:load', function () {
         return `live-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     }
 
-    function readScope(shellEl) {
-        if (!(shellEl instanceof HTMLElement)) return null;
-        if (shellEl.dataset.liveUpdateClientEnabled !== 'true') return null;
-
-        const scopeKind = shellEl.dataset.liveUpdateScopeKind;
-        const venueId = shellEl.dataset.liveUpdateVenueId;
-        const weekOffsetRaw = shellEl.dataset.liveUpdateWeekOffset;
-        if (!scopeKind || !venueId || typeof weekOffsetRaw !== 'string') return null;
-
-        const weekOffset = Number.parseInt(weekOffsetRaw, 10);
-        if (!Number.isInteger(weekOffset)) return null;
-
-        return {
-            scope: {
-                kind: scopeKind,
-                venueId,
-                weekOffset,
-            },
-            scopeKey: `${scopeKind}:${venueId}:${weekOffset}`,
-            path: shellEl.dataset.liveUpdatesPath || '/live-updates',
-        };
-    }
-
-    function ensureClientId(shellEl) {
-        if (!(shellEl instanceof HTMLElement)) return null;
-        if (!shellEl.dataset.liveUpdateClientId) {
-            shellEl.dataset.liveUpdateClientId = activeClientId || makeClientId();
+    function ensureClientId() {
+        if (!activeClientId) {
+            activeClientId = makeClientId();
         }
 
-        activeClientId = shellEl.dataset.liveUpdateClientId;
+        document.querySelectorAll('[data-live-update-owner="true"]').forEach(function (ownerEl) {
+            if (ownerEl instanceof HTMLElement) {
+                ownerEl.dataset.liveUpdateClientId = activeClientId;
+            }
+        });
+
         return activeClientId;
     }
 
@@ -430,7 +403,7 @@ $(document).on('ready turbolinks:load', function () {
             socket = null;
         }
 
-        activeScopeKey = null;
+        socketPath = null;
     }
 
     async function swapFragmentHtml(targetId, html) {
@@ -500,8 +473,13 @@ $(document).on('ready turbolinks:load', function () {
             });
     }
 
+    function hasActiveRosterInput(rowEl) {
+        return Boolean(rowEl && rowEl.querySelector('.slot-cell-input:focus'));
+    }
+
     function handleInvalidatedFragment(fragment) {
         if (!fragment || !fragment.targetId || !fragment.url) return;
+        if (!document.getElementById(fragment.targetId)) return;
 
         if (fragment.deferUntilBlur) {
             const target = document.getElementById(fragment.targetId);
@@ -532,19 +510,92 @@ $(document).on('ready turbolinks:load', function () {
         }, 1000);
     }
 
-    function openSocket(scopeInfo, shellEl) {
-        const clientId = ensureClientId(shellEl);
-        if (!clientId) return;
+    function sendCommand(command) {
+        if (!socket || socket.readyState !== window.WebSocket.OPEN) return;
+        socket.send(JSON.stringify(command));
+    }
 
-        socket = new window.WebSocket(buildWebSocketUrl(scopeInfo.path));
-        activeScopeKey = scopeInfo.scopeKey;
+    function subscribeScope(subscription) {
+        sendCommand({
+            type: 'subscribe',
+            scope: subscription.scope,
+            clientId: ensureClientId(),
+        });
+    }
+
+    function unsubscribeScope(subscription) {
+        sendCommand({
+            type: 'unsubscribe',
+            scope: subscription.scope,
+        });
+    }
+
+    function rosterAdapter() {
+        function readScope(ownerEl) {
+            if (!(ownerEl instanceof HTMLElement)) return null;
+            if (ownerEl.dataset.liveUpdateFeature !== 'roster') return null;
+            if (ownerEl.dataset.liveUpdateClientEnabled !== 'true') return null;
+
+            const scopeKind = ownerEl.dataset.liveUpdateScopeKind;
+            const venueId = ownerEl.dataset.liveUpdateVenueId;
+            const weekOffsetRaw = ownerEl.dataset.liveUpdateWeekOffset;
+            if (!scopeKind || !venueId || typeof weekOffsetRaw !== 'string') return null;
+
+            const weekOffset = Number.parseInt(weekOffsetRaw, 10);
+            if (!Number.isInteger(weekOffset)) return null;
+
+            return {
+                scope: {
+                    kind: scopeKind,
+                    venueId,
+                    weekOffset,
+                },
+                scopeKey: `${scopeKind}:${venueId}:${weekOffset}`,
+                path: ownerEl.dataset.liveUpdatesPath || '/live-updates',
+            };
+        }
+
+        return {
+            collectSubscriptions: function () {
+                const subscriptions = [];
+                document.querySelectorAll('[data-live-update-owner="true"]').forEach(function (ownerEl) {
+                    const scopeInfo = readScope(ownerEl);
+                    if (!scopeInfo) return;
+
+                    subscriptions.push({
+                        ...scopeInfo,
+                        ownerEl,
+                    });
+                });
+                return subscriptions;
+            },
+            shouldDecorateRequest: function (event) {
+                const sourceEl = event.detail && event.detail.elt;
+                return sourceEl instanceof HTMLElement && Boolean(sourceEl.closest('[data-live-update-feature="roster"]'));
+            },
+        };
+    }
+
+    const adapters = [rosterAdapter()];
+
+    function desiredSubscriptions() {
+        const desired = new Map();
+
+        adapters.forEach(function (adapter) {
+            adapter.collectSubscriptions().forEach(function (subscription) {
+                desired.set(subscription.scopeKey, subscription);
+            });
+        });
+
+        return desired;
+    }
+
+    function openSocket(path) {
+        socket = new window.WebSocket(buildWebSocketUrl(path));
+        socketPath = path;
 
         socket.onopen = function () {
-            socket.send(JSON.stringify({
-                type: 'subscribe',
-                scope: scopeInfo.scope,
-                clientId,
-            }));
+            activeSubscriptions.forEach(subscribeScope);
         };
 
         socket.onmessage = function (event) {
@@ -556,17 +607,14 @@ $(document).on('ready turbolinks:load', function () {
             }
 
             if (!message || message.type !== 'invalidate' || !Array.isArray(message.fragments)) return;
-            if (message.sourceClientId && message.sourceClientId === clientId) return;
+            if (message.sourceClientId && message.sourceClientId === activeClientId) return;
 
             message.fragments.forEach(handleInvalidatedFragment);
         };
 
         socket.onclose = function () {
             socket = null;
-
-            const currentShell = getShell();
-            const currentScope = readScope(currentShell);
-            if (currentScope && currentScope.scopeKey === activeScopeKey) {
+            if (activeSubscriptions.size > 0) {
                 scheduleReconnect();
             }
         };
@@ -579,39 +627,57 @@ $(document).on('ready turbolinks:load', function () {
     }
 
     function syncConnection() {
-        const shellEl = getShell();
-        const scopeInfo = readScope(shellEl);
+        ensureClientId();
 
-        if (!scopeInfo) {
+        const desired = desiredSubscriptions();
+        const nextPath = desired.size > 0 ? desired.values().next().value.path : null;
+
+        if (desired.size === 0 || !nextPath) {
+            activeSubscriptions.clear();
             closeSocket();
             return;
         }
 
-        ensureClientId(shellEl);
+        const removed = [];
+        activeSubscriptions.forEach(function (subscription, scopeKey) {
+            if (!desired.has(scopeKey)) {
+                removed.push(subscription);
+            }
+        });
 
-        if (socket && activeScopeKey === scopeInfo.scopeKey && socket.readyState <= window.WebSocket.OPEN) {
+        const added = [];
+        desired.forEach(function (subscription, scopeKey) {
+            if (!activeSubscriptions.has(scopeKey)) {
+                added.push(subscription);
+            }
+        });
+
+        removed.forEach(function (subscription) {
+            unsubscribeScope(subscription);
+            activeSubscriptions.delete(subscription.scopeKey);
+        });
+
+        desired.forEach(function (subscription, scopeKey) {
+            activeSubscriptions.set(scopeKey, subscription);
+        });
+
+        if (!socket || socket.readyState > window.WebSocket.OPEN || socketPath !== nextPath) {
+            closeSocket();
+            openSocket(nextPath);
             return;
         }
 
-        closeSocket();
-        openSocket(scopeInfo, shellEl);
+        if (socket.readyState === window.WebSocket.OPEN) {
+            added.forEach(subscribeScope);
+        }
     }
 
     document.addEventListener('htmx:configRequest', function (event) {
-        const shellEl = getShell();
-        if (!(shellEl instanceof HTMLElement)) return;
-
-        const requestPath = event.detail && event.detail.path;
-        const sourceEl = event.detail && event.detail.elt;
-        const isRosterRequest =
-            (typeof requestPath === 'string' && requestPath.indexOf('/RosterWeeks') === 0)
-            || (sourceEl instanceof HTMLElement && Boolean(sourceEl.closest(`#${shellId}`)));
-
-        if (!isRosterRequest) return;
-
-        const clientId = ensureClientId(shellEl);
-        if (!clientId) return;
-
+        const shouldDecorate = adapters.some(function (adapter) {
+            return typeof adapter.shouldDecorateRequest === 'function' && adapter.shouldDecorateRequest(event);
+        });
+        if (!shouldDecorate) return;
+        const clientId = ensureClientId();
         event.detail.headers['X-Live-Update-Client-Id'] = clientId;
     });
 

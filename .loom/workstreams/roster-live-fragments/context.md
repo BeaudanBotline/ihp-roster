@@ -58,7 +58,7 @@ This is intentionally **not**:
 
 ### Consequences
 
-- Auto Refresh stays as a broad correctness/fallback layer during rollout
+- Auto Refresh stays as a broad correctness/fallback layer during rollout, and currently still covers cross-controller staff edits plus week create/copy transitions for clients already viewing that offset
 - fragment ids and render helpers become first-class page infrastructure
 - subscriptions are explicit and scoped, not inferred from arbitrary DB changes
 
@@ -246,6 +246,9 @@ Decision points:
   - multi-user tests are stable
 
 This is explicitly a late decision, not an early prerequisite.
+At the current state of the implementation, removing Auto Refresh would regress at least two real cases unless they gain explicit invalidation first:
+- staff updates from `StaffController` that change roster-visible names/active-state/sidebar entries
+- creation/copy of a week while another viewer is already sitting on that `weekOffset`
 
 ## Security rules
 
@@ -264,6 +267,8 @@ The roster implementation should set the pattern for timesheets and leave:
 - mutation response helper
 - invalidation broadcast helper
 - client refetch behavior
+
+The reusable parts that already exist are the websocket transport, structural invalidation payload shape, scope authorization pattern, and client fragment-refetch flow. The concrete scope and fragment constructors are still roster-specific and should be extended intentionally for other features.
 
 If roster needs page-specific exceptions, document them so they do not silently become the default pattern elsewhere.
 

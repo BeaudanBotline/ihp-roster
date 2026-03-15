@@ -73,9 +73,10 @@ data StaffController
     | UpdateStaffAction { staffId :: !(Id Staff) }
     deriving (Eq, Show, Data)
 
-data LiveUpdatesWSApp
-    = AwaitingSubscription
-    | LiveUpdatesConnected { subscriptionId :: !UUID }
+newtype LiveUpdatesWSApp
+    = LiveUpdatesWSApp
+        { subscriptionIds :: [(UUID, Text)]
+        }
     deriving (Eq, Show, Data)
 
 data RosterWeeksController

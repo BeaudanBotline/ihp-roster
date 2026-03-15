@@ -10,7 +10,7 @@ import qualified Network.WebSockets as WebSocket
 import Web.Controller.Prelude
 
 instance WSApp LiveUpdatesWSApp where
-    initialState = AwaitingSubscription
+    initialState = LiveUpdatesWSApp { subscriptionIds = [] }
 
     run = do
         ensureIsUser
@@ -29,11 +29,8 @@ instance WSApp LiveUpdatesWSApp where
                     handleCommand command
 
     onClose = do
-        getState >>= \case
-            LiveUpdatesConnected { subscriptionId } ->
-                unregisterLiveSubscription subscriptionId
-            AwaitingSubscription ->
-                pure ()
+        LiveUpdatesWSApp { subscriptionIds } <- getState
+        mapM_ (unregisterLiveSubscription . fst) subscriptionIds
 
 handleCommand ::
     ( ?state :: IORef LiveUpdatesWSApp
@@ -49,29 +46,43 @@ handleCommand command =
             authorized <- isAuthorizedScope scope
             if authorized
                 then do
-                    unregisterCurrentSubscription
+                    unregisterScopeSubscription scope
                     subscriptionId <- UUIDv4.nextRandom
                     registerLiveSubscription subscriptionId scope ?connection
-                    setState LiveUpdatesConnected { subscriptionId }
+                    addScopeSubscription subscriptionId scope
                     sendJSON LiveUpdatesSubscribed { scope }
                 else
                     sendJSON
                         LiveUpdatesError
                             { message = "Not authorized for requested live update scope"
                             }
-        UnsubscribeLiveUpdates -> do
-            unregisterCurrentSubscription
-            setState AwaitingSubscription
+        UnsubscribeLiveUpdates { scope } ->
+            unregisterScopeSubscription scope
 
-unregisterCurrentSubscription ::
+unregisterScopeSubscription ::
     (?state :: IORef LiveUpdatesWSApp) =>
+    LiveUpdateScope ->
     IO ()
-unregisterCurrentSubscription =
-    getState >>= \case
-        LiveUpdatesConnected { subscriptionId } ->
-            unregisterLiveSubscription subscriptionId
-        AwaitingSubscription ->
-            pure ()
+unregisterScopeSubscription scope = do
+    LiveUpdatesWSApp { subscriptionIds } <- getState
+    let (removed, kept) = partition (\(_, encodedScope) -> encodedScope == encodeScopeKey scope) subscriptionIds
+    mapM_ (unregisterLiveSubscription . fst) removed
+    setState LiveUpdatesWSApp { subscriptionIds = kept }
+
+addScopeSubscription ::
+    (?state :: IORef LiveUpdatesWSApp) =>
+    UUID.UUID ->
+    LiveUpdateScope ->
+    IO ()
+addScopeSubscription subscriptionId scope = do
+    LiveUpdatesWSApp { subscriptionIds } <- getState
+    setState
+        LiveUpdatesWSApp
+            { subscriptionIds = (subscriptionId, encodeScopeKey scope) : subscriptionIds
+            }
+
+encodeScopeKey :: LiveUpdateScope -> Text
+encodeScopeKey = cs . Aeson.encode
 
 isAuthorizedScope ::
     (?context :: ControllerContext, ?modelContext :: ModelContext) =>
