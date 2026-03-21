@@ -126,6 +126,51 @@ tests = beforeAll testContext do
                 response `responseStatusShouldBe` status200
                 response `responseBodyShouldContain` "Draft Mode"
                 response `responseBodyShouldContain` "Crew, Alpha"
+                response `responseBodyShouldContain` "hx-post=\"/PublishRosterWeek?rosterWeekId="
+
+        it "manager empty roster pages render HTMX create controls" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Venue A"
+                manager <- createUserRecord "roster-manager-empty-create@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue manager "manager"
+
+                response <- withUserAndCurrentVenue manager venue.id do
+                    callAction (ShowRosterWeekAction 0)
+
+                response `responseStatusShouldBe` status200
+                response `responseBodyShouldContain` "hx-post=\"/CreateRosterWeek?weekOffset=0\""
+                response `responseBodyShouldContain` "hx-post=\"/CopyRosterWeek?sourceWeekOffset=-1&amp;targetWeekOffset=0\""
+                response `responseBodyShouldContain` "data-disable-javascript-submission=\"true\""
+
+        it "manager can create a draft week via HTMX without redirecting" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Venue A"
+                manager <- createUserRecord "roster-manager-create-htmx@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue manager "manager"
+                _ <- createSlotNameRecord venue "Early"
+
+                response <- withUserAndCurrentVenue manager venue.id do
+                    withRequestHeaders [("HX-Request", "true")] do
+                        callAction (CreateRosterWeekAction 0)
+
+                response `responseStatusShouldBe` status200
+                response `responseBodyShouldContain` cs rosterContentFragmentId
+                response `responseBodyShouldContain` "Roster week created successfully"
+
+        it "manager can publish a draft week via HTMX without redirecting" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Venue A"
+                manager <- createUserRecord "roster-manager-publish-htmx@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue manager "manager"
+                rosterWeek <- createRosterWeekRecord venue 0 False
+
+                response <- withUserAndCurrentVenue manager venue.id do
+                    withRequestHeaders [("HX-Request", "true")] do
+                        callAction (PublishRosterWeekAction rosterWeek.id)
+
+                response `responseStatusShouldBe` status200
+                response `responseBodyShouldContain` cs rosterContentFragmentId
+                response `responseBodyShouldContain` "Roster week published successfully"
 
         it "staff can see published weeks" $ withContext do
             withCleanDb do

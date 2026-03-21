@@ -99,6 +99,7 @@ renderForm post = formFor post [hsx|
 - Keep `admin` link visibility role-gated (admin only) via `currentUserIsAdmin`.
 - Do not duplicate primary nav in page-level views unless there is a specific workflow reason.
 - Logout and other destructive actions should be explicit forms, not `.js-delete` links. Prefer `method="POST"` plus hidden `_method="DELETE"` so the control works without `helpers.js`; add HTMX attributes only when the surrounding page already needs an in-place update.
+- For low-frequency full-page forms that should stay native while `helpers.js` is still loaded, add `data-disable-javascript-submission="true"` on manual forms or use `formForWithoutJavascript` for IHP form helpers.
 
 ## Roster Week Controls
 - Keep week browsing URL-driven via `weekOffset` action params.
@@ -107,6 +108,7 @@ renderForm post = formFor post [hsx|
 - For HTMX week browsing, wrap the header + page content in a stable shell id, target that shell with `hx-get`, `hx-swap="outerHTML"`, `hx-select`, `hx-push-url="true"`, and `hx-sync="#shell-id:replace"`.
 - Add `data-turbolinks="false"` on HTMX partial-navigation anchors so Turbolinks does not steal the click and force a full-page visit.
 - For roster side-panel sizing on desktop, prefer CSS-only sticky layout with a viewport-capped panel and internal scroll over JS height syncing.
+- Roster create/copy/publish controls belong to the interactive roster surface. Keep them on HTMX with explicit fragment targets instead of falling back to native full-page reloads.
 
 ## Overlay Pattern
 - Prefer HTMX-driven workflow dialog fragments over `setModal` + page-jump flows for roster, timesheets, and other high-frequency in-place workflows.

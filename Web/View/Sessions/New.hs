@@ -21,7 +21,7 @@ instance View (NewView User) where
 
 renderForm :: User -> Html
 renderForm user = [hsx|
-    <form method="POST" action={CreateSessionAction}>
+    <form method="POST" action={CreateSessionAction} data-disable-javascript-submission="true">
         <div class="mb-3">
             <label class="form-label" for="email">Email address</label>
             <input

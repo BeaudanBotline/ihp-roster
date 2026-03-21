@@ -42,6 +42,14 @@
   - no app-runtime consumers remain for `data-preview` file previews
   - no app-runtime consumers remain for `.time-ago`, `.date-time`, `.date`, or `.time` formatting helpers
 - Added a Playwright regression to prove HTMX-inserted leave-request date inputs still get flatpickr after the app-local initialization path runs
+- Implemented `coordinator-6ye.4`:
+  - low-frequency full-page forms in admin, exports, profile, login, and invitation signup now explicitly opt out of IHP's document-level AJAX transport via `data-disable-javascript-submission="true"` or `formForWithoutJavascript`
+  - roster create/copy/publish forms are now explicit HTMX controls instead of relying on `helpers.js`
+  - roster create/copy/publish controller actions now return fragment-plus-toast HTMX responses for the actor path instead of redirecting the browser
+- Added regression coverage for the new transport boundary:
+  - controller tests assert the native-submit markup is present on admin, exports, profile, login, and invitation forms
+  - roster controller tests assert manager empty-week controls render HTMX create/copy actions and that HTMX create/publish requests return `200` fragment responses instead of redirects
+  - Playwright auth coverage still passes with login on the native-submit path
 
 ## Current architectural assessment
 
@@ -80,7 +88,7 @@ Do not assume that decision has already been made.
 
 ## Immediate next action
 
-Start `coordinator-6ye.4` by applying the chosen post-helpers form policy to the remaining non-HTMX forms. The intended default remains native full-page submits for low-frequency pages, with only the clearly interactive roster flows promoted to HTMX if needed.
+Start `coordinator-6ye.5` by removing `helpers.js` from the layout/build and rerunning regression coverage now that destructive actions, retained UI helpers, native-submit forms, and roster HTMX controls no longer depend on it.
 
 ## Verification
 
@@ -95,4 +103,18 @@ Ran in this pass:
 - `bash ./bin/in-env test --match TimesheetsController`
   - passed with `18 examples, 0 failures`
 - `bash ./bin/in-env e2e e2e/live-fragment-submit-regressions.spec.ts`
+  - passed with `3 passed`
+- `bash ./bin/in-env test --match AdminController`
+  - passed with `9 examples, 0 failures`
+- `bash ./bin/in-env test --match ExportsController`
+  - passed with `7 examples, 0 failures`
+- `bash ./bin/in-env test --match ProfilesController`
+  - passed with `3 examples, 0 failures`
+- `bash ./bin/in-env test --match SessionsController`
+  - passed with `2 examples, 0 failures`
+- `bash ./bin/in-env test --match UsersController`
+  - passed with `7 examples, 0 failures`
+- `bash ./bin/in-env test --match RosterWeeksController`
+  - passed with `26 examples, 0 failures`
+- `bash ./bin/in-env e2e e2e/auth.spec.ts`
   - passed with `3 passed`

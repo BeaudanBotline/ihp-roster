@@ -69,7 +69,7 @@ instance View IndexView where
                             Draft edits on this page do not rewrite historical approvals or exports. Those remain pinned to the snapshot version they were created with.
                         </div>
                         {renderSnapshotSummary latestSnapshot}
-                        <form method="POST" action={CreatePayConfigSnapshotAction} class="mt-3">
+                        <form method="POST" action={CreatePayConfigSnapshotAction} class="mt-3" data-disable-javascript-submission="true">
                             <button class="btn btn-primary" type="submit">Save Snapshot</button>
                         </form>
                     </div>
@@ -167,7 +167,7 @@ renderConfigSection anchorId title description summary createForm rows = [hsx|
 
 renderPayLevelCreateForm :: Html
 renderPayLevelCreateForm = [hsx|
-    <form method="POST" action={CreatePayLevelAction} class="border rounded p-3">
+    <form method="POST" action={CreatePayLevelAction} class="border rounded p-3" data-disable-javascript-submission="true">
         <div class="row g-2 align-items-end">
             <div class="col-12 col-md-6">
                 <label class="form-label" for="new-pay-level-name">Name</label>
@@ -189,7 +189,7 @@ renderPayLevelCreateForm = [hsx|
 
 renderPayLevelRow :: PayLevel -> Html
 renderPayLevelRow payLevel = [hsx|
-    <form method="POST" action={UpdatePayLevelAction (get #id payLevel)} class="border rounded p-3 mb-2">
+    <form method="POST" action={UpdatePayLevelAction (get #id payLevel)} class="border rounded p-3 mb-2" data-disable-javascript-submission="true">
         <div class="d-flex justify-content-between align-items-center mb-2">
             <span class="fw-semibold">Pay Level</span>
             {renderActiveBadge payLevel.isActive}
@@ -221,7 +221,7 @@ renderShiftTypeCreateForm payLevels
         </div>
     |]
     | otherwise = [hsx|
-        <form method="POST" action={CreateShiftTypeAction} class="border rounded p-3">
+        <form method="POST" action={CreateShiftTypeAction} class="border rounded p-3" data-disable-javascript-submission="true">
             <div class="row g-2 align-items-end">
                 <div class="col-12 col-md-4">
                     <label class="form-label" for="new-shift-type-name">Name</label>
@@ -249,7 +249,7 @@ renderShiftTypeCreateForm payLevels
 
 renderShiftTypeRow :: [PayLevel] -> ShiftType -> Html
 renderShiftTypeRow payLevels shiftType = [hsx|
-    <form method="POST" action={UpdateShiftTypeAction (get #id shiftType)} class="border rounded p-3 mb-2">
+    <form method="POST" action={UpdateShiftTypeAction (get #id shiftType)} class="border rounded p-3 mb-2" data-disable-javascript-submission="true">
         <div class="d-flex justify-content-between align-items-center mb-2">
             <span class="fw-semibold">Shift Type</span>
             {renderActiveBadge shiftType.isActive}
@@ -287,7 +287,7 @@ renderPayLevelDayRuleCreateForm payLevels dayNames
         </div>
     |]
     | otherwise = [hsx|
-        <form method="POST" action={CreatePayLevelDayRuleAction} class="border rounded p-3">
+        <form method="POST" action={CreatePayLevelDayRuleAction} class="border rounded p-3" data-disable-javascript-submission="true">
             <div class="row g-2 align-items-end">
                 <div class="col-12 col-md-4">
                     <label class="form-label" for="new-day-rule-pay-level">Pay Level</label>
@@ -314,7 +314,7 @@ renderPayLevelDayRuleCreateForm payLevels dayNames
 
 renderPayLevelDayRuleRow :: [PayLevel] -> [DayName] -> PayLevelDayRule -> Html
 renderPayLevelDayRuleRow payLevels dayNames payLevelDayRule = [hsx|
-    <form method="POST" action={UpdatePayLevelDayRuleAction (get #id payLevelDayRule)} class="border rounded p-3 mb-2">
+    <form method="POST" action={UpdatePayLevelDayRuleAction (get #id payLevelDayRule)} class="border rounded p-3 mb-2" data-disable-javascript-submission="true">
         <div class="d-flex justify-content-between align-items-center mb-2">
             <span class="fw-semibold">{renderPayLevelDayRuleHeading payLevels dayNames payLevelDayRule}</span>
             <span class="badge text-bg-info">multiplier rule</span>
@@ -345,7 +345,7 @@ renderPayLevelDayRuleRow payLevels dayNames payLevelDayRule = [hsx|
 
 renderSlotNameCreateForm :: Html
 renderSlotNameCreateForm = [hsx|
-    <form method="POST" action={CreateSlotNameAction} class="border rounded p-3">
+    <form method="POST" action={CreateSlotNameAction} class="border rounded p-3" data-disable-javascript-submission="true">
         <div class="row g-2 align-items-end">
             <div class="col-12 col-md-6">
                 <label class="form-label" for="new-slot-name">Name</label>
@@ -367,7 +367,7 @@ renderSlotNameCreateForm = [hsx|
 
 renderSlotNameRow :: SlotName -> Html
 renderSlotNameRow slotName = [hsx|
-    <form method="POST" action={UpdateSlotNameAction (get #id slotName)} class="border rounded p-3 mb-2">
+    <form method="POST" action={UpdateSlotNameAction (get #id slotName)} class="border rounded p-3 mb-2" data-disable-javascript-submission="true">
         <div class="d-flex justify-content-between align-items-center mb-2">
             <span class="fw-semibold">Slot Name</span>
             {renderActiveBadge slotName.isActive}
@@ -393,7 +393,7 @@ renderSlotNameRow slotName = [hsx|
 
 renderDayNameCreateForm :: Html
 renderDayNameCreateForm = [hsx|
-    <form method="POST" action={CreateDayNameAction} class="border rounded p-3">
+    <form method="POST" action={CreateDayNameAction} class="border rounded p-3" data-disable-javascript-submission="true">
         <div class="row g-2 align-items-end">
             <div class="col-12 col-md-4">
                 <label class="form-label" for="new-day-weekday">Weekday</label>
@@ -421,7 +421,7 @@ renderDayNameCreateForm = [hsx|
 
 renderDayNameRow :: DayName -> Html
 renderDayNameRow dayName = [hsx|
-    <form method="POST" action={UpdateDayNameAction (get #id dayName)} class="border rounded p-3 mb-2">
+    <form method="POST" action={UpdateDayNameAction (get #id dayName)} class="border rounded p-3 mb-2" data-disable-javascript-submission="true">
         <div class="d-flex justify-content-between align-items-center mb-2">
             <span class="fw-semibold">Day Name</span>
             {renderActiveBadge dayName.isActive}

@@ -21,7 +21,7 @@ instance View IndexView where
                         <p class="app-muted mb-4">
                             Generate a venue-scoped CSV of approved timesheets. Downloads use per-job expiring tokens and are audited.
                         </p>
-                        <form method="POST" action={CreateExportJobAction} class="d-grid gap-3">
+                        <form method="POST" action={CreateExportJobAction} class="d-grid gap-3" data-disable-javascript-submission="true">
                             <div>
                                 <label class="form-label" for="rangeStart">From</label>
                                 <input

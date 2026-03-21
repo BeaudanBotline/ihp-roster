@@ -27,6 +27,7 @@ tests = beforeAll (mockContextNoDatabase WebApplication config) do
             response <- callAction NewSessionAction
             response `responseStatusShouldBe` status200
             response `responseBodyShouldContain` "Sign In"
+            response `responseBodyShouldContain` "data-disable-javascript-submission=\"true\""
             response `responseBodyShouldContain` "Request an invitation"
             response `responseBodyShouldNotContain` "/ihp-auto-refresh.js"
             response `responseBodyShouldNotContain` "ihp-auto-refresh-id"

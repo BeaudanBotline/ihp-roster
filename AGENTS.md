@@ -209,10 +209,12 @@ Playwright-based end-to-end tests live in `e2e/` and run against the live dev se
 - Post-`helpers.js` migration policy:
   - use HTMX for partial and in-place workflows
   - keep low-frequency full-page forms such as admin/config, exports, profile, login, and invitation/bootstrap as native browser submits by default
+  - while `helpers.js` is still loaded, native-submit forms must opt out explicitly with `data-disable-javascript-submission="true"` or `formForWithoutJavascript`
   - do not recreate IHP's document-wide AJAX form transport in app code
   - replace destructive `.js-delete` links with explicit app-owned forms using `POST` plus hidden `_method=DELETE`
   - keep only the still-useful UI helpers in app-local JS, currently the date/datetime picker enhancement
   - keep TurboLinks separate from form transport; if retained, it is for navigation lifecycle only
+  - roster create/copy/publish stays on HTMX because those controls live inside the interactive roster surface and should keep updating in place
 
 ## Auth Model Notes
 - Current business authority is venue-scoped. `venue_memberships.venue_role` is what grants manager/admin access; `users.user_role = 'admin'` is not a cross-venue superuser.

@@ -19,7 +19,7 @@ instance View EditView where
 
 renderForm :: Staff -> Html
 renderForm staff = [hsx|
-    <form method="POST" action={UpdateProfileAction}>
+    <form method="POST" action={UpdateProfileAction} data-disable-javascript-submission="true">
         <div class="mb-3">
             <label for="firstName" class="form-label">First Name</label>
             <input

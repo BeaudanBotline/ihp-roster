@@ -3,7 +3,10 @@ module Web.Controller.RosterWeeks where
 import Application.Helper.Conflict
 import Application.Helper.Controller
 import Application.Helper.LiveUpdate
-import Application.Helper.View (linkedActiveStaffForRosterPanel)
+import Application.Helper.View (ToastOverlayConfig (..),
+                                ToastOverlayPosition (ToastBottomCenter),
+                                linkedActiveStaffForRosterPanel,
+                                renderToastOverlayHostOob)
 import Data.Coerce (coerce)
 import Data.List (find, nub, sortBy)
 import Data.Maybe (catMaybes, mapMaybe)
@@ -74,7 +77,12 @@ instance Controller RosterWeeksController where
             |> fetchOneOrNothing
         case existing of
             Just week -> do
-                redirectTo ShowRosterWeekAction { weekOffset = week.weekOffset }
+                let targetAction = ShowRosterWeekAction { weekOffset = week.weekOffset }
+                if isHtmxRequest
+                    then do
+                        setHtmxPushUrl (pathTo targetAction)
+                        respondWithRosterContentUpdate week.weekOffset "Roster week already exists."
+                    else redirectTo targetAction
             Nothing -> do
                 slotNames <- query @SlotName
                     |> filterWhere (#venueId, unpackId currentVenueId)
@@ -107,8 +115,15 @@ instance Controller RosterWeeksController where
                 broadcastRosterWeekInvalidation
                     weekOffset
                     [buildRosterContentFragmentRef weekOffset]
-                setSuccessMessage "Roster week created successfully"
-                redirectTo ShowRosterWeekAction { weekOffset }
+                let successMessage = "Roster week created successfully"
+                let targetAction = ShowRosterWeekAction { weekOffset }
+                if isHtmxRequest
+                    then do
+                        setHtmxPushUrl (pathTo targetAction)
+                        respondWithRosterContentUpdate weekOffset successMessage
+                    else do
+                        setSuccessMessage successMessage
+                        redirectTo targetAction
 
     action CopyRosterWeekAction { sourceWeekOffset, targetWeekOffset } = do
         ensureManagerRole
@@ -120,8 +135,15 @@ instance Controller RosterWeeksController where
             |> fetchOneOrNothing
         case existingTarget of
             Just week -> do
-                setErrorMessage "Target week already exists."
-                redirectTo ShowRosterWeekAction { weekOffset = targetWeekOffset }
+                let errorMessage = "Target week already exists."
+                let targetAction = ShowRosterWeekAction { weekOffset = targetWeekOffset }
+                if isHtmxRequest
+                    then do
+                        setHtmxPushUrl (pathTo targetAction)
+                        respondWithRosterContentUpdate week.weekOffset errorMessage
+                    else do
+                        setErrorMessage errorMessage
+                        redirectTo targetAction
             Nothing -> do
                 sourceWeekOrNothing <- query @RosterWeek
                     |> filterWhere (#venueId, unpackId currentVenueId)
@@ -129,8 +151,12 @@ instance Controller RosterWeeksController where
                     |> fetchOneOrNothing
                 case sourceWeekOrNothing of
                     Nothing -> do
-                        setErrorMessage "Source week not found. Cannot copy."
-                        redirectTo ShowRosterWeekAction { weekOffset = targetWeekOffset }
+                        let errorMessage = "Source week not found. Cannot copy."
+                        if isHtmxRequest
+                            then respondWithRosterToast errorMessage "app-toast-error"
+                            else do
+                                setErrorMessage errorMessage
+                                redirectTo ShowRosterWeekAction { weekOffset = targetWeekOffset }
                     Just sourceWeek -> do
                         -- Create the target roster week
                         targetWeek <- newRecord @RosterWeek
@@ -169,8 +195,15 @@ instance Controller RosterWeeksController where
                         broadcastRosterWeekInvalidation
                             targetWeekOffset
                             [buildRosterContentFragmentRef targetWeekOffset]
-                        setSuccessMessage "Roster week copied successfully."
-                        redirectTo ShowRosterWeekAction { weekOffset = targetWeekOffset }
+                        let successMessage = "Roster week copied successfully."
+                        let targetAction = ShowRosterWeekAction { weekOffset = targetWeekOffset }
+                        if isHtmxRequest
+                            then do
+                                setHtmxPushUrl (pathTo targetAction)
+                                respondWithRosterContentUpdate targetWeekOffset successMessage
+                            else do
+                                setSuccessMessage successMessage
+                                redirectTo targetAction
 
     action PublishRosterWeekAction { rosterWeekId } = do
         ensureManagerRole
@@ -183,8 +216,15 @@ instance Controller RosterWeeksController where
         broadcastRosterWeekInvalidation
             rosterWeek.weekOffset
             [buildRosterContentFragmentRef rosterWeek.weekOffset]
-        setSuccessMessage "Roster week published successfully"
-        redirectTo ShowRosterWeekAction { weekOffset = rosterWeek.weekOffset }
+        let successMessage = "Roster week published successfully"
+        let targetAction = ShowRosterWeekAction { weekOffset = rosterWeek.weekOffset }
+        if isHtmxRequest
+            then do
+                setHtmxPushUrl (pathTo targetAction)
+                respondWithRosterContentUpdate rosterWeek.weekOffset successMessage
+            else do
+                setSuccessMessage successMessage
+                redirectTo targetAction
 
     action AddRosterRowAction { rosterDayId } = do
         ensureManagerRole
@@ -391,6 +431,46 @@ respondWithRosterContentOob weekOffset = do
                     weekStartDate
                     allSlots
                     slotConflicts
+
+respondWithRosterContentUpdate :: (?context :: ControllerContext, ?modelContext :: ModelContext) => Int -> Text -> IO ()
+respondWithRosterContentUpdate weekOffset successMessage = do
+    rosterData <- fetchVisibleRosterRenderData weekOffset
+    respondHtml $
+        mconcat
+            [ case rosterData of
+                Nothing -> [hsx|<div id="roster-content"></div>|]
+                Just RosterRenderData { rosterWeek, rosterDays, weekStartDate, staffMembers, panelStaff, orderedSlotNames, allSlots, slotConflicts } ->
+                    renderRosterContentFragment
+                        (Just rosterWeek)
+                        rosterDays
+                        weekOffset
+                        staffMembers
+                        panelStaff
+                        orderedSlotNames
+                        weekStartDate
+                        allSlots
+                        slotConflicts
+            , renderToastOverlayHostOob ToastBottomCenter
+                [ ToastOverlayConfig
+                    { toastOverlayTitle = Just "Success"
+                    , toastOverlayMessage = successMessage
+                    , toastOverlayClass = "app-toast-success"
+                    , toastOverlayAutoHideMs = 3200
+                    }
+                ]
+            ]
+
+respondWithRosterToast :: (?context :: ControllerContext) => Text -> Text -> IO ()
+respondWithRosterToast message toastClass =
+    respondHtml $
+        renderToastOverlayHostOob ToastBottomCenter
+            [ ToastOverlayConfig
+                { toastOverlayTitle = Just (if toastClass == "app-toast-error" then "Error" else "Success")
+                , toastOverlayMessage = message
+                , toastOverlayClass = toastClass
+                , toastOverlayAutoHideMs = if toastClass == "app-toast-error" then 4200 else 3200
+                }
+            ]
 
 respondWithRosterRows :: (?context :: ControllerContext, ?modelContext :: ModelContext) => Int -> [(UUID.UUID, Int)] -> IO ()
 respondWithRosterRows weekOffset requestedRowKeys =

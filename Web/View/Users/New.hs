@@ -42,7 +42,7 @@ instance View NewView where
     |]
 
 renderInvitationForm :: User -> VenueInvitation -> Html
-renderInvitationForm user invitation = formFor user [hsx|
+renderInvitationForm user invitation = formForWithoutJavascript user [hsx|
     <input type="hidden" name="invitationId" value={tshow invitation.id} />
     <div class="mb-3">
         <label class="form-label" for="email">Email address</label>

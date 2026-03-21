@@ -65,6 +65,7 @@ tests = beforeAll testContext do
                 response `responseBodyShouldContain` "Early"
                 response `responseBodyShouldContain` "Monday"
                 response `responseBodyShouldContain` "Active snapshot: v2"
+                response `responseBodyShouldContain` "data-disable-javascript-submission=\"true\""
                 response `responseBodyShouldNotContain` "Level B"
                 response `responseBodyShouldNotContain` "Level B on Venue B Tuesday (Tuesday)"
                 response `responseBodyShouldNotContain` "Bar"

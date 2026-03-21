@@ -42,6 +42,7 @@ tests = beforeAll testContext do
                 response `responseBodyShouldContain` "Accept Invitation"
                 response `responseBodyShouldContain` "invitee@example.com"
                 response `responseBodyShouldContain` "venue admin"
+                response `responseBodyShouldContain` "data-disable-javascript-submission=\"true\""
 
         it "does not render the signup form for an expired invitation" $ withContext do
             withCleanDb do

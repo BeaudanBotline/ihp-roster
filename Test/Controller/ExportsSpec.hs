@@ -157,6 +157,7 @@ tests = beforeAll testContext do
                     callAction ExportJobsAction
 
                 response `responseStatusShouldBe` status200
+                response `responseBodyShouldContain` "data-disable-javascript-submission=\"true\""
                 response `responseBodyShouldContain` tshow exportJobB.id
                 response `responseBodyShouldNotContain` tshow exportJobA.id
 

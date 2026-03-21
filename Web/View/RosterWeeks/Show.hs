@@ -442,10 +442,24 @@ renderStatusBadge isLive =
 renderCreateForm :: Int -> Html
 renderCreateForm weekOffset = [hsx|
     <div class="d-flex gap-2">
-        <form method="POST" action={CopyRosterWeekAction (weekOffset - 1) weekOffset}>
+        <form method="POST"
+              action={CopyRosterWeekAction (weekOffset - 1) weekOffset}
+              data-disable-javascript-submission="true"
+              hx-post={CopyRosterWeekAction (weekOffset - 1) weekOffset}
+              hx-target={"#" <> rosterContentFragmentId}
+              hx-swap="outerHTML"
+              hx-push-url="false"
+              hx-sync={"#" <> rosterWeekShellId <> ":replace"}>
             <button type="submit" class="btn btn-outline-primary px-4 py-2">Copy Previous Week</button>
         </form>
-        <form method="POST" action={CreateRosterWeekAction weekOffset}>
+        <form method="POST"
+              action={CreateRosterWeekAction weekOffset}
+              data-disable-javascript-submission="true"
+              hx-post={CreateRosterWeekAction weekOffset}
+              hx-target={"#" <> rosterContentFragmentId}
+              hx-swap="outerHTML"
+              hx-push-url="false"
+              hx-sync={"#" <> rosterWeekShellId <> ":replace"}>
             <button type="submit" class="btn btn-primary px-4 py-2">Create Draft Roster</button>
         </form>
     </div>
@@ -453,7 +467,15 @@ renderCreateForm weekOffset = [hsx|
 
 renderPublishForm :: RosterWeek -> Html
 renderPublishForm rosterWeek = [hsx|
-    <form method="POST" action={PublishRosterWeekAction rosterWeek.id} class="d-inline">
+    <form method="POST"
+          action={PublishRosterWeekAction rosterWeek.id}
+          class="d-inline"
+          data-disable-javascript-submission="true"
+          hx-post={PublishRosterWeekAction rosterWeek.id}
+          hx-target={"#" <> rosterContentFragmentId}
+          hx-swap="outerHTML"
+          hx-push-url="false"
+          hx-sync={"#" <> rosterWeekShellId <> ":replace"}>
         <button type="submit" class="btn btn-success px-4 py-2 fw-bold">Publish Week</button>
     </form>
 |]
