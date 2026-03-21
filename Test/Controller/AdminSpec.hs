@@ -57,6 +57,7 @@ tests = beforeAll testContext do
                 response `responseBodyShouldContain` "Config Table Overview"
                 response `responseBodyShouldContain` "Edits change the current venue draft state only until you save a new pay/config snapshot."
                 response `responseBodyShouldContain` "Draft edits on this page do not rewrite historical approvals or exports."
+                response `responseBodyShouldNotContain` "/helpers.js"
                 response `responseBodyShouldNotContain` "/ihp-auto-refresh.js"
                 response `responseBodyShouldNotContain` "ihp-auto-refresh-id"
                 response `responseBodyShouldContain` "Level A"

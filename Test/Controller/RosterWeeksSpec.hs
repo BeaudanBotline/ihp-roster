@@ -91,6 +91,7 @@ tests = beforeAll testContext do
                 response `responseBodyShouldContain` "data-live-update-client-enabled=\"true\""
                 response `responseBodyShouldContain` "data-live-update-scope-kind=\"roster_week\""
                 response `responseBodyShouldContain` "data-live-update-week-offset=\"0\""
+                response `responseBodyShouldNotContain` "/helpers.js"
                 response `responseBodyShouldNotContain` "/ihp-auto-refresh.js"
                 response `responseBodyShouldNotContain` "ihp-auto-refresh-id"
 

@@ -71,7 +71,6 @@
 - Do not build arbitrary nested workflow dialogs. A picker may appear above a workflow dialog, but dialogs should replace each other rather than stack.
 - Prefer declarative overlay config in `Application/Helper/View.hs` over ad-hoc per-view footer buttons. Shared forms should usually render fields only; overlay wrappers own primary and secondary actions.
 - For responsive HTMX flows, return the smallest updated fragment plus any out-of-band overlay updates. Avoid whole-page redirects when the current screen can be updated in place.
-- IHP's bundled `helpers.js` installs a document-level submit handler for every form. HTMX forms need explicit submit-event isolation so one click does not travel through both HTMX and the legacy IHP submit path.
 
 ## Overlay Implementation Plan
 - Shared overlay helpers live in `Application/Helper/View.hs` and define the canonical mount ids, config records, footer button rendering, and toast rendering.
@@ -200,7 +199,6 @@ Playwright-based end-to-end tests live in `e2e/` and run against the live dev se
   - clients refetch only the invalidated fragments they currently have mounted
   - one mutation may invalidate multiple scopes, and only a subset of fragments within each scope
 - The transport/client pattern is reusable across other collaborative pages. Keep the websocket/refetch core shared, and add small per-feature adapters for DOM discovery, swap rules, and focus deferral where needed.
-- HTMX forms rendered in this app should be isolated from the global `helpers.js` submit listener. `data-disable-javascript-submission` by itself is not enough, because it still leaves the IHP handler in the event path.
 - The retained date/datetime picker enhancement now belongs to `static/app.js`, not `helpers.js`. Keep it wired for full-page loads and HTMX-inserted fragments so overlay forms get the same picker behavior as first-load pages.
 - Keep scope shapes simple and explicit:
   - venue-only surfaces such as leave lists should use a venue scope kind carrying `venueId`
@@ -209,7 +207,6 @@ Playwright-based end-to-end tests live in `e2e/` and run against the live dev se
 - Post-`helpers.js` migration policy:
   - use HTMX for partial and in-place workflows
   - keep low-frequency full-page forms such as admin/config, exports, profile, login, and invitation/bootstrap as native browser submits by default
-  - while `helpers.js` is still loaded, native-submit forms must opt out explicitly with `data-disable-javascript-submission="true"` or `formForWithoutJavascript`
   - do not recreate IHP's document-wide AJAX form transport in app code
   - replace destructive `.js-delete` links with explicit app-owned forms using `POST` plus hidden `_method=DELETE`
   - keep only the still-useful UI helpers in app-local JS, currently the date/datetime picker enhancement

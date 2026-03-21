@@ -235,7 +235,8 @@ respondWithLeaveRequestsContent successMessage = do
     currentViewerStaffId <- fmap (fmap (coerce . get #id)) fetchCurrentUserStaff
     respondHtml $
         mconcat
-            [ renderLeaveRequestsContentFragment leaveRequests staffMembers currentViewerStaffId
+            [ mempty
+            , renderLeaveRequestsContentFragmentOob leaveRequests staffMembers currentViewerStaffId
             , [hsx|<div id={dialogOverlayMountId} hx-swap-oob="innerHTML"></div>|]
             , renderToastOverlayHostOob ToastBottomCenter
                 [ ToastOverlayConfig

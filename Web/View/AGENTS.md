@@ -99,7 +99,7 @@ renderForm post = formFor post [hsx|
 - Keep `admin` link visibility role-gated (admin only) via `currentUserIsAdmin`.
 - Do not duplicate primary nav in page-level views unless there is a specific workflow reason.
 - Logout and other destructive actions should be explicit forms, not `.js-delete` links. Prefer `method="POST"` plus hidden `_method="DELETE"` so the control works without `helpers.js`; add HTMX attributes only when the surrounding page already needs an in-place update.
-- For low-frequency full-page forms that should stay native while `helpers.js` is still loaded, add `data-disable-javascript-submission="true"` on manual forms or use `formForWithoutJavascript` for IHP form helpers.
+- For low-frequency full-page forms, prefer plain native browser submission. If a form is only serving as a full-page workflow, do not turn it into HTMX or a custom AJAX path by default.
 
 ## Roster Week Controls
 - Keep week browsing URL-driven via `weekOffset` action params.

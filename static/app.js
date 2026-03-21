@@ -70,54 +70,6 @@ $(document).on('ready turbolinks:load', function () {
     }
 })();
 
-// IHP's global helpers.js submit handler AJAX-submits every form on the page.
-// For HTMX forms we want the submit event to reach HTMX on the form itself, but not bubble
-// up to the document-level IHP handler, otherwise one click can trigger two mutations.
-(function isolateHtmxFormSubmits() {
-    if (typeof window === 'undefined') return;
-
-    const initializedKey = 'htmxSubmitIsolated';
-    const selector = 'form[hx-post], form[hx-put], form[hx-patch], form[hx-delete]';
-
-    function isolateForm(formEl) {
-        if (!(formEl instanceof HTMLFormElement)) return;
-        if (formEl.dataset[initializedKey] === 'true') return;
-
-        formEl.dataset[initializedKey] = 'true';
-        formEl.addEventListener('submit', function (event) {
-            event.stopPropagation();
-        }, true);
-    }
-
-    function initForms(root) {
-        if (!(root instanceof Element || root instanceof Document)) return;
-        root.querySelectorAll(selector).forEach(isolateForm);
-        if (root instanceof HTMLFormElement && root.matches(selector)) {
-            isolateForm(root);
-        }
-    }
-
-    document.addEventListener('DOMContentLoaded', function () {
-        initForms(document);
-    });
-    document.addEventListener('turbolinks:load', function () {
-        initForms(document);
-    });
-    document.addEventListener('htmx:afterSwap', function (event) {
-        if (event.detail && event.detail.target instanceof HTMLElement) {
-            initForms(event.detail.target);
-        }
-    });
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function () {
-            initForms(document);
-        });
-    } else {
-        initForms(document);
-    }
-})();
-
 // Shared workflow dialog mount for HTMX-driven form overlays.
 (function enableDialogOverlayMount() {
     if (typeof window === 'undefined') return;

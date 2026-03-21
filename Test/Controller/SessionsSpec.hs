@@ -29,6 +29,7 @@ tests = beforeAll (mockContextNoDatabase WebApplication config) do
             response `responseBodyShouldContain` "Sign In"
             response `responseBodyShouldContain` "data-disable-javascript-submission=\"true\""
             response `responseBodyShouldContain` "Request an invitation"
+            response `responseBodyShouldNotContain` "/helpers.js"
             response `responseBodyShouldNotContain` "/ihp-auto-refresh.js"
             response `responseBodyShouldNotContain` "ihp-auto-refresh-id"
 
