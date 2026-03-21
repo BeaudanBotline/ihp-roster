@@ -1,7 +1,11 @@
 module Web.Controller.LeaveRequests where
 
+import Application.Helper.LiveUpdate (LiveFragmentKey (..),
+                                      LiveFragmentRef (..),
+                                      LiveUpdateScope (..),
+                                      broadcastLiveInvalidation)
 import Application.Helper.View (ToastOverlayConfig (..),
-                                ToastOverlayPosition (..),
+                                ToastOverlayPosition (..), dialogOverlayMountId,
                                 renderToastOverlayHostOob)
 import Control.Monad (void)
 import qualified Data.Aeson as Aeson
@@ -21,9 +25,17 @@ instance Controller LeaveRequestsController where
         ensureProfileCompleted
 
     action LeaveRequestsAction = do
-        staffMembers <- query @Staff |> filterWhere (#venueId, unpackId currentVenueId) |> orderByAsc #lastName |> fetch
+        staffMembers <- fetchStaffMembersForCurrentVenue
         leaveRequests <- fetchVisibleLeaveRequests
+        currentViewerStaffId <- fmap (fmap (coerce . get #id)) fetchCurrentUserStaff
+        let liveUpdateScope = Just (buildLeaveRequestsScope currentVenueId)
         render IndexView { .. }
+
+    action ShowLeaveRequestsContentFragmentAction = do
+        staffMembers <- fetchStaffMembersForCurrentVenue
+        leaveRequests <- fetchVisibleLeaveRequests
+        currentViewerStaffId <- fmap (fmap (coerce . get #id)) fetchCurrentUserStaff
+        respondHtml (renderLeaveRequestsContentFragment leaveRequests staffMembers currentViewerStaffId)
 
     action NewLeaveRequestAction = do
         maybeStaff <- fetchCurrentUserStaff
@@ -72,8 +84,9 @@ instance Controller LeaveRequestsController where
                                         (Just createdLeaveRequest.status)
                                         Aeson.Null
                                 pure createdLeaveRequest
+                            broadcastLeaveRequestsInvalidation [buildLeaveRequestsContentFragmentRef]
                             if isHtmxRequest
-                                then respondWithLeaveRequestsContent
+                                then respondWithLeaveRequestsContent "Leave request submitted"
                                 else do
                                     setSuccessMessage "Leave request submitted"
                                     redirectTo LeaveRequestsAction
@@ -82,7 +95,7 @@ instance Controller LeaveRequestsController where
         ensureManagerRole
         leaveRequest <- fetch leaveRequestId
         ensureRecordInCurrentVenue leaveRequest.venueId
-        withTransaction do
+        updatedLeaveRequest <- withTransaction do
             let wasApproved = parseLeaveRequestStatus leaveRequest.status == Just LeaveApproved
             updatedLeaveRequest <-
                 leaveRequest
@@ -95,8 +108,6 @@ instance Controller LeaveRequestsController where
                     (Just leaveRequest.status)
                     (Just updatedLeaveRequest.status)
                     Aeson.Null
-            unless wasApproved do
-                invalidateAffectedRosterWeeksForLeave updatedLeaveRequest
             void $ recordCurrentUserAuditEvent
                 "leave_approved"
                 "leave_requests"
@@ -109,14 +120,22 @@ instance Controller LeaveRequestsController where
                     , "newStatus" Aeson..= inputValue updatedLeaveRequest.status
                     ]
                 )
-        setSuccessMessage "Leave request approved"
-        redirectTo LeaveRequestsAction
+            pure (updatedLeaveRequest, wasApproved)
+        let (savedLeaveRequest, wasApproved) = updatedLeaveRequest
+        unless wasApproved do
+            invalidateAffectedRosterWeeksForLeave savedLeaveRequest
+        broadcastLeaveRequestsInvalidation [buildLeaveRequestsContentFragmentRef]
+        if isHtmxRequest
+            then respondWithLeaveRequestsContent "Leave request approved"
+            else do
+                setSuccessMessage "Leave request approved"
+                redirectTo LeaveRequestsAction
 
     action DenyLeaveRequestAction { leaveRequestId } = do
         ensureManagerRole
         leaveRequest <- fetch leaveRequestId
         ensureRecordInCurrentVenue leaveRequest.venueId
-        withTransaction do
+        deniedLeaveRequest <- withTransaction do
             let wasApproved = parseLeaveRequestStatus leaveRequest.status == Just LeaveApproved
             updatedLeaveRequest <-
                 leaveRequest
@@ -129,8 +148,6 @@ instance Controller LeaveRequestsController where
                     (Just leaveRequest.status)
                     (Just updatedLeaveRequest.status)
                     Aeson.Null
-            when wasApproved do
-                invalidateAffectedRosterWeeksForLeave updatedLeaveRequest
             void $ recordCurrentUserAuditEvent
                 "leave_denied"
                 "leave_requests"
@@ -143,8 +160,16 @@ instance Controller LeaveRequestsController where
                     , "newStatus" Aeson..= inputValue updatedLeaveRequest.status
                     ]
                 )
-        setSuccessMessage "Leave request denied"
-        redirectTo LeaveRequestsAction
+            pure (updatedLeaveRequest, wasApproved)
+        let (savedLeaveRequest, wasApproved) = deniedLeaveRequest
+        when wasApproved do
+            invalidateAffectedRosterWeeksForLeave savedLeaveRequest
+        broadcastLeaveRequestsInvalidation [buildLeaveRequestsContentFragmentRef]
+        if isHtmxRequest
+            then respondWithLeaveRequestsContent "Leave request denied"
+            else do
+                setSuccessMessage "Leave request denied"
+                redirectTo LeaveRequestsAction
 
     action DeleteLeaveRequestAction { leaveRequestId } = do
         leaveRequest <- fetch leaveRequestId
@@ -173,8 +198,16 @@ instance Controller LeaveRequestsController where
                     ]
                 )
             deleteRecord leaveRequest
-        setSuccessMessage "Leave request deleted"
-        redirectTo LeaveRequestsAction
+        broadcastLeaveRequestsInvalidation [buildLeaveRequestsContentFragmentRef]
+        if isHtmxRequest
+            then respondWithLeaveRequestsContent "Leave request deleted"
+            else do
+                setSuccessMessage "Leave request deleted"
+                redirectTo LeaveRequestsAction
+
+fetchStaffMembersForCurrentVenue :: (?modelContext :: ModelContext, ?context :: ControllerContext) => IO [Staff]
+fetchStaffMembersForCurrentVenue =
+    query @Staff |> filterWhere (#venueId, unpackId currentVenueId) |> orderByAsc #lastName |> fetch
 
 fetchVisibleLeaveRequests :: (?modelContext :: ModelContext, ?context :: ControllerContext) => IO [LeaveRequest]
 fetchVisibleLeaveRequests = do
@@ -195,17 +228,19 @@ fetchVisibleLeaveRequests = do
                         |> orderByDesc #startDate
                         |> fetch
 
-respondWithLeaveRequestsContent :: (?modelContext :: ModelContext, ?context :: ControllerContext) => IO ()
-respondWithLeaveRequestsContent = do
-    staffMembers <- query @Staff |> filterWhere (#venueId, unpackId currentVenueId) |> orderByAsc #lastName |> fetch
+respondWithLeaveRequestsContent :: (?modelContext :: ModelContext, ?context :: ControllerContext) => Text -> IO ()
+respondWithLeaveRequestsContent successMessage = do
+    staffMembers <- fetchStaffMembersForCurrentVenue
     leaveRequests <- fetchVisibleLeaveRequests
+    currentViewerStaffId <- fmap (fmap (coerce . get #id)) fetchCurrentUserStaff
     respondHtml $
         mconcat
-            [ renderLeaveRequestsContentFragmentOob leaveRequests staffMembers
+            [ renderLeaveRequestsContentFragment leaveRequests staffMembers currentViewerStaffId
+            , [hsx|<div id={dialogOverlayMountId} hx-swap-oob="innerHTML"></div>|]
             , renderToastOverlayHostOob ToastBottomCenter
                 [ ToastOverlayConfig
                     { toastOverlayTitle = Just "Success"
-                    , toastOverlayMessage = "Leave request submitted"
+                    , toastOverlayMessage = successMessage
                     , toastOverlayClass = "app-toast-success"
                     , toastOverlayAutoHideMs = 3200
                     }
@@ -247,3 +282,30 @@ invalidateAffectedRosterWeeksForLeave leaveRequest = do
             [ buildRosterContentFragmentRef weekOffset
             , buildRosterStaffPanelFragmentRef weekOffset
             ]
+
+buildLeaveRequestsScope :: Id Venue -> LiveUpdateScope
+buildLeaveRequestsScope venueId =
+    LeaveRequestsScope
+        { venueId = unpackId venueId
+        }
+
+buildLeaveRequestsContentFragmentRef :: (?context :: ControllerContext) => LiveFragmentRef
+buildLeaveRequestsContentFragmentRef =
+    LiveFragmentRef
+        { fragmentKey = LeaveRequestsContentFragment
+        , targetId = leaveRequestsContentFragmentId
+        , url = pathTo ShowLeaveRequestsContentFragmentAction
+        , deferUntilBlur = False
+        }
+
+broadcastLeaveRequestsInvalidation ::
+    (?context :: ControllerContext) =>
+    [LiveFragmentRef] ->
+    IO ()
+broadcastLeaveRequestsInvalidation fragments =
+    unless (null fragments) do
+        liftIO $
+            broadcastLiveInvalidation
+                (buildLeaveRequestsScope currentVenueId)
+                (cs <$> getHeader "X-Live-Update-Client-Id")
+                fragments

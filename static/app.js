@@ -646,7 +646,16 @@ $(document).on('ready turbolinks:load', function () {
                     venueId,
                 }),
                 path: ownerEl.dataset.liveUpdatesPath || '/live-updates',
-                resync: function () {},
+                resync: function () {
+                    const contentUrl = ownerEl.dataset.liveUpdateContentUrl;
+                    if (contentUrl) {
+                        handleInvalidatedFragment({
+                            targetId: 'leave-requests-content',
+                            url: contentUrl,
+                            deferUntilBlur: false,
+                        });
+                    }
+                },
             };
         }
 

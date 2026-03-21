@@ -58,8 +58,8 @@ data LiveFragmentRef = LiveFragmentRef
 
 data LiveUpdateCommand
     = SubscribeLiveUpdates
-        { scope    :: !LiveUpdateScope
-        , clientId :: !Text
+        { scope           :: !LiveUpdateScope
+        , clientId        :: !Text
         , lastSeenVersion :: !(Maybe Int)
         }
     | UnsubscribeLiveUpdates

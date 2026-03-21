@@ -22,8 +22,8 @@ import Web.View.RosterWeeks.Show (RosterStaffPanelEntry (..), ShowView (..),
                                   renderRosterStaffPanelFragment,
                                   renderRosterStaffPanelFragmentOob,
                                   renderRosterWeekShell, renderRowFragment,
-                                  renderRowOob,
-                                  rosterContentFragmentId, rosterRowDomIdText,
+                                  renderRowOob, rosterContentFragmentId,
+                                  rosterRowDomIdText,
                                   rosterStaffPanelFragmentId, rowsForDay)
 
 instance Controller RosterWeeksController where

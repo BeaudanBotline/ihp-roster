@@ -40,6 +40,7 @@ data TimesheetsController
 
 data LeaveRequestsController
     = LeaveRequestsAction
+    | ShowLeaveRequestsContentFragmentAction
     | NewLeaveRequestAction
     | CreateLeaveRequestAction
     | ApproveLeaveRequestAction { leaveRequestId :: !(Id LeaveRequest) }

@@ -459,12 +459,12 @@ renderPublishForm rosterWeek = [hsx|
 |]
 
 liveUpdateScopeKind :: LiveUpdateScope -> Text
-liveUpdateScopeKind RosterWeekScope {} = "roster_week"
+liveUpdateScopeKind RosterWeekScope {}    = "roster_week"
 liveUpdateScopeKind LeaveRequestsScope {} = "leave_requests"
 liveUpdateScopeKind TimesheetWeekScope {} = "timesheet_week"
 
 liveUpdateVenueId :: LiveUpdateScope -> Text
-liveUpdateVenueId RosterWeekScope { venueId } = tshow venueId
+liveUpdateVenueId RosterWeekScope { venueId }    = tshow venueId
 liveUpdateVenueId LeaveRequestsScope { venueId } = tshow venueId
 liveUpdateVenueId TimesheetWeekScope { venueId } = tshow venueId
 

@@ -3,6 +3,7 @@ module Test.Controller.LeaveRequestsSpec where
 import Application.Helper.LiveUpdate (LiveUpdateScope (..),
                                       currentLiveUpdateVersion)
 import Config
+import qualified Data.ByteString.Lazy.Char8 as LByteString
 import Data.Time.Calendar (fromGregorian)
 import Data.Time.Clock (UTCTime (..), secondsToDiffTime)
 import Generated.Types
@@ -25,6 +26,10 @@ tests = beforeAll testContext do
     describe "LeaveRequestsController" do
         it "redirects unauthenticated users from leave requests page" $ withContext do
             response <- callAction LeaveRequestsAction
+            response `responseStatusShouldBe` status302
+
+        it "redirects unauthenticated users from leave requests fragment page" $ withContext do
+            response <- callAction ShowLeaveRequestsContentFragmentAction
             response `responseStatusShouldBe` status302
 
         it "redirects unauthenticated users from new leave request page" $ withContext do
@@ -86,6 +91,48 @@ tests = beforeAll testContext do
                 refreshedWeekA1.updatedAt `shouldBe` staleTimestamp
                 refreshedWeekB.updatedAt `shouldBe` staleTimestamp
 
+        it "renders a subscribed leave shell for authenticated viewers" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Leave Venue"
+                user <- createUserRecord "leave-shell@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue user "worker"
+                _ <- createStaffRecord venue (Just user) "Shell" "Viewer"
+
+                response <- withUserAndCurrentVenue user venue.id do
+                    callAction LeaveRequestsAction
+
+                response `responseStatusShouldBe` status200
+                response `responseBodyShouldContain` "data-live-update-feature=\"leave-requests\""
+                response `responseBodyShouldContain` "data-live-update-client-enabled=\"true\""
+                response `responseBodyShouldContain` "data-live-update-scope-kind=\"leave_requests\""
+                response `responseBodyShouldContain` "id=\"leave-requests-content\""
+
+        it "scopes leave fragment refetches to the current viewer visibility" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Leave Venue"
+                manager <- createUserRecord "leave-fragment-manager@example.com" "staff" True
+                workerAUser <- createUserRecord "leave-fragment-worker-a@example.com" "staff" True
+                workerBUser <- createUserRecord "leave-fragment-worker-b@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue manager "manager"
+                _ <- createVenueMembershipRecord venue workerAUser "worker"
+                _ <- createVenueMembershipRecord venue workerBUser "worker"
+                workerA <- createStaffRecord venue (Just workerAUser) "Ava" "Viewer"
+                workerB <- createStaffRecord venue (Just workerBUser) "Bea" "Viewer"
+                _ <- createLeaveRequestRecord venue workerA (fromGregorian 2025 1 8) (fromGregorian 2025 1 10) "pending"
+                _ <- createLeaveRequestRecord venue workerB (fromGregorian 2025 1 11) (fromGregorian 2025 1 12) "pending"
+
+                managerResponse <- withUserAndCurrentVenue manager venue.id do
+                    callAction ShowLeaveRequestsContentFragmentAction
+                workerResponse <- withUserAndCurrentVenue workerAUser venue.id do
+                    callAction ShowLeaveRequestsContentFragmentAction
+
+                managerResponse `responseStatusShouldBe` status200
+                managerResponse `responseBodyShouldContain` "Ava Viewer"
+                managerResponse `responseBodyShouldContain` "Bea Viewer"
+                workerResponse `responseStatusShouldBe` status200
+                workerResponse `responseBodyShouldContain` "Ava Viewer"
+                workerResponse `responseBodyShouldNotContain` "Bea Viewer"
+
         it "denying previously approved leave invalidates the affected roster week scope" $ withContext do
             withCleanDb do
                 venue <- createVenueWithConfig "Leave Venue"
@@ -103,6 +150,72 @@ tests = beforeAll testContext do
                 response `responseStatusShouldBe` status302
 
                 versionAfter <- currentLiveUpdateVersion RosterWeekScope { venueId = unpackId venue.id, weekOffset = 0 }
+                versionAfter `shouldBe` versionBefore + 1
+
+        it "creating leave via HTMX updates the actor fragment and bumps the leave scope version" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Leave Venue"
+                user <- createUserRecord "leave-htmx-create@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue user "worker"
+                _ <- createStaffRecord venue (Just user) "Liv" "Create"
+
+                versionBefore <- currentLiveUpdateVersion LeaveRequestsScope { venueId = unpackId venue.id }
+
+                response <- withUserAndCurrentVenue user venue.id do
+                    withRequestHeaders
+                        [ ("HX-Request", "true")
+                        , ("X-Live-Update-Client-Id", "leave-create-client")
+                        ] do
+                            callActionWithParams CreateLeaveRequestAction
+                                [ ("startDate", "2025-01-13")
+                                , ("endDate", "2025-01-14")
+                                , ("notes", "Family event")
+                                ]
+
+                response `responseStatusShouldBe` status200
+                body <- responseBody response
+                let bodyText = cs (LByteString.unpack body)
+                bodyText `shouldContain` "id=\"leave-requests-content\""
+                bodyText `shouldContain` "Leave request submitted"
+                bodyText `shouldContain` "hx-swap-oob=\"innerHTML\""
+
+                versionAfter <- currentLiveUpdateVersion LeaveRequestsScope { venueId = unpackId venue.id }
+                versionAfter `shouldBe` versionBefore + 1
+
+        it "manager review actions bump the leave scope version" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Leave Venue"
+                manager <- createUserRecord "leave-live-manager@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue manager "manager"
+                staff <- createStaffRecord venue Nothing "Dina" "Leave"
+                leaveRequest <- createLeaveRequestRecord venue staff (fromGregorian 2025 1 8) (fromGregorian 2025 1 10) "pending"
+
+                versionBefore <- currentLiveUpdateVersion LeaveRequestsScope { venueId = unpackId venue.id }
+
+                response <- withUserAndCurrentVenue manager venue.id do
+                    withRequestHeaders [("HX-Request", "true"), ("X-Live-Update-Client-Id", "leave-approve-client")] do
+                        callAction ApproveLeaveRequestAction { leaveRequestId = leaveRequest.id }
+
+                response `responseStatusShouldBe` status200
+                versionAfter <- currentLiveUpdateVersion LeaveRequestsScope { venueId = unpackId venue.id }
+                versionAfter `shouldBe` versionBefore + 1
+
+        it "deleting leave via HTMX bumps the leave scope version" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Leave Venue"
+                user <- createUserRecord "leave-htmx-delete@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue user "worker"
+                staff <- createStaffRecord venue (Just user) "Del" "Own"
+                leaveRequest <- createLeaveRequestRecord venue staff (fromGregorian 2025 1 13) (fromGregorian 2025 1 14) "pending"
+
+                versionBefore <- currentLiveUpdateVersion LeaveRequestsScope { venueId = unpackId venue.id }
+
+                response <- withUserAndCurrentVenue user venue.id do
+                    withRequestHeaders [("HX-Request", "true"), ("X-Live-Update-Client-Id", "leave-delete-client")] do
+                        callAction DeleteLeaveRequestAction { leaveRequestId = leaveRequest.id }
+
+                response `responseStatusShouldBe` status200
+                versionAfter <- currentLiveUpdateVersion LeaveRequestsScope { venueId = unpackId venue.id }
                 versionAfter `shouldBe` versionBefore + 1
 
         it "writes an audit event when approving a leave request" $ withContext do

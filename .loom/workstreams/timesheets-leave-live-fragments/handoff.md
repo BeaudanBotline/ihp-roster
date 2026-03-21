@@ -16,6 +16,20 @@ Completed in this pass:
 - `Web/Controller/LeaveRequests.hs` now computes affected week offsets and reuses the existing roster live-update helpers to broadcast `RosterContentFragment` and `RosterStaffPanelFragment` invalidations for each affected week scope.
 - `Application/Helper/Controller.hs` no longer carries the stale `triggerRosterConflictRecomputeForLeave` helper.
 - `Test/Controller/LeaveRequestsSpec.hs` now asserts live-update version increments on the correct `RosterWeekScope` values and locks in the deny-after-approved path as well.
+- `coordinator-ck3.3` implemented: the leave page is now a live-fragment consumer with a venue-scoped owner shell, a canonical leave-content fragment endpoint, and mutation broadcasts for create/approve/deny/delete.
+- `Web/View/LeaveRequests/Index.hs` now mounts the leave page as `data-live-update-feature="leave-requests"`, exposes `ShowLeaveRequestsContentFragmentAction` as the canonical fragment refetch URL, and uses HTMX mutation wiring for review/delete actions so the acting tab updates immediately.
+- `Web/Controller/LeaveRequests.hs` now:
+  - serves `ShowLeaveRequestsContentFragmentAction`
+  - broadcasts `LeaveRequestsScope` invalidations after create/approve/deny/delete commit
+  - returns immediate actor fragment/toast responses for HTMX leave mutations
+  - closes the leave-request dialog out-of-band after a successful HTMX create
+- The leave fragment renderer now takes the viewer's staff id explicitly instead of reaching into `currentUserOrNothing` during fragment-only renders. That avoids the frozen-context crash on fragment endpoints and keeps delete-button visibility consistent for workers viewing their own requests.
+- `static/app.js` now gives the leave adapter a real resync path by refetching `#leave-requests-content` when a leave-scope subscribe ack reports version drift.
+- `Test/Controller/LeaveRequestsSpec.hs` now covers:
+  - leave-page shell subscription metadata
+  - fragment visibility scoping for manager vs worker viewers
+  - HTMX actor responses for create
+  - leave-scope version bumps for create/review/delete
 
 ## Why this lane exists
 
@@ -23,16 +37,14 @@ The shared live-update runtime landed for roster, but the rest of the app has no
 
 Confirmed remaining gaps:
 
-- `Web/Controller/LeaveRequests.hs` still has HTMX support only for creating a leave request dialog. Approve, deny, and delete still redirect and do not yet broadcast leave-page invalidations.
 - `Web/Controller/Timesheets.hs` has HTMX actor patches for some create/update flows, but no cross-viewer live invalidation path and no fragment endpoints/scope metadata for concurrent viewers.
-- `Application/Helper/LiveUpdate.hs` currently defines only `RosterWeekScope` and roster fragment keys.
+- Leave creation still does not invalidate roster scopes; only approve/deny currently propagate to roster viewers. That is currently intentional pending a product decision about whether pending leave should affect roster conflict visibility.
 
 ## Concrete next actions
 
-1. Implement `coordinator-ck3.1` by extending the shared live-update scope/fragment model for leave and timesheet use.
-2. Implement `coordinator-ck3.3` by wiring live fragments into the leave page itself.
-3. Implement `coordinator-ck3.4` by wiring live fragments into the timesheet week page.
-4. Finish with `coordinator-ck3.5` by adding controller/e2e coverage and recording verification.
+1. Implement `coordinator-ck3.4` by wiring live fragments into the timesheet week page.
+2. Implement `coordinator-ck3.5` by adding e2e coverage for leave/timesheet multi-view behavior and recording verification.
+3. Revisit whether leave create/delete should also invalidate roster scopes when pending leave should influence roster conflict presentation.
 
 ## Implementation notes
 
@@ -48,11 +60,19 @@ Ran in this pass:
 
 - `bash ./bin/in-env typecheck`
   - passed
+- `bash ./bin/in-env typecheck` after formatting
+  - passed
 - `bash ./bin/in-env test`
-  - passed with `159 examples, 0 failures`
+  - passed with `165 examples, 0 failures`
 - `bash ./bin/in-env test --match LeaveRequestsController`
-  - first run failed because the local test DB socket was not up yet (`build/db/.s.PGSQL.5432` missing)
-  - after `bash ./bin/in-env dev-start` and `bash ./bin/in-env dev-wait 120`, rerun passed with `13 examples, 0 failures`
+  - first run in this pass failed on a fragment-render frozen-context bug plus duplicate roster invalidation from approve/deny
+  - after passing viewer staff id explicitly into the fragment renderer and removing the duplicate inside-transaction roster invalidation, rerun passed with `19 examples, 0 failures`
+- `bash ./bin/in-env dev-start`
+  - passed
+- `bash ./bin/in-env dev-wait 120`
+  - passed
+- `bash ./bin/in-env dev-stop`
+  - passed
 
 Not yet run in this pass:
 

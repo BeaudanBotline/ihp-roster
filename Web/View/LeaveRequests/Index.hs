@@ -3,45 +3,64 @@ module Web.View.LeaveRequests.Index where
 import Application.Helper.Controller (LeaveRequestStatus (..),
                                       leaveRequestCanBeDeleted,
                                       parseLeaveRequestStatus)
+import Application.Helper.LiveUpdate (LiveUpdateScope (..))
 import Data.Coerce (coerce)
 import Web.View.Prelude
 
 data IndexView = IndexView
-    { leaveRequests :: [LeaveRequest]
-    , staffMembers  :: [Staff]
+    { leaveRequests        :: [LeaveRequest]
+    , staffMembers         :: [Staff]
+    , currentViewerStaffId :: Maybe UUID
+    , liveUpdateScope      :: Maybe LiveUpdateScope
     }
+
+leaveRequestsShellId :: Text
+leaveRequestsShellId = "leave-requests-shell"
+
+leaveRequestsContentFragmentId :: Text
+leaveRequestsContentFragmentId = "leave-requests-content"
 
 instance View IndexView where
     html IndexView { .. } = [hsx|
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h1>Leave Requests</h1>
-            <a href={NewLeaveRequestAction}
-               class="btn btn-primary"
-               hx-get={NewLeaveRequestAction}
-               hx-target={"#" <> dialogOverlayMountId}
-               hx-swap="innerHTML"
-               hx-push-url="false">
-                New Request
-            </a>
-        </div>
+        <section id={leaveRequestsShellId}
+                 data-live-update-owner="true"
+                 data-live-update-feature="leave-requests"
+                 data-live-updates-path="/live-updates"
+                 data-live-update-content-url={pathTo ShowLeaveRequestsContentFragmentAction}
+                 data-live-update-client-enabled={isJust liveUpdateScope}
+                 data-live-update-client-id=""
+                 data-live-update-scope-kind={liveUpdateScopeKind <$> liveUpdateScope}
+                 data-live-update-venue-id={liveUpdateVenueId <$> liveUpdateScope}>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h1>Leave Requests</h1>
+                <a href={NewLeaveRequestAction}
+                   class="btn btn-primary"
+                   hx-get={NewLeaveRequestAction}
+                   hx-target={"#" <> dialogOverlayMountId}
+                   hx-swap="innerHTML"
+                   hx-push-url="false">
+                    New Request
+                </a>
+            </div>
 
-        {renderLeaveRequestsContentFragment leaveRequests staffMembers}
+            {renderLeaveRequestsContentFragment leaveRequests staffMembers currentViewerStaffId}
+        </section>
     |]
 
-renderLeaveRequestsContentFragment :: (?context :: ControllerContext) => [LeaveRequest] -> [Staff] -> Html
+renderLeaveRequestsContentFragment :: (?context :: ControllerContext) => [LeaveRequest] -> [Staff] -> Maybe UUID -> Html
 renderLeaveRequestsContentFragment =
     renderLeaveRequestsContentFragmentWithSwap Nothing
 
-renderLeaveRequestsContentFragmentOob :: (?context :: ControllerContext) => [LeaveRequest] -> [Staff] -> Html
+renderLeaveRequestsContentFragmentOob :: (?context :: ControllerContext) => [LeaveRequest] -> [Staff] -> Maybe UUID -> Html
 renderLeaveRequestsContentFragmentOob =
     renderLeaveRequestsContentFragmentWithSwap (Just "outerHTML")
 
-renderLeaveRequestsContentFragmentWithSwap :: (?context :: ControllerContext) => Maybe Text -> [LeaveRequest] -> [Staff] -> Html
-renderLeaveRequestsContentFragmentWithSwap maybeSwapOob leaveRequests staffMembers = [hsx|
-    <div id="leave-requests-content" hx-swap-oob={maybeSwapOob}>
+renderLeaveRequestsContentFragmentWithSwap :: (?context :: ControllerContext) => Maybe Text -> [LeaveRequest] -> [Staff] -> Maybe UUID -> Html
+renderLeaveRequestsContentFragmentWithSwap maybeSwapOob leaveRequests staffMembers currentViewerStaffId = [hsx|
+    <div id={leaveRequestsContentFragmentId} hx-swap-oob={maybeSwapOob}>
         {if null leaveRequests
             then renderEmptyState
-            else renderLeaveRequestsTable leaveRequests staffMembers
+            else renderLeaveRequestsTable leaveRequests staffMembers currentViewerStaffId
         }
     </div>
 |]
@@ -55,8 +74,8 @@ renderEmptyState = [hsx|
     </div>
 |]
 
-renderLeaveRequestsTable :: (?context :: ControllerContext) => [LeaveRequest] -> [Staff] -> Html
-renderLeaveRequestsTable leaveRequests staffMembers = [hsx|
+renderLeaveRequestsTable :: (?context :: ControllerContext) => [LeaveRequest] -> [Staff] -> Maybe UUID -> Html
+renderLeaveRequestsTable leaveRequests staffMembers currentViewerStaffId = [hsx|
     <div class="table-responsive">
         <table class="table table-striped align-middle">
             <thead>
@@ -70,21 +89,21 @@ renderLeaveRequestsTable leaveRequests staffMembers = [hsx|
                 </tr>
             </thead>
             <tbody>
-                {forEach leaveRequests (renderLeaveRequestRow staffMembers)}
+                {forEach leaveRequests (renderLeaveRequestRow staffMembers currentViewerStaffId)}
             </tbody>
         </table>
     </div>
 |]
 
-renderLeaveRequestRow :: (?context :: ControllerContext) => [Staff] -> LeaveRequest -> Html
-renderLeaveRequestRow staffMembers leaveRequest = [hsx|
+renderLeaveRequestRow :: (?context :: ControllerContext) => [Staff] -> Maybe UUID -> LeaveRequest -> Html
+renderLeaveRequestRow staffMembers currentViewerStaffId leaveRequest = [hsx|
     <tr>
         <td>{leaveRequest.startDate}</td>
         <td>{leaveRequest.endDate}</td>
         <td>{resolveStaffName leaveRequest.staffId staffMembers}</td>
         <td>{renderStatusBadge leaveRequest.status}</td>
         <td>{fromMaybe "-" leaveRequest.notes}</td>
-        <td class="text-end">{renderActions staffMembers leaveRequest}</td>
+        <td class="text-end">{renderActions currentViewerStaffId leaveRequest}</td>
     </tr>
 |]
 
@@ -101,10 +120,10 @@ renderStatusBadge status =
         Just LeaveDenied -> [hsx|<span class="badge bg-danger">Denied</span>|]
         _ -> [hsx|<span class="badge bg-warning text-dark">Pending</span>|]
 
-renderActions :: (?context :: ControllerContext) => [Staff] -> LeaveRequest -> Html
-renderActions staffMembers leaveRequest = [hsx|
+renderActions :: (?context :: ControllerContext) => Maybe UUID -> LeaveRequest -> Html
+renderActions currentViewerStaffId leaveRequest = [hsx|
     {renderReviewActions leaveRequest}
-    {renderDeleteAction staffMembers leaveRequest}
+    {renderDeleteAction currentViewerStaffId leaveRequest}
 |]
 
 renderReviewActions :: (?context :: ControllerContext) => LeaveRequest -> Html
@@ -113,40 +132,78 @@ renderReviewActions leaveRequest
     | otherwise =
         case parseLeaveRequestStatus leaveRequest.status of
             Just LeaveApproved -> [hsx|
-                <form method="POST" action={DenyLeaveRequestAction leaveRequest.id} class="d-inline">
+                <form method="POST"
+                      action={DenyLeaveRequestAction leaveRequest.id}
+                      class="d-inline"
+                      hx-post={DenyLeaveRequestAction leaveRequest.id}
+                      hx-target={"#" <> leaveRequestsContentFragmentId}
+                      hx-swap="outerHTML"
+                      hx-push-url="false">
                     <button type="submit" class="btn btn-sm btn-outline-danger me-1">Deny</button>
                 </form>
             |]
             Just LeaveDenied -> [hsx|
-                <form method="POST" action={ApproveLeaveRequestAction leaveRequest.id} class="d-inline">
+                <form method="POST"
+                      action={ApproveLeaveRequestAction leaveRequest.id}
+                      class="d-inline"
+                      hx-post={ApproveLeaveRequestAction leaveRequest.id}
+                      hx-target={"#" <> leaveRequestsContentFragmentId}
+                      hx-swap="outerHTML"
+                      hx-push-url="false">
                     <button type="submit" class="btn btn-sm btn-outline-success me-1">Approve</button>
                 </form>
             |]
             _ -> [hsx|
-                <form method="POST" action={ApproveLeaveRequestAction leaveRequest.id} class="d-inline">
+                <form method="POST"
+                      action={ApproveLeaveRequestAction leaveRequest.id}
+                      class="d-inline"
+                      hx-post={ApproveLeaveRequestAction leaveRequest.id}
+                      hx-target={"#" <> leaveRequestsContentFragmentId}
+                      hx-swap="outerHTML"
+                      hx-push-url="false">
                     <button type="submit" class="btn btn-sm btn-outline-success me-1">Approve</button>
                 </form>
-                <form method="POST" action={DenyLeaveRequestAction leaveRequest.id} class="d-inline">
+                <form method="POST"
+                      action={DenyLeaveRequestAction leaveRequest.id}
+                      class="d-inline"
+                      hx-post={DenyLeaveRequestAction leaveRequest.id}
+                      hx-target={"#" <> leaveRequestsContentFragmentId}
+                      hx-swap="outerHTML"
+                      hx-push-url="false">
                     <button type="submit" class="btn btn-sm btn-outline-danger me-1">Deny</button>
                 </form>
             |]
 
-renderDeleteAction :: (?context :: ControllerContext) => [Staff] -> LeaveRequest -> Html
-renderDeleteAction staffMembers leaveRequest =
+renderDeleteAction :: (?context :: ControllerContext) => Maybe UUID -> LeaveRequest -> Html
+renderDeleteAction currentViewerStaffId leaveRequest =
     if canDelete
         then [hsx|
-            <a href={DeleteLeaveRequestAction leaveRequest.id} class="btn btn-sm btn-outline-danger js-delete js-delete-no-confirm">Delete</a>
+            <a href={DeleteLeaveRequestAction leaveRequest.id}
+               class="btn btn-sm btn-outline-danger js-delete js-delete-no-confirm"
+               data-turbolinks="false"
+               hx-delete={DeleteLeaveRequestAction leaveRequest.id}
+               hx-target={"#" <> leaveRequestsContentFragmentId}
+               hx-swap="outerHTML"
+               hx-push-url="false">
+                Delete
+            </a>
         |]
         else mempty
     where
         canDelete =
             leaveRequestCanBeDeleted leaveRequest
-                && (currentUserIsManager || isCurrentUsersLeaveRequest staffMembers leaveRequest)
+                && (currentUserIsManager || isCurrentUsersLeaveRequest currentViewerStaffId leaveRequest)
 
-isCurrentUsersLeaveRequest :: (?context :: ControllerContext) => [Staff] -> LeaveRequest -> Bool
-isCurrentUsersLeaveRequest staffMembers leaveRequest =
-    case currentUserOrNothing of
-        Nothing -> False
-        Just user ->
-            let currentStaff = find (\staff -> staff.userId == Just (coerce (get #id user))) staffMembers
-             in maybe False (\staff -> coerce (get #id staff) == leaveRequest.staffId) currentStaff
+isCurrentUsersLeaveRequest :: Maybe UUID -> LeaveRequest -> Bool
+isCurrentUsersLeaveRequest currentViewerStaffId leaveRequest =
+    maybe False (== leaveRequest.staffId) currentViewerStaffId
+
+liveUpdateScopeKind :: LiveUpdateScope -> Text
+liveUpdateScopeKind LeaveRequestsScope {} = "leave_requests"
+liveUpdateScopeKind RosterWeekScope {}    = "roster_week"
+liveUpdateScopeKind TimesheetWeekScope {} = "timesheet_week"
+
+liveUpdateVenueId :: LiveUpdateScope -> Text
+liveUpdateVenueId LeaveRequestsScope { venueId } = tshow venueId
+liveUpdateVenueId RosterWeekScope { venueId }    = tshow venueId
+liveUpdateVenueId TimesheetWeekScope { venueId } = tshow venueId
