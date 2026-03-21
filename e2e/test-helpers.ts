@@ -23,3 +23,12 @@ export async function gotoWhenReady(page: Page, path: string, readySelector: str
 
     await expect(page.locator(readySelector), lastBodyText).toBeVisible({ timeout: 5000 });
 }
+
+export async function loginAs(page: Page, email: string, password: string) {
+    await gotoWhenReady(page, '/NewSession', '#email');
+    await page.fill('#email', email);
+    await page.fill('#password', password);
+    await page.click('button[type="submit"]');
+    await expect(page).toHaveURL(/(RosterWeeks|ShowRosterWeek)/, { timeout: 60000 });
+    await expect(page.locator('#roster-content')).toBeVisible({ timeout: 60000 });
+}

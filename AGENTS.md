@@ -168,8 +168,8 @@ For simple CRUD, prefer running `new-controller NAME` to scaffold all files, the
 Playwright-based end-to-end tests live in `e2e/` and run against the live dev server (`http://localhost:8000`). See `e2e/AGENTS.md` for the full guide.
 
 - **Config**: `playwright.config.ts` — single chromium project, serial execution
-- **Test data**: Seeded via `e2e/fixtures/seed.sql` (test user: `e2e-test@example.com` / `test-password-123`)
-- **Cleanup**: `global-teardown.ts` deletes all rows with `e2e-` prefixed emails
+- **Test data**: Seeded via `e2e/fixtures/seed.sql` (manager: `e2e-test@example.com`, worker: `e2e-worker@example.com`, both with password `test-password-123`)
+- **Cleanup**: `global-teardown.ts` deletes all rows with `e2e-` prefixed emails and removes worker-owned leave/timesheet rows before deleting dependent snapshots
 - **Browsers**: Provided by Nix via `playwright-web-flake` — no manual browser install needed
 - **CLI invocation**: In automation and Loom runs, prefer `bash ./bin/in-env e2e` / `screenshot` / `e2e-report` instead of bare `npx playwright ...`; the wrapper resolves the repo-local Playwright CLI inside the dev shell so the runner matches the imported test package
 - **npm deps**: `@playwright/test` version in `package.json` must match the `playwright-web-flake` tag in `flake.nix`
@@ -199,6 +199,11 @@ Playwright-based end-to-end tests live in `e2e/` and run against the live dev se
   - clients refetch only the invalidated fragments they currently have mounted
   - one mutation may invalidate multiple scopes, and only a subset of fragments within each scope
 - The transport/client pattern is reusable across other collaborative pages. Keep the websocket/refetch core shared, and add small per-feature adapters for DOM discovery, swap rules, and focus deferral where needed.
+- The leave/timesheet live-fragment rollout is verified with manager/worker Playwright coverage:
+  - leave approvals update the worker leave page live
+  - leave approvals update an already-open manager roster page live
+  - timesheet approvals update the worker timesheet page live
+- Product decision recorded on `2026-03-21`: only approved-state leave changes invalidate roster scopes. Pending leave create/delete does not fan out to roster viewers.
 - The retained date/datetime picker enhancement now belongs to `static/app.js`, not `helpers.js`. Keep it wired for full-page loads and HTMX-inserted fragments so overlay forms get the same picker behavior as first-load pages.
 - Keep scope shapes simple and explicit:
   - venue-only surfaces such as leave lists should use a venue scope kind carrying `venueId`

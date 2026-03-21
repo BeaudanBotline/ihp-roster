@@ -60,15 +60,16 @@ test.describe('My Feature', () => {
 });
 ```
 
-For pages that can briefly show the IHP compile screen during reloads, prefer the shared helper:
+For pages that can briefly show the IHP compile screen during reloads, prefer the shared helpers:
 
 ```typescript
-import { gotoWhenReady } from './test-helpers';
+import { gotoWhenReady, loginAs } from './test-helpers';
 
 await gotoWhenReady(page, '/NewSession', '#email');
+await loginAs(page, 'e2e-test@example.com', 'test-password-123');
 ```
 
-`gotoWhenReady` retries the navigation until the expected selector appears instead of failing on the temporary `Is compiling` page.
+`gotoWhenReady` retries the navigation until the expected selector appears instead of failing on the temporary `Is compiling` page. `loginAs` wraps the seeded login flow and waits for the post-login roster shell.
 
 ### UI behavior expectations worth covering
 - For HTMX week pagers, assert both the shell swap and that no full page navigation occurred by preserving a `window` marker across clicks.
@@ -95,9 +96,10 @@ test('authenticated feature', async ({ page }) => {
 ## Test Data Convention
 
 - All e2e test data uses the **`e2e-` prefix** on emails and identifiers
-- The seeded test user is `e2e-test@example.com` with password `test-password-123`
+- The seeded manager is `e2e-test@example.com` and the seeded worker is `e2e-worker@example.com`; both use password `test-password-123`
 - Auth now also requires seeded `venues`, `venue_config`, and `venue_memberships` for the login user. A bare user row is not enough.
 - `global-teardown.ts` deletes all users with `email LIKE 'e2e-%'` after tests complete
+- If a spec creates worker-owned leave or timesheet rows, teardown must delete those rows before deleting dependent `pay_config_snapshots` or user rows
 - To add more fixture data, add SQL to `e2e/fixtures/seed.sql` using the `e2e-` prefix
 - Use `ON CONFLICT DO UPDATE` for idempotency
 - Prefer fixed UUIDs plus `ON CONFLICT DO UPDATE` so reruns stay deterministic
@@ -151,7 +153,7 @@ Useful options:
 | Flash success | `.alert-success` |
 | Flash error | `.alert-danger` |
 | Navigation link | `a:has-text("Link Text")` |
-| Delete/logout button | `.js-delete` or `a:has-text("Logout")` |
+| Delete/logout button | `button:has-text("Delete")` or `button:has-text("Logout")` |
 
 ### Form field selectors
 

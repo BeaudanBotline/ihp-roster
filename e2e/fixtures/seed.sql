@@ -50,14 +50,23 @@ ON CONFLICT (id) DO UPDATE SET
     staff_timesheet_edit_window_days = EXCLUDED.staff_timesheet_edit_window_days;
 
 INSERT INTO users (id, email, password_hash, user_role, is_profile_completed, failed_login_attempts)
-VALUES (
-    'a0000000-0000-0000-0000-000000000001',
-    'e2e-test@example.com',
-    'sha256|17|pTjl57yJOvFluR4n2l2OmA==|beKP33BwrGQhNd1xvMF0rt7EKxW1tR6KaN1i8ExJLzs=',
-    'manager',
-    TRUE,
-    0
-)
+VALUES
+    (
+        'a0000000-0000-0000-0000-000000000001',
+        'e2e-test@example.com',
+        'sha256|17|pTjl57yJOvFluR4n2l2OmA==|beKP33BwrGQhNd1xvMF0rt7EKxW1tR6KaN1i8ExJLzs=',
+        'manager',
+        TRUE,
+        0
+    ),
+    (
+        'a0000000-0000-0000-0000-000000000002',
+        'e2e-worker@example.com',
+        'sha256|17|pTjl57yJOvFluR4n2l2OmA==|beKP33BwrGQhNd1xvMF0rt7EKxW1tR6KaN1i8ExJLzs=',
+        'staff',
+        TRUE,
+        0
+    )
 ON CONFLICT (id) DO UPDATE SET
     email = EXCLUDED.email,
     password_hash = EXCLUDED.password_hash,
@@ -85,6 +94,15 @@ VALUES
         TRUE,
         '2025-01-02 00:00:00+00',
         '2025-01-02 00:00:00+00'
+    ),
+    (
+        'a1000000-0000-0000-0000-000000000023',
+        'a1000000-0000-0000-0000-000000000001',
+        'a0000000-0000-0000-0000-000000000002',
+        'worker',
+        TRUE,
+        '2025-01-03 00:00:00+00',
+        '2025-01-03 00:00:00+00'
     )
 ON CONFLICT (id) DO UPDATE SET
     venue_id = EXCLUDED.venue_id,
@@ -107,7 +125,7 @@ VALUES
     (
         'a1000000-0000-0000-0000-000000000031',
         'a1000000-0000-0000-0000-000000000001',
-        NULL,
+        'a0000000-0000-0000-0000-000000000002',
         'Alpha',
         'Crew',
         TRUE
