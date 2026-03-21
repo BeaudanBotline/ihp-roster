@@ -121,6 +121,23 @@ tests = beforeAll testContext do
                 response `responseStatusShouldBe` status200
                 response `responseBodyShouldContain` "data-disable-javascript-submission=\"true\""
 
+        it "renders explicit delete forms instead of js-delete links for authenticated leave pages" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Leave Venue"
+                user <- createUserRecord "leave-delete-form@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue user "worker"
+                staff <- createStaffRecord venue (Just user) "Delia" "Viewer"
+                leaveRequest <- createLeaveRequestRecord venue staff (fromGregorian 2025 1 13) (fromGregorian 2025 1 14) "pending"
+
+                response <- withUserAndCurrentVenue user venue.id do
+                    callAction LeaveRequestsAction
+
+                response `responseStatusShouldBe` status200
+                response `responseBodyShouldContain` cs (pathTo (DeleteLeaveRequestAction leaveRequest.id))
+                response `responseBodyShouldContain` cs (pathTo DeleteSessionAction)
+                response `responseBodyShouldContain` "name=\"_method\" value=\"DELETE\""
+                response `responseBodyShouldNotContain` "js-delete"
+
         it "scopes leave fragment refetches to the current viewer visibility" $ withContext do
             withCleanDb do
                 venue <- createVenueWithConfig "Leave Venue"

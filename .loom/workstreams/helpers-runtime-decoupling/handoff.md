@@ -18,29 +18,44 @@
   - `coordinator-6ye.3` migrate remaining required UI helpers out of `helpers.js`
   - `coordinator-6ye.4` rehome plain forms onto the chosen submission model
   - `coordinator-6ye.5` remove `helpers.js` from layout/build and verify regressions
+- Recorded the settled migration policy in repo docs:
+  - HTMX remains for partial/in-place workflows
+  - admin/config, exports, profile, login, and invitation/bootstrap forms should default to native full-page submits
+  - destructive actions should be explicit `POST + _method=DELETE` forms
+  - the date/datetime picker enhancement should be kept in app-local JS
+  - TurboLinks is decoupled from form transport and may remain temporarily only for navigation/lifecycle behavior
+- Implemented `coordinator-6ye.1`:
+  - logout in `Web/View/Layout.hs` is now an explicit delete form
+  - leave delete in `Web/View/LeaveRequests/Index.hs` is now an explicit delete form that still uses HTMX for in-place updates
+  - timesheet delete in `Web/View/Timesheets/Index.hs` is now an explicit delete form that still uses HTMX for in-place updates
+  - there are no remaining runtime `.js-delete` consumers under `Web/`, `Application/`, or `static/`
+- Added regression coverage:
+  - `Test/Controller/LeaveRequestsSpec.hs` now asserts the authenticated leave page renders explicit delete forms and the logout delete form, with no `js-delete` markup
+  - `Test/Controller/TimesheetsSpec.hs` now asserts timesheet cards render explicit delete forms with hidden `_method=DELETE`, with no `js-delete` markup
 
 ## Current architectural assessment
 
 - Short-term: keep the centralized HTMX submit isolation currently in `static/app.js`
 - Long-term: remove `helpers.js` entirely once replacement work is complete
-- Recommended target model:
+- The policy and first implementation slice are now aligned:
   - HTMX for in-place partial workflows
-  - native browser submits for low-frequency full-page forms unless there is a strong reason not to
+  - native browser submits for low-frequency full-page forms
   - explicit destructive-action forms instead of `.js-delete`
-  - app-local date picker initialization if still desired
+  - app-local date picker initialization should be the retained non-transport helper
 
-## Open technical decisions
+## Settled technical decisions
 
-These need explicit confirmation before implementation starts:
-
-1. Keep or drop TurboLinks for ordinary page navigation?
-   - Recommendation: keep only if it still pays for itself; decouple the decision from forms.
-2. Are admin/profile/export/login forms acceptable as normal full-page submits?
-   - Recommendation: yes, unless a specific page has a UX reason to stay partial.
-3. Do we want any replacement for `.js-delete` beyond explicit forms?
-   - Recommendation: no broad replacement; use real forms or a very narrow helper only where markup cost is unacceptable.
-4. Keep flatpickr enhancement?
-   - Recommendation: yes, if the app still prefers the enhanced picker over native browser widgets.
+1. TurboLinks
+   - Keep it separate from form transport.
+   - It may remain temporarily for navigation/lifecycle behavior, but it should not own form submission.
+2. Plain full-page forms
+   - Admin/config, exports, profile, login, and invitation/bootstrap forms are acceptable as native full-page submits by default.
+3. Destructive actions
+   - Replace `.js-delete` with explicit app-owned forms using `POST` plus hidden `_method=DELETE`.
+   - Do not introduce another broad delete-link shim.
+4. UI helpers
+   - Keep the date/datetime picker enhancement.
+   - Drop unused smaller helpers unless implementation finds a real dependency.
 
 ## Branching note
 
@@ -55,4 +70,17 @@ Do not assume that decision has already been made.
 
 ## Immediate next action
 
-Start `coordinator-6ye.2` by turning the recommendations above into explicit repo policy in `AGENTS.md` / workstream docs, then implement `.js-delete` replacement first.
+Start `coordinator-6ye.3` by moving the date/datetime picker enhancement out of `helpers.js` and confirming that the smaller legacy helpers can be dropped without replacement.
+
+## Verification
+
+Ran in this pass:
+
+- `bash ./bin/in-env format`
+  - passed
+- `bash ./bin/in-env typecheck`
+  - passed
+- `bash ./bin/in-env test --match LeaveRequestsController`
+  - passed with `21 examples, 0 failures`
+- `bash ./bin/in-env test --match TimesheetsController`
+  - passed with `18 examples, 0 failures`

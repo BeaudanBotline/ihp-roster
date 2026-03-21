@@ -52,16 +52,20 @@ Confirmed likely-unused helpers in app code:
 - `data-preview` file-preview helper
 - `.time-ago`, `.date-time`, `.date`, `.time` formatting helpers
 
-## Decisions that must be made before implementation
+## Settled migration decisions
 
-1. What owns non-HTMX forms after `helpers.js` is removed?
-   - Recommended default: native browser submits for low-frequency full-page workflows, HTMX only where partial updates are actually wanted.
-2. What replaces `.js-delete`?
-   - Recommended default: explicit forms for destructive actions, not another document-wide implicit transport shim.
-3. Does TurboLinks remain?
-   - Recommended default: keep it only if it is still providing value for page navigation; do not let it dictate form transport.
-4. Which helpers are intentionally dropped instead of recreated?
-   - Recommended default: drop unused helpers; keep only flatpickr/date init if still desired.
+1. Non-HTMX forms after `helpers.js`
+   - Default to native browser submits for low-frequency full-page workflows.
+   - Do not replace IHP's document-wide AJAX submit interception with another app-wide transport shim.
+2. Replacement for `.js-delete`
+   - Use explicit destructive-action forms with `POST` plus hidden `_method=DELETE`.
+   - HTMX belongs only on surfaces that already need in-place updates.
+3. TurboLinks
+   - Keep it separate from form transport.
+   - If retained during this migration, it remains only a page-navigation/lifecycle concern.
+4. UI helpers to keep
+   - Keep date/datetime picker enhancement.
+   - Drop unused smaller helpers unless later code proves they still matter.
 
 ## Read order for the next implementation pass
 
@@ -74,7 +78,7 @@ Confirmed likely-unused helpers in app code:
 
 ## Suggested migration order
 
-1. decide the post-helpers transport boundary
+1. record the settled transport/runtime policy in repo docs
 2. replace `.js-delete`
 3. move any still-needed UI helpers into app-local JS
 4. rehome remaining plain forms onto the chosen submission model

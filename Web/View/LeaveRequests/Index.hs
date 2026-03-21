@@ -182,15 +182,16 @@ renderDeleteAction :: (?context :: ControllerContext) => Maybe UUID -> LeaveRequ
 renderDeleteAction currentViewerStaffId leaveRequest =
     if canDelete
         then [hsx|
-            <a href={DeleteLeaveRequestAction leaveRequest.id}
-               class="btn btn-sm btn-outline-danger js-delete js-delete-no-confirm"
-               data-turbolinks="false"
-               hx-delete={DeleteLeaveRequestAction leaveRequest.id}
-               hx-target={"#" <> leaveRequestsContentFragmentId}
-               hx-swap="outerHTML"
-               hx-push-url="false">
-                Delete
-            </a>
+            <form method="POST"
+                  action={DeleteLeaveRequestAction leaveRequest.id}
+                  class="d-inline"
+                  hx-delete={DeleteLeaveRequestAction leaveRequest.id}
+                  hx-target={"#" <> leaveRequestsContentFragmentId}
+                  hx-swap="outerHTML"
+                  hx-push-url="false">
+                <input type="hidden" name="_method" value="DELETE"/>
+                <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+            </form>
         |]
         else mempty
     where

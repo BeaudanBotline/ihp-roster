@@ -202,15 +202,17 @@ renderEditActions dayOffset entry canEdit weekOffset
         deleteUrl = appendQueryParams (pathTo (DeleteTimesheetEntryAction (get #id entry))) [("weekOffset", tshow weekOffset)]
         deleteTarget = "#" <> timesheetDaySectionDomId dayOffset
         renderDeleteButton = [hsx|
-            <a href={deleteUrl}
-               class="btn btn-sm btn-outline-danger js-delete js-delete-no-confirm"
-               data-turbolinks="false"
-               hx-delete={deleteUrl}
-               hx-target={deleteTarget}
-               hx-swap="outerHTML"
-               hx-push-url="false">
-                Delete
-            </a>
+            <form method="POST"
+                  action={deleteUrl}
+                  class="d-inline"
+                  hx-delete={deleteUrl}
+                  hx-target={deleteTarget}
+                  hx-swap="outerHTML"
+                  hx-push-url="false">
+                <input type="hidden" name="_method" value="DELETE"/>
+                <input type="hidden" name="weekOffset" value={tshow weekOffset} />
+                <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+            </form>
         |]
 
 renderApprovalAction :: (?context :: ControllerContext) => Int -> TimesheetEntry -> Int -> Html

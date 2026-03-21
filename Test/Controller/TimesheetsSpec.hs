@@ -87,6 +87,22 @@ tests = beforeAll testContext do
                 response `responseStatusShouldBe` status200
                 response `responseBodyShouldContain` "data-disable-javascript-submission=\"true\""
 
+        it "renders explicit delete forms instead of js-delete links on timesheet cards" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Timesheet Venue"
+                user <- createUserRecord "timesheet-delete-form@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue user "manager"
+                staff <- createStaffRecord venue Nothing "Tess" "Delete"
+                entry <- createTimesheetEntryRecord venue staff (fromGregorian 2025 1 7)
+
+                response <- withUserAndCurrentVenue user venue.id do
+                    callAction ShowTimesheetWeekAction { weekOffset = 0 }
+
+                response `responseStatusShouldBe` status200
+                response `responseBodyShouldContain` cs (pathTo (DeleteTimesheetEntryAction entry.id))
+                response `responseBodyShouldContain` "name=\"_method\" value=\"DELETE\""
+                response `responseBodyShouldNotContain` "js-delete"
+
         it "scopes timesheet day fragments to the current viewer visibility" $ withContext do
             withCleanDb do
                 venue <- createVenueWithConfig "Timesheet Venue"

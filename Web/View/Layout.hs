@@ -52,7 +52,10 @@ renderAppHeader =
                             <a class="btn btn-outline-secondary btn-sm" href={TimesheetsAction}>timesheets</a>
                             <a class="btn btn-outline-secondary btn-sm" href={LeaveRequestsAction}>leave</a>
                             {when currentUserIsAdmin renderAdminNavLink}
-                            <a class="btn btn-outline-danger btn-sm js-delete js-delete-no-confirm" href={DeleteSessionAction}>logout</a>
+                            <form method="POST" action={DeleteSessionAction} class="d-inline">
+                                <input type="hidden" name="_method" value="DELETE"/>
+                                <button class="btn btn-outline-danger btn-sm" type="submit">logout</button>
+                            </form>
                         </div>
                     </div>
                 </nav>

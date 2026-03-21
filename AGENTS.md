@@ -205,6 +205,13 @@ Playwright-based end-to-end tests live in `e2e/` and run against the live dev se
   - venue-only surfaces such as leave lists should use a venue scope kind carrying `venueId`
   - week-based surfaces such as roster and timesheets should use a scope kind carrying `venueId` plus `weekOffset`
   - client scope keys must be derived by scope kind, not by assuming every feature has a week offset
+- Post-`helpers.js` migration policy:
+  - use HTMX for partial and in-place workflows
+  - keep low-frequency full-page forms such as admin/config, exports, profile, login, and invitation/bootstrap as native browser submits by default
+  - do not recreate IHP's document-wide AJAX form transport in app code
+  - replace destructive `.js-delete` links with explicit app-owned forms using `POST` plus hidden `_method=DELETE`
+  - keep only the still-useful UI helpers in app-local JS, currently the date/datetime picker enhancement
+  - keep TurboLinks separate from form transport; if retained, it is for navigation lifecycle only
 
 ## Auth Model Notes
 - Current business authority is venue-scoped. `venue_memberships.venue_role` is what grants manager/admin access; `users.user_role = 'admin'` is not a cross-venue superuser.

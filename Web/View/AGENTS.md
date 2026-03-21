@@ -98,6 +98,7 @@ renderForm post = formFor post [hsx|
 - Keep nav button labels/order consistent: `roster`, `profile`, `timesheets`, `leave`, `admin`, `logout`.
 - Keep `admin` link visibility role-gated (admin only) via `currentUserIsAdmin`.
 - Do not duplicate primary nav in page-level views unless there is a specific workflow reason.
+- Logout and other destructive actions should be explicit forms, not `.js-delete` links. Prefer `method="POST"` plus hidden `_method="DELETE"` so the control works without `helpers.js`; add HTMX attributes only when the surrounding page already needs an in-place update.
 
 ## Roster Week Controls
 - Keep week browsing URL-driven via `weekOffset` action params.
