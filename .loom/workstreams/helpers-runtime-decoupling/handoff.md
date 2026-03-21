@@ -3,7 +3,7 @@
 ## Workstream status
 
 - Coordinator Beads epic: `coordinator-6ye`
-- Status: planning
+- Status: active
 - Starting checkout context: local checkout on `weaver/roster-live-fragments`
 - Last confirmed repo commit at planning time: `4921bfe`
 
@@ -32,6 +32,16 @@
 - Added regression coverage:
   - `Test/Controller/LeaveRequestsSpec.hs` now asserts the authenticated leave page renders explicit delete forms and the logout delete form, with no `js-delete` markup
   - `Test/Controller/TimesheetsSpec.hs` now asserts timesheet cards render explicit delete forms with hidden `_method=DELETE`, with no `js-delete` markup
+- Implemented `coordinator-6ye.3`:
+  - added app-local flatpickr initialization in `static/app.js`
+  - the app-local picker init runs on `DOMContentLoaded`, `turbolinks:load`, and HTMX swap events so dynamically inserted leave dialogs receive the same enhancement as full-page forms
+  - the app-local picker init is idempotent and detects pre-existing flatpickr instances, which lets it coexist safely with `helpers.js` until the final removal slice
+- Confirmed runtime audit results for the smaller `helpers.js` helpers:
+  - no app-runtime consumers remain for `.js-back`
+  - no app-runtime consumers remain for `[data-toggle]`
+  - no app-runtime consumers remain for `data-preview` file previews
+  - no app-runtime consumers remain for `.time-ago`, `.date-time`, `.date`, or `.time` formatting helpers
+- Added a Playwright regression to prove HTMX-inserted leave-request date inputs still get flatpickr after the app-local initialization path runs
 
 ## Current architectural assessment
 
@@ -70,7 +80,7 @@ Do not assume that decision has already been made.
 
 ## Immediate next action
 
-Start `coordinator-6ye.3` by moving the date/datetime picker enhancement out of `helpers.js` and confirming that the smaller legacy helpers can be dropped without replacement.
+Start `coordinator-6ye.4` by applying the chosen post-helpers form policy to the remaining non-HTMX forms. The intended default remains native full-page submits for low-frequency pages, with only the clearly interactive roster flows promoted to HTMX if needed.
 
 ## Verification
 
@@ -84,3 +94,5 @@ Ran in this pass:
   - passed with `21 examples, 0 failures`
 - `bash ./bin/in-env test --match TimesheetsController`
   - passed with `18 examples, 0 failures`
+- `bash ./bin/in-env e2e e2e/live-fragment-submit-regressions.spec.ts`
+  - passed with `3 passed`

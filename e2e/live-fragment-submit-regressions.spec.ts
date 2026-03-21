@@ -10,7 +10,38 @@ async function login(page) {
     await expect(page.locator('#roster-week-shell')).toBeVisible();
 }
 
+async function setFlatpickrDate(page, selector: string, value: string) {
+    await page.locator(selector).evaluate((input, nextValue) => {
+        const flatpickr = (input as HTMLInputElement & {
+            _flatpickr?: { setDate: (date: string, triggerChange?: boolean) => void };
+        })._flatpickr;
+
+        if (!flatpickr) {
+            throw new Error(`No flatpickr instance on ${selector}`);
+        }
+
+        flatpickr.setDate(nextValue as string, true);
+    }, value);
+}
+
 test.describe('HTMX submit regressions', () => {
+    test('leave request modal date fields get flatpickr after HTMX swap', async ({ page }) => {
+        await login(page);
+        await gotoWhenReady(page, '/LeaveRequests', '#leave-requests-content');
+
+        await page.getByRole('link', { name: 'New Request' }).click();
+        await expect(page.locator('#leave-request-form')).toBeVisible();
+
+        await expect(page.locator('#startDate.flatpickr-input')).toBeVisible();
+        await expect(page.locator('#endDate.flatpickr-input')).toBeVisible();
+        await expect.poll(async () => {
+            return page.locator('#startDate').evaluate((input) => Boolean((input as HTMLInputElement & { _flatpickr?: unknown })._flatpickr));
+        }).toBe(true);
+        await expect.poll(async () => {
+            return page.locator('#endDate').evaluate((input) => Boolean((input as HTMLInputElement & { _flatpickr?: unknown })._flatpickr));
+        }).toBe(true);
+    });
+
     test('leave request submit creates one request', async ({ page }) => {
         const note = 'single-submit-leave-check';
 
@@ -19,8 +50,8 @@ test.describe('HTMX submit regressions', () => {
 
         await page.getByRole('link', { name: 'New Request' }).click();
         await expect(page.locator('#leave-request-form')).toBeVisible();
-        await page.fill('#startDate', '2026-03-21');
-        await page.fill('#endDate', '2026-03-22');
+        await setFlatpickrDate(page, '#startDate', '2026-03-21');
+        await setFlatpickrDate(page, '#endDate', '2026-03-22');
         await page.fill('#notes', note);
         await page.getByRole('button', { name: 'Save' }).click();
 

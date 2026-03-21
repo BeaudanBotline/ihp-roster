@@ -201,6 +201,7 @@ Playwright-based end-to-end tests live in `e2e/` and run against the live dev se
   - one mutation may invalidate multiple scopes, and only a subset of fragments within each scope
 - The transport/client pattern is reusable across other collaborative pages. Keep the websocket/refetch core shared, and add small per-feature adapters for DOM discovery, swap rules, and focus deferral where needed.
 - HTMX forms rendered in this app should be isolated from the global `helpers.js` submit listener. `data-disable-javascript-submission` by itself is not enough, because it still leaves the IHP handler in the event path.
+- The retained date/datetime picker enhancement now belongs to `static/app.js`, not `helpers.js`. Keep it wired for full-page loads and HTMX-inserted fragments so overlay forms get the same picker behavior as first-load pages.
 - Keep scope shapes simple and explicit:
   - venue-only surfaces such as leave lists should use a venue scope kind carrying `venueId`
   - week-based surfaces such as roster and timesheets should use a scope kind carrying `venueId` plus `weekOffset`
