@@ -8,6 +8,9 @@ import qualified Data.Aeson as Aeson
 import Data.Coerce (coerce)
 import Data.Time.Calendar (addDays)
 import Web.Controller.Prelude
+import Web.Controller.RosterWeeks (broadcastRosterWeekInvalidation,
+                                   buildRosterContentFragmentRef,
+                                   buildRosterStaffPanelFragmentRef)
 import Web.View.LeaveRequests.Index
 import Web.View.LeaveRequests.New
 
@@ -93,7 +96,7 @@ instance Controller LeaveRequestsController where
                     (Just updatedLeaveRequest.status)
                     Aeson.Null
             unless wasApproved do
-                triggerRosterConflictRecomputeForLeave updatedLeaveRequest
+                invalidateAffectedRosterWeeksForLeave updatedLeaveRequest
             void $ recordCurrentUserAuditEvent
                 "leave_approved"
                 "leave_requests"
@@ -127,7 +130,7 @@ instance Controller LeaveRequestsController where
                     (Just updatedLeaveRequest.status)
                     Aeson.Null
             when wasApproved do
-                triggerRosterConflictRecomputeForLeave updatedLeaveRequest
+                invalidateAffectedRosterWeeksForLeave updatedLeaveRequest
             void $ recordCurrentUserAuditEvent
                 "leave_denied"
                 "leave_requests"
@@ -228,3 +231,19 @@ buildLeaveRequest leaveRequest =
             if isLeaveDateRangeValid startDate endDate
                 then Success
                 else Failure "Available again must be at least one day after unavailable from"
+
+invalidateAffectedRosterWeeksForLeave :: (?context :: ControllerContext, ?modelContext :: ModelContext) => LeaveRequest -> IO ()
+invalidateAffectedRosterWeeksForLeave leaveRequest = do
+    venueConfig <- fetchVenueConfig
+    let affectedOffsets =
+            affectedWeekOffsetsForDateRange
+                venueConfig.weekOffsetEpoch
+                leaveRequest.startDate
+                leaveRequest.endDate
+
+    forM_ affectedOffsets \weekOffset ->
+        broadcastRosterWeekInvalidation
+            weekOffset
+            [ buildRosterContentFragmentRef weekOffset
+            , buildRosterStaffPanelFragmentRef weekOffset
+            ]

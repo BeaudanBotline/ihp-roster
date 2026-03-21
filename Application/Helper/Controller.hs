@@ -443,28 +443,6 @@ affectedWeekOffsetsForDateRange epoch startDate endDate
         leaveLastDate = addDays (-1) endDate
         endOffset = toWeekOffset leaveLastDate
 
--- | Touch affected roster weeks so roster pages auto-refresh and recompute conflicts.
-triggerRosterConflictRecomputeForLeave :: (?context :: ControllerContext, ?modelContext :: ModelContext) => LeaveRequest -> IO ()
-triggerRosterConflictRecomputeForLeave leaveRequest = do
-    venueConfig <- fetchVenueConfig
-    let affectedOffsets =
-            affectedWeekOffsetsForDateRange
-                venueConfig.weekOffsetEpoch
-                leaveRequest.startDate
-                leaveRequest.endDate
-
-    unless (null affectedOffsets) do
-        now <- getCurrentTime
-        affectedWeeks <- query @RosterWeek
-            |> filterWhere (#venueId, leaveRequest.venueId)
-            |> filterWhereIn (#weekOffset, affectedOffsets)
-            |> fetch
-
-        forM_ affectedWeeks \rosterWeek ->
-            rosterWeek
-                |> set #updatedAt now
-                |> updateRecordDiscardResult
-
 fetchCurrentUserStaff :: (?context :: ControllerContext, ?modelContext :: ModelContext) => IO (Maybe Staff)
 fetchCurrentUserStaff =
     query @Staff

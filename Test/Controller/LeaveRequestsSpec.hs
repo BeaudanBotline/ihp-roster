@@ -1,5 +1,7 @@
 module Test.Controller.LeaveRequestsSpec where
 
+import Application.Helper.LiveUpdate (LiveUpdateScope (..),
+                                      currentLiveUpdateVersion)
 import Config
 import Data.Time.Calendar (fromGregorian)
 import Data.Time.Clock (UTCTime (..), secondsToDiffTime)
@@ -48,7 +50,7 @@ tests = beforeAll testContext do
             response <- callAction DeleteLeaveRequestAction { leaveRequestId = requestId }
             response `responseStatusShouldBe` status302
 
-        it "does not touch another venue's roster weeks when approving leave" $ withContext do
+        it "approving leave invalidates affected roster week scopes only in the current venue" $ withContext do
             withCleanDb do
                 let staleTimestamp = UTCTime (fromGregorian 2024 12 1) (secondsToDiffTime 0)
                 venueA <- createVenueWithConfig "Venue A"
@@ -57,19 +59,51 @@ tests = beforeAll testContext do
                 _ <- createVenueMembershipRecord venueA manager "manager"
                 staffA <- createStaffRecord venueA Nothing "Ava" "Leave"
                 rosterWeekA <- createRosterWeekRecord venueA 0 False >>= updateRecord . set #updatedAt staleTimestamp
+                rosterWeekA1 <- createRosterWeekRecord venueA 1 False >>= updateRecord . set #updatedAt staleTimestamp
                 rosterWeekB <- createRosterWeekRecord venueB 0 False >>= updateRecord . set #updatedAt staleTimestamp
-                leaveRequest <- createLeaveRequestRecord venueA staffA (fromGregorian 2025 1 8) (fromGregorian 2025 1 10) "pending"
+                leaveRequest <- createLeaveRequestRecord venueA staffA (fromGregorian 2025 1 8) (fromGregorian 2025 1 15) "pending"
 
-                response <- withUser manager do
+                versionA0Before <- currentLiveUpdateVersion RosterWeekScope { venueId = unpackId venueA.id, weekOffset = 0 }
+                versionA1Before <- currentLiveUpdateVersion RosterWeekScope { venueId = unpackId venueA.id, weekOffset = 1 }
+                versionB0Before <- currentLiveUpdateVersion RosterWeekScope { venueId = unpackId venueB.id, weekOffset = 0 }
+
+                response <- withUserAndCurrentVenue manager venueA.id do
                     callAction ApproveLeaveRequestAction { leaveRequestId = leaveRequest.id }
 
                 response `responseStatusShouldBe` status302
 
+                versionA0After <- currentLiveUpdateVersion RosterWeekScope { venueId = unpackId venueA.id, weekOffset = 0 }
+                versionA1After <- currentLiveUpdateVersion RosterWeekScope { venueId = unpackId venueA.id, weekOffset = 1 }
+                versionB0After <- currentLiveUpdateVersion RosterWeekScope { venueId = unpackId venueB.id, weekOffset = 0 }
                 refreshedWeekA <- fetch rosterWeekA.id
+                refreshedWeekA1 <- fetch rosterWeekA1.id
                 refreshedWeekB <- fetch rosterWeekB.id
 
-                refreshedWeekA.updatedAt `shouldSatisfy` (> staleTimestamp)
+                versionA0After `shouldBe` versionA0Before + 1
+                versionA1After `shouldBe` versionA1Before + 1
+                versionB0After `shouldBe` versionB0Before
+                refreshedWeekA.updatedAt `shouldBe` staleTimestamp
+                refreshedWeekA1.updatedAt `shouldBe` staleTimestamp
                 refreshedWeekB.updatedAt `shouldBe` staleTimestamp
+
+        it "denying previously approved leave invalidates the affected roster week scope" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Leave Venue"
+                manager <- createUserRecord "leave-deny-live-update@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue manager "manager"
+                staff <- createStaffRecord venue Nothing "Dina" "Leave"
+                _ <- createRosterWeekRecord venue 0 False
+                leaveRequest <- createLeaveRequestRecord venue staff (fromGregorian 2025 1 8) (fromGregorian 2025 1 10) "approved"
+
+                versionBefore <- currentLiveUpdateVersion RosterWeekScope { venueId = unpackId venue.id, weekOffset = 0 }
+
+                response <- withUserAndCurrentVenue manager venue.id do
+                    callAction DenyLeaveRequestAction { leaveRequestId = leaveRequest.id }
+
+                response `responseStatusShouldBe` status302
+
+                versionAfter <- currentLiveUpdateVersion RosterWeekScope { venueId = unpackId venue.id, weekOffset = 0 }
+                versionAfter `shouldBe` versionBefore + 1
 
         it "writes an audit event when approving a leave request" $ withContext do
             withCleanDb do
