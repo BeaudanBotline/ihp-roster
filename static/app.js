@@ -524,6 +524,21 @@ $(document).on('ready turbolinks:load', function () {
         return Number.isInteger(value) && value >= 0 ? value : null;
     }
 
+    function buildScopeKey(scope) {
+        if (!scope || !scope.kind || !scope.venueId) return null;
+
+        switch (scope.kind) {
+            case 'roster_week':
+            case 'timesheet_week':
+                if (!Number.isInteger(scope.weekOffset)) return null;
+                return `${scope.kind}:${scope.venueId}:${scope.weekOffset}`;
+            case 'leave_requests':
+                return `${scope.kind}:${scope.venueId}`;
+            default:
+                return null;
+        }
+    }
+
     function subscribeScope(subscription) {
         const lastSeenVersion = getScopeVersion(subscription.scopeKey);
         sendCommand({
@@ -561,7 +576,11 @@ $(document).on('ready turbolinks:load', function () {
                     venueId,
                     weekOffset,
                 },
-                scopeKey: `${scopeKind}:${venueId}:${weekOffset}`,
+                scopeKey: buildScopeKey({
+                    kind: scopeKind,
+                    venueId,
+                    weekOffset,
+                }),
                 path: ownerEl.dataset.liveUpdatesPath || '/live-updates',
                 resync: function (subscription) {
                     const contentUrl = ownerEl.dataset.liveUpdateContentUrl;
@@ -607,7 +626,95 @@ $(document).on('ready turbolinks:load', function () {
         };
     }
 
-    const adapters = [rosterAdapter()];
+    function leaveRequestsAdapter() {
+        function readScope(ownerEl) {
+            if (!(ownerEl instanceof HTMLElement)) return null;
+            if (ownerEl.dataset.liveUpdateFeature !== 'leave-requests') return null;
+            if (ownerEl.dataset.liveUpdateClientEnabled !== 'true') return null;
+
+            const scopeKind = ownerEl.dataset.liveUpdateScopeKind;
+            const venueId = ownerEl.dataset.liveUpdateVenueId;
+            if (!scopeKind || !venueId) return null;
+
+            return {
+                scope: {
+                    kind: scopeKind,
+                    venueId,
+                },
+                scopeKey: buildScopeKey({
+                    kind: scopeKind,
+                    venueId,
+                }),
+                path: ownerEl.dataset.liveUpdatesPath || '/live-updates',
+                resync: function () {},
+            };
+        }
+
+        return {
+            collectSubscriptions: function () {
+                const subscriptions = [];
+                document.querySelectorAll('[data-live-update-owner="true"]').forEach(function (ownerEl) {
+                    const scopeInfo = readScope(ownerEl);
+                    if (!scopeInfo || !scopeInfo.scopeKey) return;
+                    subscriptions.push({ ...scopeInfo, ownerEl });
+                });
+                return subscriptions;
+            },
+            shouldDecorateRequest: function (event) {
+                const sourceEl = event.detail && event.detail.elt;
+                return sourceEl instanceof HTMLElement && Boolean(sourceEl.closest('[data-live-update-feature="leave-requests"]'));
+            },
+        };
+    }
+
+    function timesheetsAdapter() {
+        function readScope(ownerEl) {
+            if (!(ownerEl instanceof HTMLElement)) return null;
+            if (ownerEl.dataset.liveUpdateFeature !== 'timesheets') return null;
+            if (ownerEl.dataset.liveUpdateClientEnabled !== 'true') return null;
+
+            const scopeKind = ownerEl.dataset.liveUpdateScopeKind;
+            const venueId = ownerEl.dataset.liveUpdateVenueId;
+            const weekOffsetRaw = ownerEl.dataset.liveUpdateWeekOffset;
+            if (!scopeKind || !venueId || typeof weekOffsetRaw !== 'string') return null;
+
+            const weekOffset = Number.parseInt(weekOffsetRaw, 10);
+            if (!Number.isInteger(weekOffset)) return null;
+
+            return {
+                scope: {
+                    kind: scopeKind,
+                    venueId,
+                    weekOffset,
+                },
+                scopeKey: buildScopeKey({
+                    kind: scopeKind,
+                    venueId,
+                    weekOffset,
+                }),
+                path: ownerEl.dataset.liveUpdatesPath || '/live-updates',
+                resync: function () {},
+            };
+        }
+
+        return {
+            collectSubscriptions: function () {
+                const subscriptions = [];
+                document.querySelectorAll('[data-live-update-owner="true"]').forEach(function (ownerEl) {
+                    const scopeInfo = readScope(ownerEl);
+                    if (!scopeInfo || !scopeInfo.scopeKey) return;
+                    subscriptions.push({ ...scopeInfo, ownerEl });
+                });
+                return subscriptions;
+            },
+            shouldDecorateRequest: function (event) {
+                const sourceEl = event.detail && event.detail.elt;
+                return sourceEl instanceof HTMLElement && Boolean(sourceEl.closest('[data-live-update-feature="timesheets"]'));
+            },
+        };
+    }
+
+    const adapters = [rosterAdapter(), leaveRequestsAdapter(), timesheetsAdapter()];
 
     function desiredSubscriptions() {
         const desired = new Map();
@@ -625,7 +732,8 @@ $(document).on('ready turbolinks:load', function () {
         if (!message || !message.scope) return;
 
         const scope = message.scope;
-        const scopeKey = `${scope.kind}:${scope.venueId}:${scope.weekOffset}`;
+        const scopeKey = buildScopeKey(scope);
+        if (!scopeKey) return;
         const subscription = activeSubscriptions.get(scopeKey);
         if (!subscription) return;
 
@@ -644,7 +752,8 @@ $(document).on('ready turbolinks:load', function () {
         if (message.sourceClientId && message.sourceClientId === activeClientId) return;
 
         const scope = message.scope;
-        const scopeKey = `${scope.kind}:${scope.venueId}:${scope.weekOffset}`;
+        const scopeKey = buildScopeKey(scope);
+        if (!scopeKey) return;
         const subscription = activeSubscriptions.get(scopeKey);
         if (!subscription) return;
 

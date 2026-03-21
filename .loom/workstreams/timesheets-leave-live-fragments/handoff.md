@@ -8,6 +8,10 @@
 
 Completed in this pass:
 
+- `coordinator-ck3.1` implemented: the shared live-update runtime now supports `LeaveRequestsScope` and `TimesheetWeekScope` alongside `RosterWeekScope`, plus corresponding fragment-key constructors for leave content and timesheet day sections.
+- `static/app.js` now derives scope keys by scope kind instead of assuming every live surface has a `weekOffset`, and it includes dormant leave/timesheet adapters so later page work can wire owners without changing the transport core again.
+- `Web/Controller/LiveUpdates.hs` authorization now recognizes leave-list venue scopes and timesheet week scopes explicitly.
+- Added `Test/LiveUpdateSpec.hs` JSON roundtrip coverage for the shared scope/fragment types.
 - `coordinator-ck3.2` implemented: leave approval/denial no longer relies on `roster_weeks.updatedAt` touches for roster freshness.
 - `Web/Controller/LeaveRequests.hs` now computes affected week offsets and reuses the existing roster live-update helpers to broadcast `RosterContentFragment` and `RosterStaffPanelFragment` invalidations for each affected week scope.
 - `Application/Helper/Controller.hs` no longer carries the stale `triggerRosterConflictRecomputeForLeave` helper.
@@ -44,11 +48,12 @@ Ran in this pass:
 
 - `bash ./bin/in-env typecheck`
   - passed
+- `bash ./bin/in-env test`
+  - passed with `159 examples, 0 failures`
 - `bash ./bin/in-env test --match LeaveRequestsController`
   - first run failed because the local test DB socket was not up yet (`build/db/.s.PGSQL.5432` missing)
   - after `bash ./bin/in-env dev-start` and `bash ./bin/in-env dev-wait 120`, rerun passed with `13 examples, 0 failures`
 
 Not yet run in this pass:
 
-- full `bash ./bin/in-env test`
 - Playwright coverage for leave/timesheet multi-view behavior

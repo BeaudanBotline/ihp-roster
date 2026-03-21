@@ -55,7 +55,7 @@ renderRosterWeekShell ShowView { .. } = [hsx|
              data-live-update-client-id=""
              data-live-update-scope-kind={liveUpdateScopeKind <$> liveUpdateScope}
              data-live-update-venue-id={liveUpdateVenueId <$> liveUpdateScope}
-             data-live-update-week-offset={tshow . liveUpdateWeekOffset <$> liveUpdateScope}>
+             data-live-update-week-offset={liveUpdateWeekOffsetText =<< liveUpdateScope}>
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
                 <h1 class="mb-0">Roster Starting {formatDateDisplay weekStartDate}</h1>
@@ -460,9 +460,15 @@ renderPublishForm rosterWeek = [hsx|
 
 liveUpdateScopeKind :: LiveUpdateScope -> Text
 liveUpdateScopeKind RosterWeekScope {} = "roster_week"
+liveUpdateScopeKind LeaveRequestsScope {} = "leave_requests"
+liveUpdateScopeKind TimesheetWeekScope {} = "timesheet_week"
 
 liveUpdateVenueId :: LiveUpdateScope -> Text
 liveUpdateVenueId RosterWeekScope { venueId } = tshow venueId
+liveUpdateVenueId LeaveRequestsScope { venueId } = tshow venueId
+liveUpdateVenueId TimesheetWeekScope { venueId } = tshow venueId
 
-liveUpdateWeekOffset :: LiveUpdateScope -> Int
-liveUpdateWeekOffset RosterWeekScope { weekOffset } = weekOffset
+liveUpdateWeekOffsetText :: LiveUpdateScope -> Maybe Text
+liveUpdateWeekOffsetText RosterWeekScope { weekOffset } = Just (tshow weekOffset)
+liveUpdateWeekOffsetText LeaveRequestsScope {} = Nothing
+liveUpdateWeekOffsetText TimesheetWeekScope { weekOffset } = Just (tshow weekOffset)

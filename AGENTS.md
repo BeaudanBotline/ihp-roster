@@ -199,6 +199,10 @@ Playwright-based end-to-end tests live in `e2e/` and run against the live dev se
   - clients refetch only the invalidated fragments they currently have mounted
   - one mutation may invalidate multiple scopes, and only a subset of fragments within each scope
 - The transport/client pattern is reusable across other collaborative pages. Keep the websocket/refetch core shared, and add small per-feature adapters for DOM discovery, swap rules, and focus deferral where needed.
+- Keep scope shapes simple and explicit:
+  - venue-only surfaces such as leave lists should use a venue scope kind carrying `venueId`
+  - week-based surfaces such as roster and timesheets should use a scope kind carrying `venueId` plus `weekOffset`
+  - client scope keys must be derived by scope kind, not by assuming every feature has a week offset
 
 ## Auth Model Notes
 - Current business authority is venue-scoped. `venue_memberships.venue_role` is what grants manager/admin access; `users.user_role = 'admin'` is not a cross-venue superuser.

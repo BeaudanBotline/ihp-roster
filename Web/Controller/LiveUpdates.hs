@@ -100,3 +100,11 @@ isAuthorizedScope RosterWeekScope { venueId, weekOffset } = do
         else do
             let _ = weekOffset
             pure True
+isAuthorizedScope LeaveRequestsScope { venueId } =
+    pure (venueId == unpackId currentVenueId)
+isAuthorizedScope TimesheetWeekScope { venueId, weekOffset } = do
+    if venueId /= unpackId currentVenueId
+        then pure False
+        else do
+            let _ = weekOffset
+            pure True

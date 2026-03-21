@@ -26,6 +26,13 @@ data LiveUpdateScope
         { venueId    :: !UUID.UUID
         , weekOffset :: !Int
         }
+    | LeaveRequestsScope
+        { venueId :: !UUID.UUID
+        }
+    | TimesheetWeekScope
+        { venueId    :: !UUID.UUID
+        , weekOffset :: !Int
+        }
     deriving (Eq, Ord, Show)
 
 data LiveFragmentKey
@@ -34,6 +41,10 @@ data LiveFragmentKey
     | RosterRowFragment
         { rosterDayId :: !UUID.UUID
         , rowIndex    :: !Int
+        }
+    | LeaveRequestsContentFragment
+    | TimesheetDaySectionFragment
+        { dayOffset :: !Int
         }
     deriving (Eq, Ord, Show)
 
@@ -80,6 +91,17 @@ instance Aeson.ToJSON LiveUpdateScope where
             , "venueId" Aeson..= UUID.toText venueId
             , "weekOffset" Aeson..= weekOffset
             ]
+    toJSON LeaveRequestsScope { venueId } =
+        Aeson.object
+            [ "kind" Aeson..= ("leave_requests" :: Text)
+            , "venueId" Aeson..= UUID.toText venueId
+            ]
+    toJSON TimesheetWeekScope { venueId, weekOffset } =
+        Aeson.object
+            [ "kind" Aeson..= ("timesheet_week" :: Text)
+            , "venueId" Aeson..= UUID.toText venueId
+            , "weekOffset" Aeson..= weekOffset
+            ]
 
 instance Aeson.FromJSON LiveUpdateScope where
     parseJSON = Aeson.withObject "LiveUpdateScope" \object -> do
@@ -87,6 +109,13 @@ instance Aeson.FromJSON LiveUpdateScope where
         case (kind :: Text) of
             "roster_week" ->
                 RosterWeekScope
+                    <$> (parseUuid =<< object Aeson..: "venueId")
+                    <*> object Aeson..: "weekOffset"
+            "leave_requests" ->
+                LeaveRequestsScope
+                    <$> (parseUuid =<< object Aeson..: "venueId")
+            "timesheet_week" ->
+                TimesheetWeekScope
                     <$> (parseUuid =<< object Aeson..: "venueId")
                     <*> object Aeson..: "weekOffset"
             _ -> fail ("Unknown live update scope kind: " <> cs kind)
@@ -102,6 +131,13 @@ instance Aeson.ToJSON LiveFragmentKey where
             , "rosterDayId" Aeson..= UUID.toText rosterDayId
             , "rowIndex" Aeson..= rowIndex
             ]
+    toJSON LeaveRequestsContentFragment =
+        Aeson.object ["kind" Aeson..= ("leave_requests_content" :: Text)]
+    toJSON TimesheetDaySectionFragment { dayOffset } =
+        Aeson.object
+            [ "kind" Aeson..= ("timesheet_day_section" :: Text)
+            , "dayOffset" Aeson..= dayOffset
+            ]
 
 instance Aeson.FromJSON LiveFragmentKey where
     parseJSON = Aeson.withObject "LiveFragmentKey" \object -> do
@@ -113,6 +149,10 @@ instance Aeson.FromJSON LiveFragmentKey where
                 RosterRowFragment
                     <$> (parseUuid =<< object Aeson..: "rosterDayId")
                     <*> object Aeson..: "rowIndex"
+            "leave_requests_content" -> pure LeaveRequestsContentFragment
+            "timesheet_day_section" ->
+                TimesheetDaySectionFragment
+                    <$> object Aeson..: "dayOffset"
             _ -> fail ("Unknown live fragment kind: " <> cs kind)
 
 instance Aeson.ToJSON LiveFragmentRef where

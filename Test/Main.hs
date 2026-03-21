@@ -15,6 +15,7 @@ import qualified Test.Controller.StaticSpec
 import qualified Test.Controller.TimesheetsSpec
 import qualified Test.Controller.UsersSpec
 import qualified Test.Controller.VenueAccessSpec
+import qualified Test.LiveUpdateSpec
 import qualified Test.PaySpec
 import qualified Test.RosterGridSpec
 import qualified Test.SchemaSpec
@@ -36,3 +37,4 @@ main = hspec do
     Test.PaySpec.tests
     Test.SchemaSpec.tests
     Test.ConflictSpec.tests
+    Test.LiveUpdateSpec.tests
