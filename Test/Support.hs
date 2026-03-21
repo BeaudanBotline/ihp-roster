@@ -57,18 +57,19 @@ resetDatabase = do
     pure ()
 
 createVenueWithConfig :: (?modelContext :: ModelContext) => Text -> IO Venue
-createVenueWithConfig name = do
-    venue <- newRecord @Venue
-        |> set #name name
-        |> createRecord
-    _ <- newRecord @VenueConfig
-        |> set #venueId (unpackId (get #id venue))
-        |> set #timezone "UTC"
-        |> set #weekOffsetEpoch defaultWeekEpoch
-        |> set #lateToEarlyMinStartGapMinutes 600
-        |> set #staffTimesheetEditWindowDays 7
-        |> createRecord
-    pure venue
+createVenueWithConfig name =
+    withTransaction do
+        venue <- newRecord @Venue
+            |> set #name name
+            |> createRecord
+        _ <- newRecord @VenueConfig
+            |> set #venueId (unpackId (get #id venue))
+            |> set #timezone "UTC"
+            |> set #weekOffsetEpoch defaultWeekEpoch
+            |> set #lateToEarlyMinStartGapMinutes 600
+            |> set #staffTimesheetEditWindowDays 7
+            |> createRecord
+        pure venue
 
 createUserRecord :: (?modelContext :: ModelContext) => Text -> Text -> Bool -> IO User
 createUserRecord emailAddress globalRole isProfileCompleted = do

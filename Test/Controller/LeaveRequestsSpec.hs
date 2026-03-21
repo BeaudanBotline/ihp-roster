@@ -107,6 +107,20 @@ tests = beforeAll testContext do
                 response `responseBodyShouldContain` "data-live-update-scope-kind=\"leave_requests\""
                 response `responseBodyShouldContain` "id=\"leave-requests-content\""
 
+        it "renders HTMX leave forms with javascript submission disabled" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Leave Venue"
+                user <- createUserRecord "leave-form@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue user "worker"
+                _ <- createStaffRecord venue (Just user) "Liv" "Form"
+
+                response <- withUserAndCurrentVenue user venue.id do
+                    withRequestHeaders [("HX-Request", "true")] do
+                        callAction NewLeaveRequestAction
+
+                response `responseStatusShouldBe` status200
+                response `responseBodyShouldContain` "data-disable-javascript-submission=\"true\""
+
         it "scopes leave fragment refetches to the current viewer visibility" $ withContext do
             withCleanDb do
                 venue <- createVenueWithConfig "Leave Venue"

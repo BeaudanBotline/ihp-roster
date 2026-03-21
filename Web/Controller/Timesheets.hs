@@ -1,10 +1,19 @@
 module Web.Controller.Timesheets where
 
-import Application.Helper.Pay (ensureCurrentVenuePayConfigSnapshot,
+import Application.Helper.LiveUpdate (LiveFragmentKey (..),
+                                      LiveFragmentRef (..),
+                                      LiveUpdateScope (..),
+                                      broadcastLiveInvalidation)
+import Application.Helper.Pay (TimesheetPaySummary,
+                               ensureCurrentVenuePayConfigSnapshot,
                                fetchTimesheetPaySummariesForEntries)
+import Application.Helper.View (ToastOverlayConfig (..),
+                                ToastOverlayPosition (..), dialogOverlayMountId,
+                                renderToastOverlayHostOob)
 import Control.Monad (void)
 import qualified Data.Aeson as Aeson
 import Data.Coerce (coerce)
+import qualified Data.Map.Strict as Map
 import Data.Time.Calendar (Day, addDays, diffDays)
 import Data.Time.Clock (getCurrentTime, utctDay)
 import Web.Controller.Prelude
@@ -29,6 +38,9 @@ instance Controller TimesheetsController where
 
     action ShowTimesheetWeekAction { weekOffset } = do
         renderTimesheetWeekPage weekOffset
+
+    action ShowTimesheetDaySectionFragmentAction { weekOffset, dayOffset } = do
+        respondWithTimesheetDaySectionFragment weekOffset dayOffset
 
     action NewTimesheetEntryAction = do
         weekOffset <- weekOffsetFromParamOrCurrent
@@ -77,8 +89,9 @@ instance Controller TimesheetsController where
                         createdEntry <- timesheetEntry |> createRecord
                         void $ recordCurrentUserTimesheetEntryVersion (unsafeEnumFromText @EntryVersionActionEnum "created") createdEntry Aeson.Null
                         pure createdEntry
+                    broadcastTimesheetDayInvalidation weekOffset createdEntry.workedOn
                     if isHtmxRequest
-                        then respondWithTimesheetDaySection weekOffset createdEntry.workedOn
+                        then respondWithTimesheetDaySectionUpdate weekOffset createdEntry.workedOn "Timesheet entry created" True
                         else do
                             setSuccessMessage "Timesheet entry created"
                             redirectTo ShowTimesheetWeekAction { weekOffset }
@@ -114,6 +127,10 @@ instance Controller TimesheetsController where
                         else render EditView { .. }
                 Right timesheetEntry -> do
                     ensureStaffAssignmentAllowed timesheetEntry.staffId
+                    let successMessage =
+                            if wasApproved
+                                then "Timesheet entry updated (approval reset)"
+                                else "Timesheet entry updated"
                     let updateAction = unsafeEnumFromText @EntryVersionActionEnum (if wasApproved then "approval_reset" else "updated")
                     withTransaction do
                         updatedEntry <- timesheetEntry
@@ -139,13 +156,11 @@ instance Controller TimesheetsController where
                                     , "previousApprovedByUserId" Aeson..= timesheetEntry.approvedByUserId
                                     ]
                                 )
+                    broadcastTimesheetDayInvalidation weekOffset timesheetEntry.workedOn
                     if isHtmxRequest
-                        then respondWithTimesheetDaySection weekOffset timesheetEntry.workedOn
+                        then respondWithTimesheetDaySectionUpdate weekOffset timesheetEntry.workedOn successMessage True
                         else do
-                            when wasApproved do
-                                setSuccessMessage "Timesheet entry updated (approval reset)"
-                            unless wasApproved do
-                                setSuccessMessage "Timesheet entry updated"
+                            setSuccessMessage successMessage
                             redirectTo ShowTimesheetWeekAction { weekOffset }
 
     action DeleteTimesheetEntryAction { timesheetEntryId } = do
@@ -165,8 +180,12 @@ instance Controller TimesheetsController where
                             timesheetEntry
                             Aeson.Null
                     deleteRecord timesheetEntry
-                setSuccessMessage "Timesheet entry deleted"
-        redirectTo ShowTimesheetWeekAction { weekOffset }
+                broadcastTimesheetDayInvalidation weekOffset timesheetEntry.workedOn
+                if isHtmxRequest
+                    then respondWithTimesheetDaySectionUpdate weekOffset timesheetEntry.workedOn "Timesheet entry deleted" False
+                    else setSuccessMessage "Timesheet entry deleted"
+        unless isHtmxRequest do
+            redirectTo ShowTimesheetWeekAction { weekOffset }
 
     action ApproveTimesheetEntryAction { timesheetEntryId } = do
         ensureManagerRole
@@ -203,9 +222,12 @@ instance Controller TimesheetsController where
                     , "approvedAt" Aeson..= now
                     ]
                 )
-
-        setSuccessMessage "Timesheet entry approved"
-        redirectTo ShowTimesheetWeekAction { weekOffset }
+        broadcastTimesheetDayInvalidation weekOffset timesheetEntry.workedOn
+        if isHtmxRequest
+            then respondWithTimesheetDaySectionUpdate weekOffset timesheetEntry.workedOn "Timesheet entry approved" False
+            else do
+                setSuccessMessage "Timesheet entry approved"
+                redirectTo ShowTimesheetWeekAction { weekOffset }
 
     action UnapproveTimesheetEntryAction { timesheetEntryId } = do
         ensureManagerRole
@@ -240,9 +262,12 @@ instance Controller TimesheetsController where
                     , "previousApprovedByUserId" Aeson..= timesheetEntry.approvedByUserId
                     ]
                 )
-
-        setSuccessMessage "Timesheet entry unapproved"
-        redirectTo ShowTimesheetWeekAction { weekOffset }
+        broadcastTimesheetDayInvalidation weekOffset timesheetEntry.workedOn
+        if isHtmxRequest
+            then respondWithTimesheetDaySectionUpdate weekOffset timesheetEntry.workedOn "Timesheet entry unapproved" False
+            else do
+                setSuccessMessage "Timesheet entry unapproved"
+                redirectTo ShowTimesheetWeekAction { weekOffset }
 
 fetchTimesheetDataForWeek :: (?modelContext :: ModelContext, ?context :: ControllerContext) => Day -> Day -> IO ([TimesheetEntry], [Staff])
 fetchTimesheetDataForWeek weekStartDate weekEndDate = do
@@ -280,12 +305,51 @@ fetchStaffForForm =
         then query @Staff |> filterWhere (#venueId, unpackId currentVenueId) |> filterWhere (#isActive, True) |> orderByAsc #lastName |> fetch
         else maybeToList <$> fetchCurrentUserStaff
 
-respondWithTimesheetDaySection :: (?context :: ControllerContext, ?modelContext :: ModelContext) => Int -> Day -> IO ()
-respondWithTimesheetDaySection weekOffset workedOn = do
+respondWithTimesheetDaySectionFragment :: (?context :: ControllerContext, ?modelContext :: ModelContext) => Int -> Int -> IO ()
+respondWithTimesheetDaySectionFragment weekOffset dayOffset = do
+    (entries, staffMembers, paySummariesByEntryId, today, editWindowDays, weekStartDate) <- fetchTimesheetDaySectionState weekOffset
+    respondHtml $
+        renderDaySection
+            entries
+            staffMembers
+            paySummariesByEntryId
+            today
+            editWindowDays
+            weekOffset
+            weekStartDate
+            dayOffset
+
+respondWithTimesheetDaySectionUpdate :: (?context :: ControllerContext, ?modelContext :: ModelContext) => Int -> Day -> Text -> Bool -> IO ()
+respondWithTimesheetDaySectionUpdate weekOffset workedOn successMessage closeDialog = do
+    (entries, staffMembers, paySummariesByEntryId, today, editWindowDays, weekStartDate) <- fetchTimesheetDaySectionState weekOffset
+    let dayOffset = timesheetDayOffset weekStartDate workedOn
+    respondHtml $
+        mconcat
+            [ renderDaySectionOob
+                entries
+                staffMembers
+                paySummariesByEntryId
+                today
+                editWindowDays
+                weekOffset
+                weekStartDate
+                dayOffset
+            , when closeDialog [hsx|<div id={dialogOverlayMountId} hx-swap-oob="innerHTML"></div>|]
+            , renderToastOverlayHostOob ToastBottomCenter
+                [ ToastOverlayConfig
+                    { toastOverlayTitle = Just "Success"
+                    , toastOverlayMessage = successMessage
+                    , toastOverlayClass = "app-toast-success"
+                    , toastOverlayAutoHideMs = 3200
+                    }
+                ]
+            ]
+
+fetchTimesheetDaySectionState :: (?context :: ControllerContext, ?modelContext :: ModelContext) => Int -> IO ([TimesheetEntry], [Staff], Map.Map Text TimesheetPaySummary, Day, Int, Day)
+fetchTimesheetDaySectionState weekOffset = do
     venueConfig <- fetchVenueConfig
     let weekStartDate = addDays (toInteger (weekOffset * 7)) venueConfig.weekOffsetEpoch
     let weekEndDate = addDays 6 weekStartDate
-    let dayOffset = fromInteger (diffDays workedOn weekStartDate)
 
     (entries, staffMembers) <- fetchTimesheetDataForWeek weekStartDate weekEndDate
     paySummariesByEntryId <- fetchTimesheetPaySummariesForEntries entries
@@ -293,16 +357,7 @@ respondWithTimesheetDaySection weekOffset workedOn = do
     let today = utctDay now
     let editWindowDays = venueConfig.staffTimesheetEditWindowDays
 
-    respondHtml $
-        renderDaySectionOob
-            entries
-            staffMembers
-            paySummariesByEntryId
-            today
-            editWindowDays
-            weekOffset
-                    weekStartDate
-                    dayOffset
+    pure (entries, staffMembers, paySummariesByEntryId, today, editWindowDays, weekStartDate)
 
 renderTimesheetWeekPage :: (?context :: ControllerContext, ?modelContext :: ModelContext) => Int -> IO ()
 renderTimesheetWeekPage weekOffset = do
@@ -316,6 +371,7 @@ renderTimesheetWeekPage weekOffset = do
     now <- getCurrentTime
     let today = utctDay now
     let editWindowDays = venueConfig.staffTimesheetEditWindowDays
+    let liveUpdateScope = Just (buildTimesheetWeekScope currentVenueId weekOffset)
 
     respondWithTimesheetWeekView IndexView { .. }
 
@@ -501,3 +557,33 @@ currentTimesheetWeekOffset = do
 
 weekOffsetForDay :: Day -> Day -> Int
 weekOffsetForDay epoch day = fromInteger (diffDays day epoch `div` 7)
+
+timesheetDayOffset :: Day -> Day -> Int
+timesheetDayOffset weekStartDate workedOn = fromInteger (diffDays workedOn weekStartDate)
+
+buildTimesheetWeekScope :: Id Venue -> Int -> LiveUpdateScope
+buildTimesheetWeekScope venueId weekOffset =
+    TimesheetWeekScope
+        { venueId = unpackId venueId
+        , weekOffset
+        }
+
+buildTimesheetDaySectionFragmentRef :: (?context :: ControllerContext) => Int -> Int -> LiveFragmentRef
+buildTimesheetDaySectionFragmentRef weekOffset dayOffset =
+    LiveFragmentRef
+        { fragmentKey = TimesheetDaySectionFragment { dayOffset }
+        , targetId = timesheetDaySectionDomId dayOffset
+        , url = pathTo ShowTimesheetDaySectionFragmentAction { weekOffset, dayOffset }
+        , deferUntilBlur = False
+        }
+
+broadcastTimesheetDayInvalidation :: (?context :: ControllerContext, ?modelContext :: ModelContext) => Int -> Day -> IO ()
+broadcastTimesheetDayInvalidation weekOffset workedOn = do
+    venueConfig <- fetchVenueConfig
+    let weekStartDate = addDays (toInteger (weekOffset * 7)) venueConfig.weekOffsetEpoch
+    let dayOffset = timesheetDayOffset weekStartDate workedOn
+    liftIO $
+        broadcastLiveInvalidation
+            (buildTimesheetWeekScope currentVenueId weekOffset)
+            (cs <$> getHeader "X-Live-Update-Client-Id")
+            [buildTimesheetDaySectionFragmentRef weekOffset dayOffset]

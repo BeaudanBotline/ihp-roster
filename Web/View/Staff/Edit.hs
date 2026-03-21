@@ -31,6 +31,7 @@ renderForm formMode staff weekOffset action =
                   method="POST"
                   action={action}
                   class="mt-3"
+                  data-disable-javascript-submission="true"
                   hx-post={action}
                   hx-target={"#" <> dialogOverlayMountId}
                   hx-swap="innerHTML"

@@ -37,6 +37,7 @@ renderLeaveRequestForm formMode leaveRequest =
                   method="POST"
                   action={CreateLeaveRequestAction}
                   class="mt-3"
+                  data-disable-javascript-submission="true"
                   hx-post={CreateLeaveRequestAction}
                   hx-target={"#" <> dialogOverlayMountId}
                   hx-swap="innerHTML"

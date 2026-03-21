@@ -1,6 +1,7 @@
 module Web.View.Timesheets.Index where
 
 import Application.Helper.Controller (isWithinEditWindow, shiftDurationMinutes)
+import Application.Helper.LiveUpdate (LiveUpdateScope (..))
 import Application.Helper.Pay (TimesheetPaySummary (..), timesheetEntryIdKey)
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as Text
@@ -17,6 +18,7 @@ data IndexView = IndexView
     , weekOffset            :: Int
     , weekStartDate         :: Day
     , weekEndDate           :: Day
+    , liveUpdateScope       :: Maybe LiveUpdateScope
     }
 
 timesheetWeekShellId :: Text
@@ -27,7 +29,16 @@ instance View IndexView where
 
 renderTimesheetWeekShell :: IndexView -> Html
 renderTimesheetWeekShell IndexView { .. } = [hsx|
-    <section id={timesheetWeekShellId} hx-history-elt="true">
+    <section id={timesheetWeekShellId}
+             hx-history-elt="true"
+             data-live-update-owner="true"
+             data-live-update-feature="timesheets"
+             data-live-updates-path="/live-updates"
+             data-live-update-client-enabled={isJust liveUpdateScope}
+             data-live-update-client-id=""
+             data-live-update-scope-kind={liveUpdateScopeKind <$> liveUpdateScope}
+             data-live-update-venue-id={liveUpdateVenueId <$> liveUpdateScope}
+             data-live-update-week-offset={liveUpdateWeekOffsetText =<< liveUpdateScope}>
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
                 <h1 class="mb-0">Timesheets</h1>
@@ -70,7 +81,11 @@ renderDaySectionOob =
 
 renderDaySectionWithSwap :: (?context :: ControllerContext) => Maybe Text -> [TimesheetEntry] -> [Staff] -> Map.Map Text TimesheetPaySummary -> Day -> Int -> Int -> Day -> Int -> Html
 renderDaySectionWithSwap maybeSwapOob entries staffMembers paySummariesByEntryId today editWindowDays weekOffset weekStartDate dayOffset = [hsx|
-    <section id={timesheetDaySectionDomId dayOffset} class="app-panel" hx-swap-oob={maybeSwapOob}>
+    <section id={timesheetDaySectionDomId dayOffset}
+             class="app-panel"
+             data-timesheet-day-offset={tshow dayOffset}
+             data-live-update-url={daySectionUrl}
+             hx-swap-oob={maybeSwapOob}>
         <div class="app-panel-body">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <div>
@@ -87,7 +102,7 @@ renderDaySectionWithSwap maybeSwapOob entries staffMembers paySummariesByEntryId
                 </a>
             </div>
 
-            {renderDayEntries dayEntries staffMembers paySummariesByEntryId today editWindowDays weekOffset}
+            {renderDayEntries dayOffset dayEntries staffMembers paySummariesByEntryId today editWindowDays weekOffset}
         </div>
     </section>
 |]
@@ -95,6 +110,13 @@ renderDaySectionWithSwap maybeSwapOob entries staffMembers paySummariesByEntryId
         dayDate = addDays (toInteger dayOffset) weekStartDate
         dayEntries = filter (\entry -> entry.workedOn == dayDate) entries
         weekdayLabel = Text.pack (formatTime defaultTimeLocale "%A" dayDate)
+        daySectionUrl =
+            pathTo
+                (ShowTimesheetDaySectionFragmentAction
+                    { weekOffset = weekOffset
+                    , dayOffset = dayOffset
+                    }
+                )
         newEntryUrl =
             appendQueryParams
                 (pathTo NewTimesheetEntryAction)
@@ -105,17 +127,17 @@ renderDaySectionWithSwap maybeSwapOob entries staffMembers paySummariesByEntryId
 timesheetDaySectionDomId :: Int -> Text
 timesheetDaySectionDomId dayOffset = "timesheet-day-section-" <> tshow dayOffset
 
-renderDayEntries :: (?context :: ControllerContext) => [TimesheetEntry] -> [Staff] -> Map.Map Text TimesheetPaySummary -> Day -> Int -> Int -> Html
-renderDayEntries dayEntries staffMembers paySummariesByEntryId today editWindowDays weekOffset
+renderDayEntries :: (?context :: ControllerContext) => Int -> [TimesheetEntry] -> [Staff] -> Map.Map Text TimesheetPaySummary -> Day -> Int -> Int -> Html
+renderDayEntries dayOffset dayEntries staffMembers paySummariesByEntryId today editWindowDays weekOffset
     | null dayEntries = [hsx|<p class="app-muted mb-0">No entries for this day.</p>|]
     | otherwise = [hsx|
         <div class="d-flex flex-column gap-2">
-            {forEach dayEntries (renderEntryCard staffMembers paySummariesByEntryId today editWindowDays weekOffset)}
+            {forEach dayEntries (renderEntryCard dayOffset staffMembers paySummariesByEntryId today editWindowDays weekOffset)}
         </div>
     |]
 
-renderEntryCard :: (?context :: ControllerContext) => [Staff] -> Map.Map Text TimesheetPaySummary -> Day -> Int -> Int -> TimesheetEntry -> Html
-renderEntryCard staffMembers paySummariesByEntryId today editWindowDays weekOffset entry = [hsx|
+renderEntryCard :: (?context :: ControllerContext) => Int -> [Staff] -> Map.Map Text TimesheetPaySummary -> Day -> Int -> Int -> TimesheetEntry -> Html
+renderEntryCard dayOffset staffMembers paySummariesByEntryId today editWindowDays weekOffset entry = [hsx|
     <div class="border rounded p-3">
         <div class="d-flex justify-content-between align-items-start gap-3">
             <div>
@@ -130,8 +152,8 @@ renderEntryCard staffMembers paySummariesByEntryId today editWindowDays weekOffs
 
             <div class="text-end">
                 <div class="mb-2">{renderApprovalBadge entry}</div>
-                {renderApprovalAction entry weekOffset}
-                {renderEditActions entry canEdit weekOffset}
+                {renderApprovalAction dayOffset entry weekOffset}
+                {renderEditActions dayOffset entry canEdit weekOffset}
             </div>
         </div>
     </div>
@@ -161,8 +183,8 @@ renderPaySummary maybeSummary =
         renderWeekendNotice = [hsx|<span class="app-muted"> weekend</span>|]
         renderStackedBadge = [hsx|<span class="badge bg-info-subtle text-info-emphasis ms-1">stacked</span>|]
 
-renderEditActions :: TimesheetEntry -> Bool -> Int -> Html
-renderEditActions entry canEdit weekOffset
+renderEditActions :: Int -> TimesheetEntry -> Bool -> Int -> Html
+renderEditActions dayOffset entry canEdit weekOffset
     | canEdit = [hsx|
         <a href={editUrl}
            class="btn btn-sm btn-outline-secondary me-1"
@@ -178,21 +200,44 @@ renderEditActions entry canEdit weekOffset
     where
         editUrl = appendQueryParams (pathTo (EditTimesheetEntryAction (get #id entry))) [("weekOffset", tshow weekOffset)]
         deleteUrl = appendQueryParams (pathTo (DeleteTimesheetEntryAction (get #id entry))) [("weekOffset", tshow weekOffset)]
+        deleteTarget = "#" <> timesheetDaySectionDomId dayOffset
         renderDeleteButton = [hsx|
-            <a href={deleteUrl} class="btn btn-sm btn-outline-danger js-delete js-delete-no-confirm">Delete</a>
+            <a href={deleteUrl}
+               class="btn btn-sm btn-outline-danger js-delete js-delete-no-confirm"
+               data-turbolinks="false"
+               hx-delete={deleteUrl}
+               hx-target={deleteTarget}
+               hx-swap="outerHTML"
+               hx-push-url="false">
+                Delete
+            </a>
         |]
 
-renderApprovalAction :: (?context :: ControllerContext) => TimesheetEntry -> Int -> Html
-renderApprovalAction entry weekOffset
+renderApprovalAction :: (?context :: ControllerContext) => Int -> TimesheetEntry -> Int -> Html
+renderApprovalAction dayOffset entry weekOffset
     | not currentUserIsManager = mempty
     | entry.isApproved = [hsx|
-        <form method="POST" action={UnapproveTimesheetEntryAction entry.id} class="d-inline me-1">
+        <form method="POST"
+              action={UnapproveTimesheetEntryAction entry.id}
+              class="d-inline me-1"
+              data-disable-javascript-submission="true"
+              hx-post={UnapproveTimesheetEntryAction entry.id}
+              hx-target={"#" <> timesheetDaySectionDomId dayOffset}
+              hx-swap="outerHTML"
+              hx-push-url="false">
             <input type="hidden" name="weekOffset" value={tshow weekOffset} />
             <button type="submit" class="btn btn-sm btn-outline-warning">Unapprove</button>
         </form>
     |]
     | otherwise = [hsx|
-        <form method="POST" action={ApproveTimesheetEntryAction entry.id} class="d-inline me-1">
+        <form method="POST"
+              action={ApproveTimesheetEntryAction entry.id}
+              class="d-inline me-1"
+              data-disable-javascript-submission="true"
+              hx-post={ApproveTimesheetEntryAction entry.id}
+              hx-target={"#" <> timesheetDaySectionDomId dayOffset}
+              hx-swap="outerHTML"
+              hx-push-url="false">
             <input type="hidden" name="weekOffset" value={tshow weekOffset} />
             <button type="submit" class="btn btn-sm btn-outline-success">Approve</button>
         </form>
@@ -220,3 +265,18 @@ renderApprovalBadge :: TimesheetEntry -> Html
 renderApprovalBadge entry
     | entry.isApproved = [hsx|<span class="badge bg-success">Approved</span>|]
     | otherwise = [hsx|<span class="badge bg-warning text-dark">Pending</span>|]
+
+liveUpdateScopeKind :: LiveUpdateScope -> Text
+liveUpdateScopeKind LeaveRequestsScope {} = "leave_requests"
+liveUpdateScopeKind RosterWeekScope {}    = "roster_week"
+liveUpdateScopeKind TimesheetWeekScope {} = "timesheet_week"
+
+liveUpdateVenueId :: LiveUpdateScope -> Text
+liveUpdateVenueId LeaveRequestsScope { venueId } = tshow venueId
+liveUpdateVenueId RosterWeekScope { venueId }    = tshow venueId
+liveUpdateVenueId TimesheetWeekScope { venueId } = tshow venueId
+
+liveUpdateWeekOffsetText :: LiveUpdateScope -> Maybe Text
+liveUpdateWeekOffsetText LeaveRequestsScope {}          = Nothing
+liveUpdateWeekOffsetText RosterWeekScope { weekOffset } = Just (tshow weekOffset)
+liveUpdateWeekOffsetText TimesheetWeekScope { weekOffset } = Just (tshow weekOffset)

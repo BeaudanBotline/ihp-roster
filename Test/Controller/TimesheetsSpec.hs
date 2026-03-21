@@ -1,6 +1,8 @@
 module Test.Controller.TimesheetsSpec where
 
 import Application.Helper.Controller (parseTimeParam)
+import Application.Helper.LiveUpdate (LiveUpdateScope (..),
+                                      currentLiveUpdateVersion)
 import Config
 import Data.Time.Calendar (fromGregorian)
 import Generated.Types
@@ -30,6 +32,10 @@ tests = beforeAll testContext do
             response <- callAction ShowTimesheetWeekAction { weekOffset = 0 }
             response `responseStatusShouldBe` status302
 
+        it "redirects unauthenticated users from day-section fragment action" $ withContext do
+            response <- callAction ShowTimesheetDaySectionFragmentAction { weekOffset = 0, dayOffset = 0 }
+            response `responseStatusShouldBe` status302
+
         it "redirects unauthenticated users from new timesheet entry" $ withContext do
             response <- callAction NewTimesheetEntryAction
             response `responseStatusShouldBe` status302
@@ -47,6 +53,113 @@ tests = beforeAll testContext do
             let entryId = Id "00000000-0000-0000-0000-000000000000"
             response <- callAction UnapproveTimesheetEntryAction { timesheetEntryId = entryId }
             response `responseStatusShouldBe` status302
+
+        it "renders a subscribed timesheet shell for authenticated viewers" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Timesheet Venue"
+                user <- createUserRecord "timesheet-shell@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue user "worker"
+                _ <- createStaffRecord venue (Just user) "Tess" "Viewer"
+
+                response <- withUserAndCurrentVenue user venue.id do
+                    callAction ShowTimesheetWeekAction { weekOffset = 0 }
+
+                response `responseStatusShouldBe` status200
+                response `responseBodyShouldContain` "data-live-update-feature=\"timesheets\""
+                response `responseBodyShouldContain` "data-live-update-client-enabled=\"true\""
+                response `responseBodyShouldContain` "data-live-update-scope-kind=\"timesheet_week\""
+                response `responseBodyShouldContain` "data-timesheet-day-offset=\"0\""
+
+        it "renders HTMX timesheet forms with javascript submission disabled" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Timesheet Venue"
+                user <- createUserRecord "timesheet-form@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue user "worker"
+                _ <- createStaffRecord venue (Just user) "Tess" "Form"
+
+                response <- withUserAndCurrentVenue user venue.id do
+                    withRequestHeaders [("HX-Request", "true")] do
+                        callActionWithParams NewTimesheetEntryAction
+                            [ ("weekOffset", "0")
+                            , ("workedOn", "2025-01-07")
+                            ]
+
+                response `responseStatusShouldBe` status200
+                response `responseBodyShouldContain` "data-disable-javascript-submission=\"true\""
+
+        it "scopes timesheet day fragments to the current viewer visibility" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Timesheet Venue"
+                manager <- createUserRecord "timesheet-fragment-manager@example.com" "staff" True
+                workerAUser <- createUserRecord "timesheet-fragment-worker-a@example.com" "staff" True
+                workerBUser <- createUserRecord "timesheet-fragment-worker-b@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue manager "manager"
+                _ <- createVenueMembershipRecord venue workerAUser "worker"
+                _ <- createVenueMembershipRecord venue workerBUser "worker"
+                workerA <- createStaffRecord venue (Just workerAUser) "Ava" "Hours"
+                workerB <- createStaffRecord venue (Just workerBUser) "Bea" "Hours"
+                _ <- createTimesheetEntryRecord venue workerA (fromGregorian 2025 1 7)
+                _ <- createTimesheetEntryRecord venue workerB (fromGregorian 2025 1 7)
+
+                managerResponse <- withUserAndCurrentVenue manager venue.id do
+                    callAction ShowTimesheetDaySectionFragmentAction { weekOffset = 0, dayOffset = 1 }
+                workerResponse <- withUserAndCurrentVenue workerAUser venue.id do
+                    callAction ShowTimesheetDaySectionFragmentAction { weekOffset = 0, dayOffset = 1 }
+
+                managerResponse `responseStatusShouldBe` status200
+                managerResponse `responseBodyShouldContain` "Ava Hours"
+                managerResponse `responseBodyShouldContain` "Bea Hours"
+                workerResponse `responseStatusShouldBe` status200
+                workerResponse `responseBodyShouldContain` "Ava Hours"
+                workerResponse `responseBodyShouldNotContain` "Bea Hours"
+
+        it "creating timesheets via HTMX updates the actor fragment and bumps the week scope version" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Timesheet Venue"
+                user <- createUserRecord "timesheet-htmx-create@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue user "worker"
+                staff <- createStaffRecord venue (Just user) "Tess" "Create"
+
+                versionBefore <- currentLiveUpdateVersion TimesheetWeekScope { venueId = unpackId venue.id, weekOffset = 0 }
+
+                response <- withUserAndCurrentVenue user venue.id do
+                    withRequestHeaders
+                        [ ("HX-Request", "true")
+                        , ("X-Live-Update-Client-Id", "timesheet-create-client")
+                        ] do
+                            callActionWithParams CreateTimesheetEntryAction
+                                [ ("weekOffset", "0")
+                                , ("staffId", idToParam staff.id)
+                                , ("workedOn", "2025-01-07")
+                                , ("startTime", "09:15")
+                                , ("endTime", "17:15")
+                                ]
+
+                response `responseStatusShouldBe` status200
+                response `responseBodyShouldContain` "id=\"timesheet-day-section-1\""
+                response `responseBodyShouldContain` "Timesheet entry created"
+                response `responseBodyShouldContain` "hx-swap-oob=\"outerHTML\""
+
+                versionAfter <- currentLiveUpdateVersion TimesheetWeekScope { venueId = unpackId venue.id, weekOffset = 0 }
+                versionAfter `shouldBe` versionBefore + 1
+
+        it "manager review actions bump the timesheet week scope version" $ withContext do
+            withCleanDb do
+                venue <- createVenueWithConfig "Timesheet Venue"
+                manager <- createUserRecord "timesheet-live-manager@example.com" "staff" True
+                _ <- createVenueMembershipRecord venue manager "manager"
+                staff <- createStaffRecord venue Nothing "Tia" "Shift"
+                entry <- createTimesheetEntryRecord venue staff (fromGregorian 2025 1 7)
+
+                versionBefore <- currentLiveUpdateVersion TimesheetWeekScope { venueId = unpackId venue.id, weekOffset = 0 }
+
+                response <- withUserAndCurrentVenue manager venue.id do
+                    withRequestHeaders [("HX-Request", "true"), ("X-Live-Update-Client-Id", "timesheet-approve-client")] do
+                        callAction ApproveTimesheetEntryAction { timesheetEntryId = entry.id }
+
+                response `responseStatusShouldBe` status200
+                versionAfter <- currentLiveUpdateVersion TimesheetWeekScope { venueId = unpackId venue.id, weekOffset = 0 }
+                versionAfter `shouldBe` versionBefore + 1
 
         it "writes an audit event when approving a timesheet entry" $ withContext do
             withCleanDb do

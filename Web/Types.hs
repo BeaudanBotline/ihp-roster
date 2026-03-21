@@ -29,6 +29,7 @@ data ProfilesController
 data TimesheetsController
     = TimesheetsAction
     | ShowTimesheetWeekAction { weekOffset :: !Int }
+    | ShowTimesheetDaySectionFragmentAction { weekOffset :: !Int, dayOffset :: !Int }
     | NewTimesheetEntryAction
     | CreateTimesheetEntryAction
     | EditTimesheetEntryAction { timesheetEntryId :: !(Id TimesheetEntry) }

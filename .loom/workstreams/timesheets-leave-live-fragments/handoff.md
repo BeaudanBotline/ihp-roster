@@ -30,6 +30,18 @@ Completed in this pass:
   - fragment visibility scoping for manager vs worker viewers
   - HTMX actor responses for create
   - leave-scope version bumps for create/review/delete
+- `coordinator-ck3.4` implemented: the timesheet week page now participates in the shared live-update runtime.
+- `Web/Types.hs` adds `ShowTimesheetDaySectionFragmentAction`, and `Web/Controller/Timesheets.hs` now:
+  - serves canonical day-section fragment refetches
+  - broadcasts `TimesheetWeekScope` invalidations for create/update/delete/approve/unapprove
+  - returns actor-side day-section OOB refreshes plus toast/dialog updates for HTMX flows
+- `Web/View/Timesheets/Index.hs` now mounts the page shell as `data-live-update-feature="timesheets"`, marks each day section with its canonical refetch URL, and converts approve/unapprove/delete controls to HTMX paths so actor and passive-viewer updates stay aligned.
+- `static/app.js` now gives the timesheets adapter a real scope resync path by refetching each mounted day section.
+- Fixed the duplicate-submit bug affecting leave and timesheet create flows. Root cause: IHP `helpers.js` installs a document-level submit handler for every form, so HTMX overlay forms were being submitted twice unless the submit event was isolated before it reached the IHP helper layer.
+- Added regression coverage for that duplicate-submit bug:
+  - controller checks lock in HTMX form markup for leave and timesheets
+  - `e2e/live-fragment-submit-regressions.spec.ts` proves one leave submit creates one request and one timesheet submit creates one card
+- `e2e/global-teardown.ts` now deletes dependent event/snapshot/export rows for `e2e-%` users before deleting the users themselves, so the new leave/timesheet mutations do not break teardown via foreign keys.
 
 ## Why this lane exists
 
@@ -37,22 +49,21 @@ The shared live-update runtime landed for roster, but the rest of the app has no
 
 Confirmed remaining gaps:
 
-- `Web/Controller/Timesheets.hs` has HTMX actor patches for some create/update flows, but no cross-viewer live invalidation path and no fragment endpoints/scope metadata for concurrent viewers.
 - Leave creation still does not invalidate roster scopes; only approve/deny currently propagate to roster viewers. That is currently intentional pending a product decision about whether pending leave should affect roster conflict visibility.
 
 ## Concrete next actions
 
-1. Implement `coordinator-ck3.4` by wiring live fragments into the timesheet week page.
-2. Implement `coordinator-ck3.5` by adding e2e coverage for leave/timesheet multi-view behavior and recording verification.
-3. Revisit whether leave create/delete should also invalidate roster scopes when pending leave should influence roster conflict presentation.
+1. Implement `coordinator-ck3.5` by adding multi-view e2e coverage for passive viewer freshness on leave/timesheets, not just single-submit actor regressions.
+2. Revisit whether leave create/delete should also invalidate roster scopes when pending leave should influence roster conflict presentation.
 
 ## Implementation notes
 
 - Leave-driven roster invalidation is the highest-priority correctness fix because it is currently the clearest broken assumption after Auto Refresh removal.
-- For timesheets, the existing day-section partitioning is probably the right first fragment boundary.
+- For timesheets, day sections are now the canonical fragment boundary. Each mounted section carries its own refetch URL, and the client adapter resyncs by refetching all currently mounted sections within the subscribed week shell.
 - For leave, a coarse content fragment is acceptable first; row fragments are optional if they actually reduce churn enough to justify the complexity.
 - Keep the viewer path structural: scope + fragment refs only.
 - Reuse the existing client-side owner-discovery pattern in `static/app.js` rather than adding page-specific websocket bootstraps.
+- HTMX forms in this repo now need both correct response shape and submit-event isolation from IHP `helpers.js`; `data-disable-javascript-submission` alone is not enough because the IHP handler will still force a second transport unless the submit event is stopped before it bubbles to `document`.
 
 ## Verification
 
@@ -60,20 +71,25 @@ Ran in this pass:
 
 - `bash ./bin/in-env typecheck`
   - passed
-- `bash ./bin/in-env typecheck` after formatting
-  - passed
 - `bash ./bin/in-env test`
-  - passed with `165 examples, 0 failures`
+  - passed with `172 examples, 0 failures`
 - `bash ./bin/in-env test --match LeaveRequestsController`
-  - first run in this pass failed on a fragment-render frozen-context bug plus duplicate roster invalidation from approve/deny
-  - after passing viewer staff id explicitly into the fragment renderer and removing the duplicate inside-transaction roster invalidation, rerun passed with `19 examples, 0 failures`
+  - passed with `20 examples, 0 failures`
+- `bash ./bin/in-env test --match TimesheetsController`
+  - passed with `17 examples, 0 failures`
 - `bash ./bin/in-env dev-start`
   - passed
 - `bash ./bin/in-env dev-wait 120`
+  - passed
+- `bash ./bin/in-env e2e e2e/live-fragment-submit-regressions.spec.ts`
+  - passed with `2 passed`
+- `bash ./bin/in-env format`
+  - passed
+- `bash ./bin/in-env typecheck` after formatting
   - passed
 - `bash ./bin/in-env dev-stop`
   - passed
 
 Not yet run in this pass:
 
-- Playwright coverage for leave/timesheet multi-view behavior
+- Playwright coverage for passive-viewer leave/timesheet multi-view behavior

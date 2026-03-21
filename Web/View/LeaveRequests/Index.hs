@@ -135,6 +135,7 @@ renderReviewActions leaveRequest
                 <form method="POST"
                       action={DenyLeaveRequestAction leaveRequest.id}
                       class="d-inline"
+                      data-disable-javascript-submission="true"
                       hx-post={DenyLeaveRequestAction leaveRequest.id}
                       hx-target={"#" <> leaveRequestsContentFragmentId}
                       hx-swap="outerHTML"
@@ -146,6 +147,7 @@ renderReviewActions leaveRequest
                 <form method="POST"
                       action={ApproveLeaveRequestAction leaveRequest.id}
                       class="d-inline"
+                      data-disable-javascript-submission="true"
                       hx-post={ApproveLeaveRequestAction leaveRequest.id}
                       hx-target={"#" <> leaveRequestsContentFragmentId}
                       hx-swap="outerHTML"
@@ -157,6 +159,7 @@ renderReviewActions leaveRequest
                 <form method="POST"
                       action={ApproveLeaveRequestAction leaveRequest.id}
                       class="d-inline"
+                      data-disable-javascript-submission="true"
                       hx-post={ApproveLeaveRequestAction leaveRequest.id}
                       hx-target={"#" <> leaveRequestsContentFragmentId}
                       hx-swap="outerHTML"
@@ -166,6 +169,7 @@ renderReviewActions leaveRequest
                 <form method="POST"
                       action={DenyLeaveRequestAction leaveRequest.id}
                       class="d-inline"
+                      data-disable-javascript-submission="true"
                       hx-post={DenyLeaveRequestAction leaveRequest.id}
                       hx-target={"#" <> leaveRequestsContentFragmentId}
                       hx-swap="outerHTML"
